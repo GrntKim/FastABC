@@ -1,0 +1,163 @@
+{
+  "id": "backprop_v1",
+  "description": "Exploration fixture from notebooks/01_jev_response_check.ipynb (1 problem, 6 answers).",
+  "problem": "신경망 학습에서 역전파(backpropagation)가 어떻게 동작하는지 설명하시오.",
+  "answers": {
+    "model": "역전파는 먼저 순전파로 출력과 손실을 계산한 뒤, 출력층에서 입력층 방향으로 손실에 대한 각 가중치의 기울기를 구하는 방법이다. 이때 연쇄법칙을 이용해 각 층의 국소 미분을 곱해 나가며 기울기를 효율적으로 계산한다. 구한 기울기는 경사하강법 등 최적화 알고리즘이 가중치를 갱신하는 데 사용된다.",
+    "partial": "출력에서 생긴 오차를 이용해 뒤쪽 층부터 앞쪽 층으로 기울기를 계산하고, 그 기울기 방향의 반대로 가중치를 조금씩 바꿔서 손실을 줄인다.",
+    "misconception": "역전파는 가중치를 직접 최적화하는 알고리즘이다. 출력층에서 계산한 오차 값을 그대로 모든 층에 똑같이 전달해서 각 층이 그 오차만큼 가중치를 고친다.",
+    "irrelevant": "CNN에서는 합성곱 층으로 특징을 추출하고 풀링 층으로 크기를 줄인다. 마지막에 완전연결층을 통해 분류를 수행한다.",
+    "thin": "오차를 뒤로 보내서 학습한다.",
+    "verbose": "역전파는 딥러닝에서 매우 중요한 개념으로, 신경망이 학습할 수 있게 해 주는 핵심 원리이다. 신경망은 여러 층으로 구성되어 있으며 각 층은 뉴런과 가중치로 이루어진다. 학습 과정에서 네트워크는 데이터를 보고 점점 더 좋은 결과를 내도록 스스로 조정된다. 역전파 덕분에 오늘날의 이미지 인식, 번역 등 다양한 AI 기술이 가능해졌으며 매우 효율적인 방법으로 알려져 있다."
+  },
+  "questions": {
+    "ko": {
+      "is_on_topic": {
+        "type": "noul",
+        "instructions": "`answer`가 `question`의 주제인 역전파를 설명하려고 시도한다.",
+        "criteria": {
+          "true": "역전파 또는 신경망이 오차로부터 학습하는 방식에 대해 말한다. 모호하거나 틀려도 해당",
+          "false": "다른 주제를 다루며 역전파를 전혀 언급하지 않는다"
+        }
+      },
+      "mentions_chain_rule": {
+        "type": "noul",
+        "instructions": "`answer`가 역전파는 연쇄법칙을 이용해 기울기를 계산한다고 설명한다.",
+        "criteria": {
+          "true": "연쇄법칙을 명시하거나, 층별 국소 미분을 곱해 나간다고 설명한다",
+          "false": "연쇄법칙이나 미분의 합성에 대한 언급이 없다"
+        }
+      },
+      "mentions_weight_update": {
+        "type": "noul",
+        "instructions": "`answer`가 계산된 기울기를 가중치 갱신에 사용한다고 서술한다."
+      },
+      "accuracy": {
+        "type": "score",
+        "instructions": "`answer`의 역전파 동작 원리 설명은 얼마나 정확한가?",
+        "criteria": [
+          "동작 원리를 전혀 설명하지 않는다: 역전파의 중요성이나 신경망에 대한 일반론뿐이다",
+          "오차나 기울기가 뒤로 전달된다고 말하지만, 메커니즘이 없거나 틀렸다",
+          "메커니즘은 대체로 맞지만, 중요한 오류나 누락이 하나 있다",
+          "정확하고 완전하다: 순전파, 손실, 연쇄법칙을 통한 기울기 계산, 가중치 갱신"
+        ]
+      },
+      "misc_is_optimizer": {
+        "type": "noul",
+        "instructions": "`answer`가 역전파 자체를 가중치를 갱신하는 최적화 알고리즘이라고 주장한다.",
+        "criteria": {
+          "true": "역전파를 최적화기나 가중치 갱신 알고리즘이라고 부르며 경사하강법과 혼동한다",
+          "false": "역전파를 기울기 계산 방법으로 다루거나, 기울기 계산과 가중치 갱신을 별개 단계로 서술한다"
+        }
+      },
+      "misc_error_copied": {
+        "type": "noul",
+        "instructions": "`answer`가 미분 계산 없이 같은 오차 값이 모든 층에 그대로 전달된다고 주장한다."
+      },
+      "misc_reverse_inference": {
+        "type": "noul",
+        "instructions": "`answer`가 역전파를 신경망을 거꾸로 실행해 입력을 다시 계산하는 것으로 설명한다."
+      }
+    },
+    "en": {
+      "is_on_topic": {
+        "type": "noul",
+        "instructions": "The `answer` attempts to explain backpropagation, the topic of the `question`.",
+        "criteria": {
+          "true": "Talks about backpropagation or how a neural network learns from its errors, even if vague or wrong",
+          "false": "Talks about a different topic and never addresses backpropagation"
+        }
+      },
+      "mentions_chain_rule": {
+        "type": "noul",
+        "instructions": "The `answer` explains that backpropagation uses the chain rule to compute gradients.",
+        "criteria": {
+          "true": "Explicitly mentions the chain rule, or multiplying local derivatives layer by layer",
+          "false": "No mention of the chain rule or composing derivatives"
+        }
+      },
+      "mentions_weight_update": {
+        "type": "noul",
+        "instructions": "The `answer` states that the computed gradients are used to update the weights."
+      },
+      "accuracy": {
+        "type": "score",
+        "instructions": "How accurate is the `answer`'s explanation of how backpropagation works?",
+        "criteria": [
+          "Explains nothing about how it works: only general statements about its importance or about neural networks",
+          "Says errors or gradients flow backward, but the mechanism is missing or incorrect",
+          "Mechanism mostly correct, with one notable error or omission",
+          "Correct and complete: forward pass, loss, gradients via chain rule, weight update"
+        ]
+      },
+      "misc_is_optimizer": {
+        "type": "noul",
+        "instructions": "The `answer` claims that backpropagation itself is the optimization algorithm that updates the weights.",
+        "criteria": {
+          "true": "Calls backpropagation the optimizer or weight-update algorithm, conflating it with gradient descent",
+          "false": "Treats backpropagation as computing gradients, or describes gradient computation and weight update as separate steps"
+        }
+      },
+      "misc_error_copied": {
+        "type": "noul",
+        "instructions": "The `answer` claims the same error value is passed unchanged to every layer, without computing derivatives."
+      },
+      "misc_reverse_inference": {
+        "type": "noul",
+        "instructions": "The `answer` describes backpropagation as running the network in reverse to recompute the inputs."
+      }
+    }
+  },
+  "labels_by": "claude-draft",
+  "labels_note": "Drafted by Claude after seeing Jev results; not independent. Evaluation-set labels must be assigned by the author.",
+  "expected": {
+    "model": {
+      "is_on_topic": true,
+      "mentions_chain_rule": true,
+      "mentions_weight_update": true,
+      "accuracy": 3,
+      "misc_is_optimizer": false,
+      "misc_error_copied": false,
+      "misc_reverse_inference": false
+    },
+    "partial": {
+      "is_on_topic": true,
+      "mentions_chain_rule": false,
+      "mentions_weight_update": true,
+      "accuracy": 2,
+      "misc_is_optimizer": false,
+      "misc_error_copied": false,
+      "misc_reverse_inference": false
+    },
+    "misconception": {
+      "is_on_topic": true,
+      "mentions_chain_rule": false,
+      "mentions_weight_update": false,
+      "accuracy": 1,
+      "misc_is_optimizer": true,
+      "misc_error_copied": true,
+      "misc_reverse_inference": false
+    },
+    "irrelevant": {
+      "is_on_topic": false
+    },
+    "thin": {
+      "is_on_topic": true,
+      "mentions_chain_rule": false,
+      "mentions_weight_update": false,
+      "accuracy": 1,
+      "misc_is_optimizer": false,
+      "misc_error_copied": false,
+      "misc_reverse_inference": false
+    },
+    "verbose": {
+      "is_on_topic": true,
+      "mentions_chain_rule": false,
+      "mentions_weight_update": false,
+      "accuracy": 0,
+      "misc_is_optimizer": false,
+      "misc_error_copied": false,
+      "misc_reverse_inference": false
+    }
+  }
+}
