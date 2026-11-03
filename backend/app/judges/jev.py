@@ -5,10 +5,11 @@ Validated in notebooks/01_jev_response_check.ipynb.
 
 import os
 import time
-from dataclasses import dataclass
 from typing import Any
 
 import httpx
+
+from app.judges.base import Judgment, Questions
 
 URL = "https://api.typesafe.ai/v1/systemone"
 DEFAULT_MODEL = "jev-1.13.0"  # pinned: thresholds are tuned per model version
@@ -19,16 +20,6 @@ T_NOUL = 0.6
 T_OTHER = 0.8
 
 GATE = "is_on_topic"
-
-
-@dataclass
-class Judgment:
-    question_id: str
-    type: str  # "noul" | "score" | "choice"
-    raw: float | dict[str, float]  # noul: p, score: weighted mean, choice: probabilities
-    pred: bool | int | str
-    conf: float
-    skipped: bool = False
 
 
 def make_client(api_key: str | None = None, timeout: float = 30) -> httpx.Client:
@@ -63,12 +54,12 @@ def parse_answers(data: dict) -> list[Judgment]:
     for qid, a in data["answers"].items():
         if a["type"] == "noul":
             p = a["noul"]
-            judgments.append(Judgment(qid, "noul", p, p >= 0.5, round(abs(2 * p - 1), 2)))
+            judgments.append(Judgment(qid, "noul", pred=p >= 0.5, conf=round(abs(2 * p - 1), 2), raw=p))
         elif a["type"] == "score":
             top = max(a["probabilities"], key=a["probabilities"].get)
-            judgments.append(Judgment(qid, "score", a["score"], int(top), a["confidence"]))
+            judgments.append(Judgment(qid, "score", pred=int(top), conf=a["confidence"], raw=a["score"]))
         elif a["type"] == "choice":
-            judgments.append(Judgment(qid, "choice", a["probabilities"], a["choice"], a["confidence"]))
+            judgments.append(Judgment(qid, "choice", pred=a["choice"], conf=a["confidence"], raw=a["probabilities"]))
     return judgments
 
 
@@ -87,4 +78,16 @@ def is_auto(j: Judgment, t_noul: float = T_NOUL, t_other: float = T_OTHER) -> bo
 
     Does not look at `skipped`; callers filter skipped judgments first.
     """
-    return j.conf >= (t_noul if j.type == "noul" else t_other)
+    return j.conf is not None and j.conf >= (t_noul if j.type == "noul" else t_other)
+
+
+class JevJudge:
+    """Primary judge: fast structured judgments with confidence."""
+
+    def __init__(self, client: httpx.Client | None = None, model: str = DEFAULT_MODEL):
+        self.client = client or make_client()
+        self.model = model
+
+    def evaluate(self, problem: str, answer: str, questions: Questions) -> list[Judgment]:
+        data, _ = call_jev(self.client, {"question": problem, "answer": answer}, questions, self.model)
+        return apply_gate(parse_answers(data))
