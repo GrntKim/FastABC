@@ -198,7 +198,8 @@ class GeminiJudge: ...  # 에스컬레이션 + "LLM 단독" 베이스라인. Jev
 ├── README.md
 ├── CLAUDE.md
 ├── .env.example          # 키 이름만 (TYPESAFE_API_KEY, GEMINI_API_KEY, DATABASE_URL)
-├── docker-compose.yml    # 로컬 개발용 postgres:17
+├── package.json          # `pnpm dev`: DB 대기 후 api(:8000) + web(:3000) 동시 실행 (concurrently)
+├── docker-compose.yml    # 로컬 개발용 postgres:17 (healthcheck 포함)
 ├── .vscode/settings.json # backend/.venv 인터프리터 지정
 ├── data/
 │   └── backprop_v1.json  # 실험용 문항·답안 6개·질문(ko/en)·라벨 (Claude 초안 라벨, 독립 라벨 아님)
@@ -220,7 +221,7 @@ class GeminiJudge: ...  # 에스컬레이션 + "LLM 단독" 베이스라인. Jev
 │   ├── pyproject.toml
 │   └── uv.lock
 └── frontend/             # Next.js, pnpm
-    ├── app/              # 라우트. providers.tsx (QueryClient, Toaster)
+    ├── app/              # 라우트: / 목록, /assignments/[id] 학생별 채점(기본)·관리 탭, /assignments/[id]/review 항목별 검토
     ├── components/ui/    # shadcn 컴포넌트
     └── lib/              # api.ts (fetch 래퍼), api-types.ts (`pnpm gen:api`로 FastAPI 스키마에서 생성, 직접 수정 금지)
 ```
@@ -248,6 +249,7 @@ data/raw/, data/private/   # 외부 자료·비공개 파일 (gitignore)
 - `grades`는 칸당 1행, 확정 시 덮어쓰기 (이력 테이블 없음). 총점은 저장하지 않고 `scoring.py`로 계산
 - 재채점은 기존 `judgments`·`grades`를 지우고 새로 생성. 확정된 칸이 있으면 막음
 - `auto` 칸의 약 10%를 무작위 샘플 검토 대상(`grades.sampled`)으로 표시. 일괄 수용에서 제외 (자동화 편향 대응)
+- 채점 항목의 `label`은 채점자에게 보이는 이름, `key`는 Jev 질문 id. 판단 모델은 `instructions`·`criteria`만 읽음
 - PDF 추출 시 제어 문자는 공백으로, 줄바꿈은 추측해서 잇지 않음. 근거 인용 검증은 공백을 모두 무시하고 비교
 
 **보안**

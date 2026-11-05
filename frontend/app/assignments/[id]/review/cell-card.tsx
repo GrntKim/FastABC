@@ -1,13 +1,12 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { api, ApiError, json, type CellOut, type GradeDecisionIn, type RubricItemOut } from "@/lib/api";
+import type { CellOut, GradeDecisionIn, RubricItemOut } from "@/lib/api";
 import { highlight } from "@/lib/highlight";
-import { describePred, formatPred, pointOptions, ROUTE_LABEL } from "@/lib/rubric";
+import { describePred, formatPred, pointOptions, ROUTE_LABEL, SAMPLED_HINT } from "@/lib/rubric";
+import { useDecide } from "@/lib/use-decide";
 
 const ROUTE_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   auto: "secondary",
@@ -26,17 +25,8 @@ export default function CellCard({
   cell: CellOut;
   item: RubricItemOut;
 }) {
-  const queryClient = useQueryClient();
-  const decide = useMutation({
-    mutationFn: (body: GradeDecisionIn) => api<CellOut>(`/grades/${cell.grade_id}`, json(body, "PATCH")),
-    onSuccess: (updated) => {
-      queryClient.setQueryData<CellOut[]>(["cells", assignmentId], (cells) =>
-        cells?.map((c) => (c.grade_id === updated.grade_id ? updated : c)),
-      );
-      queryClient.invalidateQueries({ queryKey: ["results", assignmentId] });
-    },
-    onError: (e) => toast.error(e instanceof ApiError ? String(e.detail) : "저장하지 못했습니다"),
-  });
+  const mutation = useDecide(assignmentId);
+  const decide = { isPending: mutation.isPending, mutate: (body: GradeDecisionIn) => mutation.mutate({ gradeId: cell.grade_id, body }) };
 
   const evidence = cell.gemini?.evidence ?? [];
   const decided = cell.final_points !== null;
@@ -47,7 +37,11 @@ export default function CellCard({
       <CardHeader className="flex flex-row items-center gap-2">
         <CardTitle className="font-mono">{cell.label}</CardTitle>
         <Badge variant={ROUTE_VARIANT[cell.route]}>{ROUTE_LABEL[cell.route] ?? cell.route}</Badge>
-        {cell.sampled && <Badge variant="outline">샘플 검토</Badge>}
+        {cell.sampled && (
+          <Badge variant="outline" title={SAMPLED_HINT}>
+            샘플 검토
+          </Badge>
+        )}
         {decided && (
           <span className="ml-auto text-sm">
             확정 <strong>{cell.final_points}점</strong>

@@ -183,7 +183,9 @@ export interface paths {
         put?: never;
         /**
          * Accept Confident
-         * @description Accept every undecided auto/skip cell (optionally one rubric item). Skips llm/human and sampled cells.
+         * @description Accept every undecided auto/skip cell, optionally for one rubric item or one submission.
+         *
+         *     Skips llm/human and sampled cells.
          */
         post: operations["accept_confident_assignments__assignment_id__accept_confident_post"];
         delete?: never;
@@ -398,6 +400,8 @@ export interface components {
         RubricItemIn: {
             /** Key */
             key: string;
+            /** Label */
+            label?: string | null;
             type: components["schemas"]["ItemType"];
             /** Instructions */
             instructions: string;
@@ -415,6 +419,8 @@ export interface components {
         RubricItemOut: {
             /** Key */
             key: string;
+            /** Label */
+            label?: string | null;
             type: components["schemas"]["ItemType"];
             /** Instructions */
             instructions: string;
@@ -869,6 +875,7 @@ export interface operations {
         parameters: {
             query?: {
                 item_id?: number | null;
+                submission_id?: number | null;
             };
             header?: never;
             path: {

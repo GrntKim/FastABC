@@ -11,9 +11,8 @@ function stripEnds(s: string): string {
   return s.slice(start, end);
 }
 
-export type Segment = { text: string; marked: boolean };
-
-export function highlight(text: string, quotes: string[]): Segment[] {
+/** [start, end) ranges in `text` where any quote occurs. */
+function findRanges(text: string, quotes: string[]): [number, number][] {
   // compact string of non-whitespace chars, with each char's index in the original text
   const positions: number[] = [];
   let compact = "";
@@ -32,23 +31,30 @@ export function highlight(text: string, quotes: string[]): Segment[] {
       ranges.push([positions[at], positions[at + needle.length - 1] + 1]);
     }
   }
-  if (ranges.length === 0) return [{ text, marked: false }];
+  return ranges;
+}
 
-  ranges.sort((a, b) => a[0] - b[0]);
-  const merged: [number, number][] = [ranges[0]];
-  for (const [start, end] of ranges.slice(1)) {
-    const last = merged[merged.length - 1];
-    if (start <= last[1]) last[1] = Math.max(last[1], end);
-    else merged.push([start, end]);
-  }
+export type Segment = { text: string; marked: boolean };
 
-  const segments: Segment[] = [];
-  let cursor = 0;
-  for (const [start, end] of merged) {
-    if (start > cursor) segments.push({ text: text.slice(cursor, start), marked: false });
-    segments.push({ text: text.slice(start, end), marked: true });
-    cursor = end;
+export function highlight(text: string, quotes: string[]): Segment[] {
+  return annotate(text, [{ id: 0, quotes }]).map((s) => ({ text: s.text, marked: s.ids.length > 0 }));
+}
+
+export type Annotated = { text: string; ids: number[] };
+
+/** Split `text` into segments, each tagged with the ids whose quotes cover it (overlaps keep every id). */
+export function annotate(text: string, groups: { id: number; quotes: string[] }[]): Annotated[] {
+  const ranges = groups.flatMap((g) => findRanges(text, g.quotes).map(([s, e]) => ({ s, e, id: g.id })));
+  if (ranges.length === 0) return [{ text, ids: [] }];
+
+  const bounds = [...new Set([0, text.length, ...ranges.flatMap((r) => [r.s, r.e])])].sort((a, b) => a - b);
+  const segments: Annotated[] = [];
+  for (let i = 0; i < bounds.length - 1; i++) {
+    const [start, end] = [bounds[i], bounds[i + 1]];
+    const ids = [...new Set(ranges.filter((r) => r.s <= start && end <= r.e).map((r) => r.id))];
+    const last = segments[segments.length - 1];
+    if (last && last.ids.join() === ids.join()) last.text += text.slice(start, end);
+    else segments.push({ text: text.slice(start, end), ids });
   }
-  if (cursor < text.length) segments.push({ text: text.slice(cursor), marked: false });
   return segments;
 }

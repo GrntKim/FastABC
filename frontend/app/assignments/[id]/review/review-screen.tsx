@@ -1,8 +1,7 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,7 +13,8 @@ import {
   type GradingStatus,
   type RubricItemOut,
 } from "@/lib/api";
-import { KIND_LABEL } from "@/lib/rubric";
+import { itemName, KIND_HINT, KIND_LABEL } from "@/lib/rubric";
+import { useAcceptConfident } from "@/lib/use-decide";
 import CellCard from "./cell-card";
 import ResultsPanel from "./results-panel";
 
@@ -86,7 +86,7 @@ export default function ReviewScreen({ assignmentId }: { assignmentId: number })
           <TabsList className="w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto">
             {items.map((item) => (
               <TabsTrigger key={item.id} value={String(item.id)} className="h-7 flex-none gap-1">
-                {item.key}
+                {itemName(item)}
                 {open(item.id) > 0 && <Badge variant="secondary">{open(item.id)}</Badge>}
               </TabsTrigger>
             ))}
@@ -128,23 +128,15 @@ function ItemPanel({
   filter: Filter;
   onFilter: (f: Filter) => void;
 }) {
-  const queryClient = useQueryClient();
-  const acceptConfident = useMutation({
-    mutationFn: () =>
-      api<{ accepted: number }>(`/assignments/${assignmentId}/accept-confident?item_id=${item.id}`, { method: "POST" }),
-    onSuccess: ({ accepted }) => {
-      toast.success(`${accepted}칸을 수용했습니다`);
-      queryClient.invalidateQueries({ queryKey: ["cells", assignmentId] });
-      queryClient.invalidateQueries({ queryKey: ["results", assignmentId] });
-    },
-    onError: (e) => toast.error(e instanceof ApiError ? String(e.detail) : "일괄 수용에 실패했습니다"),
-  });
+  const acceptConfident = useAcceptConfident(assignmentId);
 
   return (
     <div className="flex flex-col gap-3 pt-2">
       <div>
         <div className="flex items-center gap-2">
-          <Badge variant="outline">{KIND_LABEL[item.kind]}</Badge>
+          <Badge variant="outline" title={KIND_HINT[item.kind]}>
+            {KIND_LABEL[item.kind]}
+          </Badge>
           <span className="font-medium">{item.instructions}</span>
         </div>
       </div>
@@ -160,7 +152,7 @@ function ItemPanel({
           variant="outline"
           className="ml-auto"
           disabled={acceptConfident.isPending}
-          onClick={() => acceptConfident.mutate()}
+          onClick={() => acceptConfident.mutate({ item_id: item.id })}
           title="자동 판단 중 확신 높은 칸만 수용합니다. LLM 확인·직접 판단·샘플 검토 칸은 제외됩니다."
         >
           고확신 일괄 수용
