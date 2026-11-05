@@ -91,7 +91,9 @@ class JevJudge:
         self.client = client or make_client()
         self.model = model
         self.last_latency: float = 0.0
+        self.last_usage: dict[str, int] = {}
 
     def evaluate(self, problem: str, answer: str, questions: Questions) -> list[Judgment]:
         data, self.last_latency = call_jev(self.client, {"question": problem, "answer": answer}, questions, self.model)
+        self.last_usage = {"input_tokens": data.get("usage", {}).get("input_tokens", 0)}
         return apply_gate(parse_answers(data))

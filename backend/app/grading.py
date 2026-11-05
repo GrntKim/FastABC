@@ -34,10 +34,15 @@ class Judges:
     secondary: Judge
 
 
+def make_judges() -> Judges:
+    """The only place that picks concrete judges. Fresh instances (they keep per-call usage and latency)."""
+    return Judges(JevJudge(model=PRIMARY_MODEL), GeminiJudge())
+
+
 @lru_cache
 def get_judges() -> Judges:
-    """FastAPI dependency and the only place that picks concrete judges. Overridden in tests."""
-    return Judges(JevJudge(model=PRIMARY_MODEL), GeminiJudge())
+    """FastAPI dependency: shared judges for the app. Overridden in tests."""
+    return make_judges()
 
 
 @lru_cache
