@@ -96,3 +96,10 @@ def test_delete_cascades(client, db, assignment):
     assert client.delete(f"/assignments/{assignment['id']}").status_code == 204
     assert client.get(f"/assignments/{assignment['id']}").status_code == 404
     assert db.query(Submission).count() == 0
+
+
+def test_cors_preflight(client):
+    headers = {"Origin": "http://localhost:3000", "Access-Control-Request-Method": "PATCH"}
+    assert client.options("/assignments", headers=headers).headers["access-control-allow-origin"] == "http://localhost:3000"
+    headers["Origin"] = "http://evil.example"
+    assert "access-control-allow-origin" not in client.options("/assignments", headers=headers).headers
