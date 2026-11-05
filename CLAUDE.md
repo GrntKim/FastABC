@@ -145,7 +145,7 @@ Jev 병렬 판단 (답안 1건 = 요청 1회, 항목 전부 포함)
 | 영역 | 선택 | 비고 |
 |---|---|---|
 | Backend | FastAPI, uv | `backend/`, hatchling 빌드로 `app` 패키지 editable 설치 |
-| Frontend | Next.js 16, pnpm, Tailwind CSS, shadcn/ui, TanStack Query | `frontend/` |
+| Frontend | Next.js 16.4.1+, pnpm, Tailwind CSS v4, shadcn/ui (base-nova, Base UI), TanStack Query | `frontend/`. 폰트 Noto Sans KR. `cacheComponents` 켜짐: 런타임 데이터는 `<Suspense>` 안에서. 16.4.0 이하는 critical 취약점 |
 | DB | PostgreSQL, SQLAlchemy 2.x (sync), psycopg 3 | 스키마는 Alembic으로 백엔드에서 관리. 개발은 Docker `postgres:17`. Supabase(DB+Auth) 유지가 권장안, 호스팅은 4주차 배포 때 확정 |
 | 인증 | Supabase Auth를 Next.js에서 처리, FastAPI는 JWT 검증만 | 우선순위 낮음. 4주차쯤 연결 |
 | Decision model | Jev (REST, httpx로 직접 호출) | `app/judges/jev.py` |
@@ -215,17 +215,21 @@ class GeminiJudge: ...  # 에스컬레이션 + "LLM 단독" 베이스라인. Jev
 │   │   └── judges/       # base.py, jev.py, gemini.py, routing.py
 │   ├── alembic/          # 마이그레이션 (alembic.ini는 backend/)
 │   ├── tests/            # pytest. 별도 DB fastabc_test 사용, 테스트마다 롤백
+│   ├── scripts/          # seed_demo.py: backprop 데모 문항을 개발 DB에 넣고 실제 판단기로 채점
 │   ├── notebooks/        # 01_jev_response_check, 02_gemini_escalation (outputs/는 gitignore)
 │   ├── pyproject.toml
 │   └── uv.lock
 └── frontend/             # Next.js, pnpm
+    ├── app/              # 라우트. providers.tsx (QueryClient, Toaster)
+    ├── components/ui/    # shadcn 컴포넌트
+    └── lib/              # api.ts (fetch 래퍼), api-types.ts (`pnpm gen:api`로 FastAPI 스키마에서 생성, 직접 수정 금지)
 ```
 
 **계획된 구조 (사용자 요청 시에만 생성)**
 
 ```
 backend/
-├── scripts/          # 재현 가능한 최종 평가 (run_eval.py)
+├── scripts/          # run_eval.py: 재현 가능한 최종 평가
 └── ...
 data/raw/, data/private/   # 외부 자료·비공개 파일 (gitignore)
 ```
@@ -243,6 +247,7 @@ data/raw/, data/private/   # 외부 자료·비공개 파일 (gitignore)
 - 원본 파일은 저장하지 않고 추출 텍스트만 저장. 외부 API에는 `submissions.clean_text`만 보냄
 - `grades`는 칸당 1행, 확정 시 덮어쓰기 (이력 테이블 없음). 총점은 저장하지 않고 `scoring.py`로 계산
 - 재채점은 기존 `judgments`·`grades`를 지우고 새로 생성. 확정된 칸이 있으면 막음
+- `auto` 칸의 약 10%를 무작위 샘플 검토 대상(`grades.sampled`)으로 표시. 일괄 수용에서 제외 (자동화 편향 대응)
 - PDF 추출 시 제어 문자는 공백으로, 줄바꿈은 추측해서 잇지 않음. 근거 인용 검증은 공백을 모두 무시하고 비교
 
 **보안**
