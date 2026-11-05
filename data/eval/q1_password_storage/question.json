@@ -1,0 +1,112 @@
+{
+  "id": "q1_password_storage",
+  "title": "비밀번호 저장",
+  "problem": "웹 서비스에서 비밀번호를 안전하게 저장하는 방법을 설명하시오.",
+  "rubric_text": "평문·가역 암호화 저장의 문제 1점, 해시 사용 1점, 솔트의 목적(레인보우 테이블 방어) 2점, 느린 해시(bcrypt·argon2) 사용 이유 2점, 설명 정확성 0~3점. 암호화와 해시를 혼동하면 1점 감점",
+  "items": [
+    {
+      "key": "is_on_topic",
+      "label": "주제 관련성",
+      "type": "noul",
+      "kind": "gate",
+      "instructions": "`answer`가 `question`의 주제인 웹 서비스에서 비밀번호를 안전하게 저장하는 방법을 설명하려고 시도한다.",
+      "criteria": {
+        "true": "답안이 웹 서비스의 비밀번호 안전 저장 방법에 대해 서술하고 있다.",
+        "false": "답안이 웹 서비스의 비밀번호 안전 저장 방법과 관련 없는 내용을 다루고 있다."
+      },
+      "points": null,
+      "points_map": null
+    },
+    {
+      "key": "plain_or_reversible_problem",
+      "label": "평문·가역 암호화 문제",
+      "type": "noul",
+      "kind": "credit",
+      "instructions": "`answer`가 평문이나 가역 암호화로 비밀번호를 저장할 때의 문제점을 설명한다.",
+      "criteria": {
+        "true": "평문 또는 가역 암호화 저장 시 발생하는 문제점이 설명되어 있다.",
+        "false": "평문 또는 가역 암호화 저장 시 발생하는 문제점이 설명되어 있지 않다."
+      },
+      "points": 1.0,
+      "points_map": null
+    },
+    {
+      "key": "use_hashing",
+      "label": "해시 사용",
+      "type": "noul",
+      "kind": "credit",
+      "instructions": "`answer`가 비밀번호 저장에 해시를 사용해야 한다고 설명한다.",
+      "criteria": {
+        "true": "비밀번호 저장 시 해시를 사용해야 한다는 내용이 언급되어 있다.",
+        "false": "비밀번호 저장 시 해시를 사용해야 한다는 내용이 언급되어 있지 않다."
+      },
+      "points": 1.0,
+      "points_map": null
+    },
+    {
+      "key": "salt_purpose",
+      "label": "솔트의 목적",
+      "type": "noul",
+      "kind": "credit",
+      "instructions": "`answer`가 솔트의 목적(사전 계산 공격 무력화 또는 같은 비밀번호의 해시가 같아지는 것 방지)을 설명한다.",
+      "criteria": {
+        "true": "솔트가 사전 계산 공격(레인보우 테이블)을 무력화한다는 점, 또는 같은 비밀번호라도 같은 해시가 나오지 않게 한다는 점 중 하나 이상을 설명한다.",
+        "false": "솔트의 목적이 레인보우 테이블 방어에 있음이 설명되어 있지 않다."
+      },
+      "points": 2.0,
+      "points_map": null
+    },
+    {
+      "key": "slow_hash_reason",
+      "label": "느린 해시 사용 이유",
+      "type": "noul",
+      "kind": "credit",
+      "instructions": "`answer`가 bcrypt나 Argon2와 같은 느린 해시를 사용하는 이유를 설명한다.",
+      "criteria": {
+        "true": "느린(반복 횟수나 메모리 비용이 큰) 해시가 무차별 대입 공격의 비용을 높인다는 이유를 설명한다.",
+        "false": "느린 해시를 쓰는 이유를 설명하지 않는다. bcrypt·Argon2 같은 이름만 나열한 경우도 포함한다."
+      },
+      "points": 2.0,
+      "points_map": null
+    },
+    {
+      "key": "explanation_accuracy",
+      "label": "설명 정확성",
+      "type": "score",
+      "kind": "credit",
+      "instructions": "`answer`가 비밀번호 저장에 대해 쓴 내용은 얼마나 정확한가? (빠진 내용은 다른 항목에서 보므로, 쓴 내용이 맞는지만 판단한다)",
+      "criteria": [
+        "평문 저장이나 가역 암호화 저장처럼 위험한 방법을 권장하거나, 쓴 내용 대부분이 틀렸다.",
+        "틀린 서술이 둘 이상 있다.",
+        "사소한 부정확함이 하나 있다.",
+        "쓴 내용에 틀린 서술이 없다."
+      ],
+      "points": null,
+      "points_map": {
+        "0": 0.0,
+        "1": 1.0,
+        "2": 2.0,
+        "3": 3.0
+      }
+    },
+    {
+      "key": "confuse_encryption_and_hash",
+      "label": "오개념: 암호화와 해시 혼동",
+      "type": "noul",
+      "kind": "deduction",
+      "instructions": "`answer`가 암호화와 해시 개념을 혼동하여 주장한다.",
+      "criteria": {
+        "true": "암호화와 해시 개념을 혼동하여 설명하고 있다.",
+        "false": "암호화와 해시를 혼동한 서술이 없다 (암호화를 언급하지 않은 경우 포함)."
+      },
+      "points": 1.0,
+      "points_map": null
+    }
+  ],
+  "revisions": [
+    {
+      "date": "2026-11-05",
+      "note": "LLM 초안 검토 후 수정: 오개념 항목 '아니오' 기준(미언급 포함), 설명 정확성을 쓴 내용의 정확성만 보도록 수준 재정의, 솔트 목적 인정 범위 확장, 느린 해시 이유 기준 명확화"
+    }
+  ]
+}

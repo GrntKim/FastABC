@@ -22,6 +22,46 @@ import {
 import { cn } from "@/lib/utils";
 import { useAcceptConfident, useClearDecisions, useDecide, useFindEvidence } from "@/lib/use-decide";
 
+type SortMode = "attention" | "label" | "student";
+const SORT_LABEL: Record<SortMode, string> = { attention: "확인 필요순", label: "라벨순", student: "학번순" };
+
+type Workload = { human: number; llm: number; sampled: number; open: number; decided: number; total: number };
+
+/** Undecided cells a person must look at, by kind, per submission. */
+function workload(cells: CellOut[], submissionId: number): Workload {
+  const own = cells.filter((c) => c.submission_id === submissionId);
+  const open = own.filter((c) => c.final_points === null);
+  return {
+    human: open.filter((c) => c.route === "human").length,
+    llm: open.filter((c) => c.route === "llm").length,
+    sampled: open.filter((c) => c.sampled).length,
+    open: open.length,
+    decided: own.length - open.length,
+    total: own.length,
+  };
+}
+
+const attention = (w: Workload) => w.human + w.llm + w.sampled;
+
+function sortIds(list: SubmissionOut[], cells: CellOut[], mode: SortMode): number[] {
+  const sorted = [...list];
+  if (mode === "student") sorted.sort((a, b) => a.student_ref.localeCompare(b.student_ref, "ko", { numeric: true }));
+  else sorted.sort((a, b) => a.label.localeCompare(b.label));
+  if (mode === "attention") {
+    // direct-judgment cells first, then LLM-checked, then sampled, then other undecided; finished students last
+    const key = (s: SubmissionOut) => {
+      const w = workload(cells, s.id);
+      return [-w.human, -w.llm, -w.sampled, w.open ? 0 : 1];
+    };
+    sorted.sort((a, b) => {
+      const [ka, kb] = [key(a), key(b)];
+      const i = ka.findIndex((v, j) => v !== kb[j]);
+      return i === -1 ? 0 : ka[i] - kb[i];
+    });
+  }
+  return sorted.map((s) => s.id);
+}
+
 /** One student at a time: the whole answer first, judgments beside it, points below. */
 export default function StudentView({ assignment }: { assignment: AssignmentOut }) {
   const submissions = useQuery({
@@ -34,32 +74,88 @@ export default function StudentView({ assignment }: { assignment: AssignmentOut 
   });
   const [selected, setSelected] = useState<number | null>(null);
   const [focused, setFocused] = useState<number | null>(null);
+  // Order is live until the grader acts, then frozen so students do not jump around while being graded
+  const [frozen, setFrozen] = useState<{ mode: SortMode; ids: number[] } | null>(null);
+  const acceptRest = useAcceptConfident(assignment.id);
 
   if (!submissions.data || !cells.data) return <p className="text-muted-foreground pt-2">불러오는 중…</p>;
-  const list = submissions.data;
-  if (list.length === 0) return <p className="text-muted-foreground pt-2">답안이 없습니다.</p>;
+  const all = submissions.data;
+  if (all.length === 0) return <p className="text-muted-foreground pt-2">답안이 없습니다.</p>;
+  const cellList = cells.data;
+
+  const loads = new Map(all.map((s) => [s.id, workload(cellList, s.id)]));
+  const totalAttention = all.reduce((sum, s) => sum + attention(loads.get(s.id)!), 0);
+  const totalOpen = all.reduce((sum, s) => sum + loads.get(s.id)!.open, 0);
+  const mode: SortMode = frozen?.mode ?? (totalOpen === 0 ? "label" : "attention");
+  const liveIds = sortIds(all, cellList, mode);
+  const ids = frozen && frozen.ids.length === all.length ? frozen.ids : liveIds;
+  const byId = new Map(all.map((s) => [s.id, s]));
+  const list = ids.map((id) => byId.get(id)!).filter(Boolean);
 
   const index = Math.max(0, list.findIndex((s) => s.id === selected));
   const submission = list[index];
-  const byItem = new Map(cells.data.filter((c) => c.submission_id === submission.id).map((c) => [c.rubric_item_id, c]));
-  const progress = (id: number) => {
-    const own = cells.data.filter((c) => c.submission_id === id);
-    return { decided: own.filter((c) => c.final_points !== null).length, total: own.length };
-  };
+  const byItem = new Map(cellList.filter((c) => c.submission_id === submission.id).map((c) => [c.rubric_item_id, c]));
   const go = (i: number) => {
+    if (!frozen) setFrozen({ mode, ids });
     setSelected(list[(i + list.length) % list.length].id);
     setFocused(null);
   };
+  const resort = (next: SortMode) => setFrozen({ mode: next, ids: sortIds(all, cellList, next) });
+  const nextAttention = [...list.slice(index + 1), ...list.slice(0, index + 1)].find(
+    (s) => s.id !== submission.id && attention(loads.get(s.id)!) > 0,
+  );
 
   return (
     <div className="flex flex-col gap-4 pt-2">
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+        {totalAttention > 0 ? (
+          <>
+            <span>
+              확인이 필요한 칸 <strong>{totalAttention}칸</strong> 남음
+            </span>
+            {nextAttention && (
+              <Button size="sm" onClick={() => go(list.indexOf(nextAttention))}>
+                다음 확인 필요 학생 ({nextAttention.label}) →
+              </Button>
+            )}
+          </>
+        ) : totalOpen > 0 ? (
+          <>
+            <span>확인이 필요한 칸은 모두 처리했습니다. 남은 {totalOpen}칸은 자동 판단입니다.</span>
+            <Button
+              size="sm"
+              disabled={acceptRest.isPending}
+              onClick={() =>
+                confirm(`남은 자동 판단을 모두 추천대로 수용할까요? (샘플 검토 칸은 제외)`) && acceptRest.mutate({})
+              }
+            >
+              나머지 일괄 수용
+            </Button>
+          </>
+        ) : (
+          <span>모든 칸을 확정했습니다. 결과는 &lsquo;항목별로 보기 → 결과&rsquo;에서 확인하세요.</span>
+        )}
+        <span className="ml-auto flex items-center gap-1">
+          {(Object.keys(SORT_LABEL) as SortMode[]).map((m) => (
+            <Button key={m} size="xs" variant={m === mode ? "secondary" : "ghost"} onClick={() => resort(m)}>
+              {SORT_LABEL[m]}
+            </Button>
+          ))}
+          {frozen && (
+            <Button size="xs" variant="ghost" onClick={() => resort(mode)} title="지금 상태로 다시 정렬">
+              다시 정렬
+            </Button>
+          )}
+        </span>
+      </div>
+
       <nav className="flex flex-wrap items-center gap-1">
         <Button size="sm" variant="ghost" onClick={() => go(index - 1)} aria-label="이전 학생">
           ←
         </Button>
         {list.map((s, i) => {
-          const p = progress(s.id);
-          const done = p.total > 0 && p.decided === p.total;
+          const w = loads.get(s.id)!;
+          const done = w.total > 0 && w.open === 0;
           return (
             <Button
               key={s.id}
@@ -67,10 +163,10 @@ export default function StudentView({ assignment }: { assignment: AssignmentOut 
               variant={i === index ? "default" : "outline"}
               className="font-mono"
               onClick={() => go(i)}
-              title={`확정 ${p.decided}/${p.total}`}
+              title={`확정 ${w.decided}/${w.total}` + (attention(w) ? ` · 확인 필요 ${attention(w)}` : "")}
             >
               {s.label}
-              {done && " ✓"}
+              {done ? " ✓" : attention(w) > 0 && <span className="ml-0.5 text-[0.65rem] text-destructive">●</span>}
             </Button>
           );
         })}

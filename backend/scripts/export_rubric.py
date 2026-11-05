@@ -3,7 +3,8 @@
     uv run python scripts/export_rubric.py --assignment 6 --id q1_sql_injection [--set ../data/eval] [--rubric-text "..."]
 
 Writes <set>/<id>/question.json (problem + final rubric items) and, if missing, an answers.csv template
-with one label column per item key. Fill answers and labels in a spreadsheet; never overwrites answers.csv.
+with one label column per item key. Fill answers and labels in a spreadsheet. Never overwrites answers.csv,
+and keeps an edited question.json unless --force.
 """
 
 import argparse
@@ -23,6 +24,7 @@ def main() -> None:
     parser.add_argument("--id", required=True, help="question folder name, e.g. q1_sql_injection")
     parser.add_argument("--set", default=str(Path(__file__).resolve().parents[2] / "data" / "eval"))
     parser.add_argument("--rubric-text", default="", help="the plain-language rubric it was drafted from")
+    parser.add_argument("--force", action="store_true", help="overwrite an existing question.json (loses hand edits)")
     args = parser.parse_args()
 
     with SessionLocal() as db:
@@ -40,6 +42,8 @@ def main() -> None:
 
     folder = Path(args.set) / args.id
     folder.mkdir(parents=True, exist_ok=True)
+    if (folder / "question.json").exists() and not args.force:
+        raise SystemExit(f"{folder / 'question.json'} exists (may hold hand edits); pass --force to overwrite")
     (folder / "question.json").write_text(json.dumps(question, ensure_ascii=False, indent=2) + "\n")
     print(f"wrote {folder / 'question.json'} ({len(items)} items)")
 

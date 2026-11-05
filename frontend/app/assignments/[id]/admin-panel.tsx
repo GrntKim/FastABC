@@ -33,7 +33,7 @@ export default function AdminPanel({ assignment }: { assignment: AssignmentOut }
     <div className="flex flex-col gap-6 pt-2">
       <GradingCard assignmentId={assignment.id} submissionCount={assignment.submission_count} />
       <SubmissionsCard assignmentId={assignment.id} />
-      <RubricCard items={assignment.items} />
+      <RubricCard assignment={assignment} />
       <div className="flex justify-end">
         <Button
           variant="destructive"
@@ -48,11 +48,22 @@ export default function AdminPanel({ assignment }: { assignment: AssignmentOut }
   );
 }
 
-function RubricCard({ items }: { items: RubricItemOut[] }) {
+function RubricCard({ assignment }: { assignment: AssignmentOut }) {
+  const items = assignment.items;
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center gap-2">
         <CardTitle>채점 기준</CardTitle>
+        {assignment.progress.cells === 0 ? (
+          <Link
+            href={`/assignments/${assignment.id}/edit`}
+            className={`ml-auto ${buttonVariants({ variant: "outline", size: "sm" })}`}
+          >
+            문항·기준 수정
+          </Link>
+        ) : (
+          <span className="ml-auto text-xs text-muted-foreground">채점이 시작되어 기준을 수정할 수 없습니다</span>
+        )}
       </CardHeader>
       <CardContent>
         <Table>
