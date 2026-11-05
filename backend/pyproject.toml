@@ -27,4 +27,5 @@ dev = [
     "jupyterlab>=4.6.4",
     "nbstripout>=0.9.1",
     "pandas>=3.0.6",
+    "pytest>=9.2.0",
 ]
