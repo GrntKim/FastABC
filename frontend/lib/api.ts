@@ -11,6 +11,10 @@ export type GradingStatus = Schemas["GradingStatus"];
 export type CellOut = Schemas["CellOut"];
 export type GradeDecisionIn = Schemas["GradeDecisionIn"];
 export type SubmissionResult = Schemas["SubmissionResult"];
+export type CourseIn = Schemas["CourseIn"];
+export type CourseSummary = Schemas["CourseSummary"];
+export type CourseOut = Schemas["CourseOut"];
+export type ProgressOut = Schemas["ProgressOut"];
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 

@@ -9,7 +9,7 @@ from app.models import Grade, Submission
 FIXTURE = json.loads((Path(__file__).resolve().parents[2] / "data" / "backprop_v1.json").read_text())
 
 
-def make_body() -> dict:
+def make_body(course_id: int) -> dict:
     items = []
     for key, q in FIXTURE["questions"]["ko"].items():
         item = {"key": key, **q}
@@ -22,12 +22,12 @@ def make_body() -> dict:
         else:
             item |= {"kind": "credit", "points": 2}
         items.append(item)
-    return {"title": "역전파", "problem": FIXTURE["problem"], "items": items}
+    return {"course_id": course_id, "title": "역전파", "problem": FIXTURE["problem"], "items": items}
 
 
 @pytest.fixture
-def assignment(client) -> dict:
-    r = client.post("/assignments", json=make_body())
+def assignment(client, course_id) -> dict:
+    r = client.post("/assignments", json=make_body(course_id))
     assert r.status_code == 201
     return r.json()
 
@@ -59,16 +59,16 @@ def test_list_and_get(client, assignment):
         (lambda b: b["items"][1].update(key="Chain Rule"), "should match pattern"),
     ],
 )
-def test_invalid_rubric(client, mutate, message):
-    body = make_body()
+def test_invalid_rubric(client, course_id, mutate, message):
+    body = make_body(course_id)
     mutate(body)
     r = client.post("/assignments", json=body)
     assert r.status_code == 422
     assert message in r.json()["detail"][0]["msg"]
 
 
-def test_replace(client, assignment):
-    body = make_body()
+def test_replace(client, course_id, assignment):
+    body = make_body(course_id)
     body["title"] = "역전파 v2"
     body["items"] = body["items"][:3]
     r = client.put(f"/assignments/{assignment['id']}", json=body)
@@ -78,7 +78,7 @@ def test_replace(client, assignment):
     assert r.json()["max_points"] == 4.0
 
 
-def test_replace_refused_after_grading(client, db, assignment):
+def test_replace_refused_after_grading(client, db, course_id, assignment):
     sub = Submission(
         assignment_id=assignment["id"], student_ref="x", label="S001", raw_text="r", clean_text="c", extraction_status="ok"
     )
@@ -86,7 +86,7 @@ def test_replace_refused_after_grading(client, db, assignment):
     db.flush()
     db.add(Grade(submission_id=sub.id, rubric_item_id=assignment["items"][1]["id"], route="auto", recommended_pred=True))
     db.flush()
-    assert client.put(f"/assignments/{assignment['id']}", json=make_body()).status_code == 409
+    assert client.put(f"/assignments/{assignment['id']}", json=make_body(course_id)).status_code == 409
 
 
 def test_delete_cascades(client, db, assignment):
@@ -106,8 +106,8 @@ def test_cors_preflight(client):
     assert "access-control-allow-origin" not in client.options("/assignments", headers=headers).headers
 
 
-def test_label(client):
-    body = make_body()
+def test_label(client, course_id):
+    body = make_body(course_id)
     body["items"][1]["label"] = "연쇄법칙 언급"
     item = client.post("/assignments", json=body).json()["items"][1]
     assert (item["key"], item["label"]) == ("mentions_chain_rule", "연쇄법칙 언급")

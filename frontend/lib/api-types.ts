@@ -4,6 +4,49 @@
  */
 
 export interface paths {
+    "/courses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Courses
+         * @description Newest term first, then department, name, section.
+         */
+        get: operations["list_courses_courses_get"];
+        put?: never;
+        /** Create Course */
+        post: operations["create_course_courses_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/courses/{course_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Course */
+        get: operations["get_course_courses__course_id__get"];
+        /** Update Course */
+        put: operations["update_course_courses__course_id__put"];
+        post?: never;
+        /**
+         * Delete Course
+         * @description Deletes every assignment, answer, and grade in the course (the UI asks first).
+         */
+        delete: operations["delete_course_courses__course_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/assignments": {
         parameters: {
             query?: never;
@@ -296,6 +339,10 @@ export interface components {
     schemas: {
         /** AssignmentIn */
         AssignmentIn: {
+            /** Course Id */
+            course_id: number;
+            /** Assessment */
+            assessment?: string | null;
             /** Title */
             title: string;
             /** Problem */
@@ -307,6 +354,10 @@ export interface components {
         AssignmentOut: {
             /** Id */
             id: number;
+            /** Course Id */
+            course_id: number;
+            /** Assessment */
+            assessment: string | null;
             /** Title */
             title: string;
             /** Judge Model */
@@ -320,6 +371,8 @@ export interface components {
             max_points: number;
             /** Submission Count */
             submission_count: number;
+            progress: components["schemas"]["ProgressOut"];
+            course: components["schemas"]["CourseRef"];
             /** Problem */
             problem: string;
             /** Items */
@@ -329,6 +382,10 @@ export interface components {
         AssignmentSummary: {
             /** Id */
             id: number;
+            /** Course Id */
+            course_id: number;
+            /** Assessment */
+            assessment: string | null;
             /** Title */
             title: string;
             /** Judge Model */
@@ -342,6 +399,7 @@ export interface components {
             max_points: number;
             /** Submission Count */
             submission_count: number;
+            progress: components["schemas"]["ProgressOut"];
         };
         /** Body_upload_csv_assignments__assignment_id__submissions_csv_post */
         Body_upload_csv_assignments__assignment_id__submissions_csv_post: {
@@ -392,6 +450,88 @@ export interface components {
             primary: components["schemas"]["JudgeView"] | null;
             secondary: components["schemas"]["JudgeView"] | null;
             evidence: components["schemas"]["JudgeView"] | null;
+        };
+        /** CourseIn */
+        CourseIn: {
+            /** Department */
+            department: string;
+            /** Term */
+            term: string;
+            /** Name */
+            name: string;
+            /** Section */
+            section: string;
+        };
+        /** CourseOut */
+        CourseOut: {
+            /** Department */
+            department: string;
+            /** Term */
+            term: string;
+            /** Name */
+            name: string;
+            /** Section */
+            section: string;
+            /** Id */
+            id: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Assignment Count */
+            assignment_count: number;
+            /** Submission Count */
+            submission_count: number;
+            /** Attention */
+            attention: number;
+            /** Stages */
+            stages: {
+                [key: string]: number;
+            };
+            /** Assignments */
+            assignments: components["schemas"]["AssignmentSummary"][];
+        };
+        /** CourseRef */
+        CourseRef: {
+            /** Department */
+            department: string;
+            /** Term */
+            term: string;
+            /** Name */
+            name: string;
+            /** Section */
+            section: string;
+            /** Id */
+            id: number;
+        };
+        /** CourseSummary */
+        CourseSummary: {
+            /** Department */
+            department: string;
+            /** Term */
+            term: string;
+            /** Name */
+            name: string;
+            /** Section */
+            section: string;
+            /** Id */
+            id: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Assignment Count */
+            assignment_count: number;
+            /** Submission Count */
+            submission_count: number;
+            /** Attention */
+            attention: number;
+            /** Stages */
+            stages: {
+                [key: string]: number;
+            };
         };
         /** EvidenceOut */
         EvidenceOut: {
@@ -448,6 +588,21 @@ export interface components {
             evidence: string[];
             /** Reasoning */
             reasoning: string | null;
+        };
+        /** ProgressOut */
+        ProgressOut: {
+            /** Stage */
+            stage: string;
+            /** Submissions */
+            submissions: number;
+            /** Cells */
+            cells: number;
+            /** Decided */
+            decided: number;
+            /** Pending */
+            pending: number;
+            /** Attention */
+            attention: number;
         };
         /** RubricItemIn */
         RubricItemIn: {
@@ -550,9 +705,170 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    list_assignments_assignments_get: {
+    list_courses_courses_get: {
+        parameters: {
+            query?: {
+                term?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_course_courses_post: {
         parameters: {
             query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_course_courses__course_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_course_courses__course_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_course_courses__course_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_assignments_assignments_get: {
+        parameters: {
+            query?: {
+                course_id?: number | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -566,6 +882,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AssignmentSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

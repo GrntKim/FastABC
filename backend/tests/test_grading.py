@@ -64,11 +64,11 @@ class FakeSecondary:
 
 
 @pytest.fixture
-def grading(client, db):
+def grading(client, db, course_id):
     def setup(primary, secondary, answers: list[str]):
         fastapi_app.dependency_overrides[get_judges] = lambda: Judges(primary, secondary)
         fastapi_app.dependency_overrides[get_session_factory] = lambda: lambda: nullcontext(db)
-        aid = client.post("/assignments", json=make_body()).json()["id"]
+        aid = client.post("/assignments", json=make_body(course_id)).json()["id"]
         csv = "student_id,answer\n" + "".join(f"2023{i:04d},{a}\n" for i, a in enumerate(answers))
         client.post(f"/assignments/{aid}/submissions/csv", files={"file": ("a.csv", csv.encode(), "text/csv")})
         return aid
@@ -155,9 +155,9 @@ def test_regrade_replaces_and_confirmed_blocks(client, db, grading):
     assert client.post(f"/assignments/{aid}/grade").status_code == 409
 
 
-def test_no_submissions_and_unknown(client, grading):
+def test_no_submissions_and_unknown(client, course_id, grading):
     fastapi_app.dependency_overrides[get_judges] = lambda: Judges(FakePrimary(), FakeSecondary())
-    aid = client.post("/assignments", json=make_body()).json()["id"]
+    aid = client.post("/assignments", json=make_body(course_id)).json()["id"]
     assert client.post(f"/assignments/{aid}/grade").status_code == 400
     assert client.post("/assignments/999999/grade").status_code == 404
     assert client.get("/assignments/999999/grading").status_code == 404

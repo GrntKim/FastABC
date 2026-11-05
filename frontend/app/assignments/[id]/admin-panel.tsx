@@ -22,8 +22,9 @@ export default function AdminPanel({ assignment }: { assignment: AssignmentOut }
   const remove = useMutation({
     mutationFn: () => api(`/assignments/${assignment.id}`, { method: "DELETE" }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["assignments"] });
-      router.push("/");
+      queryClient.invalidateQueries({ queryKey: ["courses"] });
+      queryClient.invalidateQueries({ queryKey: ["course", assignment.course_id] });
+      router.push(`/courses/${assignment.course_id}`);
     },
     onError: (e) => toast.error(errorMessage(e, "삭제하지 못했습니다")),
   });

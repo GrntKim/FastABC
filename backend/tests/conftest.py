@@ -52,3 +52,9 @@ def client(db):
 def no_sampling(monkeypatch):
     """Random audit sampling off by default so counts are deterministic; tests opt in."""
     monkeypatch.setattr("app.grading.SAMPLE_RATE", 0.0)
+
+
+@pytest.fixture
+def course_id(client) -> int:
+    body = {"department": "컴퓨터공학과", "term": "2026-2", "name": "딥러닝개론", "section": "01"}
+    return client.post("/courses", json=body).json()["id"]

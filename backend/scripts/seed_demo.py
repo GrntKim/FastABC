@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 FIXTURE = Path(__file__).resolve().parents[2] / "data" / "backprop_v1.json"
+COURSE = {"department": "컴퓨터공학과", "term": "2026-2", "name": "딥러닝개론", "section": "01"}
 
 
 LABELS = {
@@ -49,8 +50,17 @@ def main() -> None:
     data = json.loads(FIXTURE.read_text())
     client = TestClient(app)
 
+    r = client.post("/courses", json=COURSE)
+    if r.status_code == 409:  # reuse the demo course on later runs
+        course_id = next(c["id"] for c in client.get("/courses").json() if all(c[k] == v for k, v in COURSE.items()))
+    else:
+        r.raise_for_status()
+        course_id = r.json()["id"]
+
     r = client.post("/assignments", json={
-        "title": "역전파 동작 원리 (데모)",
+        "course_id": course_id,
+        "assessment": "중간고사 1번",
+        "title": "역전파 동작 원리",
         "problem": data["problem"],
         "items": rubric(data["questions"]["ko"]),
     })

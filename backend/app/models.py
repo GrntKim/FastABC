@@ -53,15 +53,38 @@ class Decision(StrEnum):
     MANUAL = "manual"  # no recommendation was shown (human route)
 
 
+class Course(Base):
+    """A course section in one term: the grader's top-level grouping."""
+
+    __tablename__ = "courses"
+    __table_args__ = (UniqueConstraint("department", "term", "name", "section"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    department: Mapped[str] = mapped_column(String(100))  # e.g. "컴퓨터공학과"
+    term: Mapped[str] = mapped_column(String(20))  # e.g. "2026-2"
+    name: Mapped[str] = mapped_column(String(200))
+    section: Mapped[str] = mapped_column(String(20))  # e.g. "02"
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    assignments: Mapped[list["Assignment"]] = relationship(
+        back_populates="course", cascade="all, delete-orphan", passive_deletes=True, order_by="Assignment.created_at"
+    )
+
+
 class Assignment(Base):
+    """One question of an assessment, with its rubric."""
+
     __tablename__ = "assignments"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"))
+    assessment: Mapped[str | None] = mapped_column(String(100))  # e.g. "중간고사 2번": stands in for an exam grouping
     title: Mapped[str] = mapped_column(String(200))
     problem: Mapped[str] = mapped_column(Text)
     judge_model: Mapped[str] = mapped_column(String(50))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    course: Mapped[Course] = relationship(back_populates="assignments")
     items: Mapped[list["RubricItem"]] = relationship(
         back_populates="assignment", cascade="all, delete-orphan", passive_deletes=True, order_by="RubricItem.position"
     )

@@ -10,8 +10,7 @@ export default function Header() {
           </Link>
         </div>
         <nav className="flex space-x-4">
-          <Link href={"/"} className="hover:underline">문항</Link>
-          <Link href={"/assignments/new"} className="hover:underline">새 문항</Link>
+          <Link href={"/"} className="hover:underline">과목</Link>
         </nav>
       </div>
     </header>

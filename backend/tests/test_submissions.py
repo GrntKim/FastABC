@@ -5,8 +5,8 @@ from tests.test_assignments import make_body
 
 
 @pytest.fixture
-def assignment_id(client) -> int:
-    return client.post("/assignments", json=make_body()).json()["id"]
+def assignment_id(client, course_id) -> int:
+    return client.post("/assignments", json=make_body(course_id)).json()["id"]
 
 
 def upload(client, assignment_id: int, text: str, encoding: str = "utf-8"):

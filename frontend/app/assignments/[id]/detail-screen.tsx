@@ -6,6 +6,7 @@ import { useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, ApiError, type AssignmentOut, type GradingStatus } from "@/lib/api";
+import { termLabel } from "@/lib/progress";
 import AdminPanel from "./admin-panel";
 import StudentView from "./student-view";
 
@@ -31,8 +32,18 @@ export default function DetailScreen({ assignmentId }: { assignmentId: number })
 
   return (
     <div className="flex flex-col gap-4">
+      <nav className="text-sm text-muted-foreground">
+        <Link href="/" className="hover:underline">
+          과목
+        </Link>{" "}
+        › {termLabel(a.course.term)} ›{" "}
+        <Link href={`/courses/${a.course.id}`} className="hover:underline">
+          {a.course.name} ({a.course.section}분반)
+        </Link>
+      </nav>
       <header className="flex items-start gap-4">
         <div className="flex flex-1 flex-col gap-1">
+          {a.assessment && <p className="text-sm text-muted-foreground">{a.assessment}</p>}
           <h1 className="text-2xl font-bold">{a.title}</h1>
           <p className="text-muted-foreground whitespace-pre-wrap">{a.problem}</p>
         </div>

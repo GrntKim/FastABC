@@ -51,7 +51,33 @@ class RubricItemIn(BaseModel):
         return self
 
 
+class CourseIn(BaseModel):
+    department: str = Field(min_length=1, max_length=100)
+    term: str = Field(min_length=1, max_length=20)  # e.g. "2026-2"
+    name: str = Field(min_length=1, max_length=200)
+    section: str = Field(min_length=1, max_length=20)
+
+
+class CourseRef(CourseIn):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+
+
+class ProgressOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    stage: str  # setup / grading / review / done
+    submissions: int
+    cells: int
+    decided: int
+    pending: int
+    attention: int  # undecided cells a person must look at
+
+
 class AssignmentIn(BaseModel):
+    course_id: int
+    assessment: str | None = Field(default=None, max_length=100)  # e.g. "중간고사 2번"
     title: str = Field(min_length=1, max_length=200)
     problem: str = Field(min_length=1)
     items: list[RubricItemIn] = Field(min_length=2)
@@ -77,16 +103,32 @@ class AssignmentSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    course_id: int
+    assessment: str | None
     title: str
     judge_model: str
     created_at: datetime
     max_points: float
     submission_count: int
+    progress: ProgressOut
 
 
 class AssignmentOut(AssignmentSummary):
+    course: CourseRef
     problem: str
     items: list[RubricItemOut]
+
+
+class CourseSummary(CourseRef):
+    created_at: datetime
+    assignment_count: int
+    submission_count: int  # summed over assignments
+    attention: int  # cells to look at, over all assignments
+    stages: dict[str, int]  # stage -> assignment count
+
+
+class CourseOut(CourseSummary):
+    assignments: list[AssignmentSummary]
 
 
 class SubmissionOut(BaseModel):
