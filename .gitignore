@@ -70,3 +70,5 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+# local-only agent instructions
+CLAUDE.md
