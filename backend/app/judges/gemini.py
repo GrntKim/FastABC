@@ -76,14 +76,15 @@ def build_prompt(problem: str, answer: str, questions: Questions) -> str:
     return f"## question (문제)\n{problem}\n\n## answer (답안)\n{answer}\n\n## 판단할 질문\n{qs}"
 
 
-def _normalize(s: str) -> str:
-    return " ".join(s.split()).strip(" .,\"'“”‘’")
+def _compact(s: str) -> str:
+    # PDF extraction loses whether a line break was a space ("갱신\n하는" vs "갱신하는"), so ignore all whitespace
+    return "".join(s.split()).strip(".,\"'“”‘’")
 
 
 def verify_evidence(answer: str, quotes: list[str]) -> list[str]:
-    """Keep only quotes that appear verbatim (whitespace-normalized) in the answer."""
-    text = " ".join(answer.split())
-    return [q for q in quotes if _normalize(q) and _normalize(q) in text]
+    """Keep only quotes that appear verbatim (ignoring whitespace) in the answer."""
+    text = _compact(answer)
+    return [q for q in quotes if _compact(q) and _compact(q) in text]
 
 
 def _to_judgment(item: NoulItem | ScoreItem | ChoiceItem, q: dict, answer: str) -> Judgment | None:
