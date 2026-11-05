@@ -5,12 +5,12 @@ from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.judges.jev import GATE
+from app.judges.base import GATE
 from app.models import ItemKind, ItemType
 
 
 class RubricItemIn(BaseModel):
-    key: str = Field(pattern=r"^[a-z][a-z0-9_]{0,99}$")  # Jev question id
+    key: str = Field(pattern=r"^[a-z][a-z0-9_]{0,99}$")  # judge question id
     label: str | None = Field(default=None, max_length=100)  # display name for graders
     type: ItemType
     instructions: str = Field(min_length=1)
@@ -134,8 +134,8 @@ class CellOut(BaseModel):
     final_points: float | None
     decision: str | None
     decided_at: datetime | None
-    jev: JudgeView | None
-    gemini: JudgeView | None  # also shown for the human route, as reference only
+    primary: JudgeView | None  # decision model
+    secondary: JudgeView | None  # LLM re-judgment; also shown for the human route, as reference only
     evidence: JudgeView | None  # on-demand evidence lookup for cells that were not escalated
 
 

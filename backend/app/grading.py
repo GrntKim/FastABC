@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.judges.base import Judge, Judgment, Questions
 from app.judges.gemini import GeminiJudge
+from app.judges.jev import DEFAULT_MODEL as PRIMARY_MODEL
 from app.judges.jev import JevJudge
 from app.judges.routing import Route, needs_escalation, route
 from app.models import Assignment, ExtractionStatus, Grade, GradeRoute, JudgeSource, JudgmentRecord, RubricItem, Submission
@@ -34,8 +35,8 @@ class Judges:
 
 @lru_cache
 def get_judges() -> Judges:
-    """FastAPI dependency. Overridden in tests so no external API is called."""
-    return Judges(JevJudge(), GeminiJudge())
+    """FastAPI dependency and the only place that picks concrete judges. Overridden in tests."""
+    return Judges(JevJudge(model=PRIMARY_MODEL), GeminiJudge())
 
 
 def questions_for(items: list[RubricItem]) -> Questions:
@@ -92,7 +93,7 @@ def run_primary(db: Session, assignment: Assignment, judge: Judge) -> int:
         judgments = judge.evaluate(assignment.problem, submission.clean_text, questions)
         for j in judgments:
             item = items[j.question_id]
-            db.add(judgment_record(submission, item, j, JudgeSource.JEV, judge))
+            db.add(judgment_record(submission, item, j, JudgeSource.PRIMARY, judge))
             if j.skipped:
                 grade = Grade(route=GradeRoute.SKIP, recommended_points=item_points(item, None, gate_passed=False))
             elif needs_escalation(j):
@@ -127,7 +128,7 @@ def escalate(session_factory: Callable[[], Session], assignment_id: int, judge: 
                 r.rubric_item_id: r
                 for r in db.scalars(
                     select(JudgmentRecord).where(
-                        JudgmentRecord.submission_id == submission.id, JudgmentRecord.source == JudgeSource.JEV
+                        JudgmentRecord.submission_id == submission.id, JudgmentRecord.source == JudgeSource.PRIMARY
                     )
                 )
             }
@@ -142,10 +143,13 @@ def escalate(session_factory: Callable[[], Session], assignment_id: int, judge: 
             for grade in pending:
                 item = items[grade.rubric_item_id]
                 p = primary[item.id]
-                first = Judgment(item.key, item.type, p.pred, conf=p.conf, raw=p.raw, skipped=p.skipped)
+                # pending means the primary judge was not confident
+                first = Judgment(
+                    item.key, item.type, p.pred, conf=p.conf, raw=p.raw, skipped=p.skipped, confident=False
+                )
                 (rec,) = route([first], second)
                 if (s := by_key.get(item.key)) is not None:
-                    db.add(judgment_record(submission, item, s, JudgeSource.GEMINI, judge))
+                    db.add(judgment_record(submission, item, s, JudgeSource.SECONDARY, judge))
                 if rec.route == Route.LLM:
                     grade.route = GradeRoute.LLM
                     grade.recommended_pred = rec.pred

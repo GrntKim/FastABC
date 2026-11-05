@@ -34,9 +34,9 @@ class ExtractionStatus(StrEnum):
 
 
 class JudgeSource(StrEnum):
-    JEV = "jev"
-    GEMINI = "gemini"  # escalation re-judgment: decides the llm/human route
-    EVIDENCE = "evidence"  # Gemini asked later only to locate evidence for display; never changes the route
+    PRIMARY = "primary"  # decision model: first judgment with confidence
+    SECONDARY = "secondary"  # LLM re-judgment of escalated cells: decides the llm/human route
+    EVIDENCE = "evidence"  # LLM asked later only to locate evidence for display; never changes the route
 
 
 class GradeRoute(StrEnum):
@@ -76,12 +76,12 @@ class RubricItem(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     assignment_id: Mapped[int] = mapped_column(ForeignKey("assignments.id", ondelete="CASCADE"))
-    key: Mapped[str] = mapped_column(String(100))  # Jev question id
+    key: Mapped[str] = mapped_column(String(100))  # judge question id
     label: Mapped[str | None] = mapped_column(String(100))  # display name for graders; key is shown when empty
     position: Mapped[int]
     type: Mapped[str] = mapped_column(String(16))  # ItemType
     instructions: Mapped[str] = mapped_column(Text)
-    criteria: Mapped[Any] = mapped_column(JSONB)  # Jev format: noul {true, false} / score [..] / choice {name: desc}
+    criteria: Mapped[Any] = mapped_column(JSONB)  # judge question format: noul {true, false} / score [..] / choice {name: desc}
     kind: Mapped[str] = mapped_column(String(16))  # ItemKind
     points: Mapped[float | None] = mapped_column(Float)  # noul credit or deduction
     points_map: Mapped[dict[str, float] | None] = mapped_column(JSONB)  # score level / choice name -> points

@@ -166,14 +166,16 @@ Jev 병렬 판단 (답안 1건 = 요청 1회, 항목 전부 포함)
 **판단 엔진 인터페이스 (핵심 설계, `app/judges/base.py`)**
 
 ```python
-Questions = dict[str, dict]  # Jev 요청 형식 그대로: {id: {"type", "instructions", "criteria"}}
+Questions = dict[str, dict]  # 공통 질문 형식 (Jev 요청 형식과 같음): {id: {"type", "instructions", "criteria"}}
+GATE = "is_on_topic"
 
 @dataclass
 class Judgment:
     question_id: str
     type: str                    # "noul" | "score" | "choice"
     pred: bool | int | str | None  # None: 유효한 판단 없음 → human
-    conf: float | None = None    # Jev만. LLM 자기 보고 확신도는 쓰지 않음
+    conf: float | None = None    # 판단 모델만. LLM 자기 보고 확신도는 쓰지 않음
+    confident: bool = False      # 판단기가 자기 임계값으로 설정. 라우팅은 이것만 봄
     raw: float | dict[str, float] | None = None
     evidence: list[str] = []     # LLM만, 원문 그대로 인용
     reasoning: str | None = None # LLM만
@@ -182,11 +184,18 @@ class Judgment:
 class Judge(Protocol):
     def evaluate(self, problem: str, answer: str, questions: Questions) -> list[Judgment]: ...
 
-class JevJudge: ...     # 1차 판단
-class GeminiJudge: ...  # 에스컬레이션 + "LLM 단독" 베이스라인. Jev 결과를 보지 않음
+class JevJudge: ...     # primary: 1차 판단 (판단 모델)
+class GeminiJudge: ...  # secondary: 에스컬레이션 + "LLM 단독" 베이스라인. 1차 결과를 보지 않음
 ```
 
 판단 모델 교체 가능성 확보, 베이스라인 비교 실험, 보고서상 아키텍처 기여를 위해 이 구조를 유지합니다.
+
+**업체 중립 이름 규칙**
+
+- 업체 이름(Jev, Gemini)은 어댑터(`app/judges/jev.py`, `gemini.py`)와 판단기 조립 지점(`app/grading.py`의 `get_judges`, `PRIMARY_MODEL`)에만 둡니다.
+- 공통 코드·API·DB·UI는 역할 이름을 씁니다: `primary`/`secondary` (`judgments.source`, 칸 응답 필드), 화면 문구는 "판단 모델"/"LLM".
+- 실제 모델 버전은 `judgments.model`, `assignments.judge_model`에 기록합니다 (실험 재현용).
+- 임계값 같은 모델별 보정값은 어댑터 안에 두고, 결과만 `Judgment.confident`로 넘깁니다.
 
 ---
 

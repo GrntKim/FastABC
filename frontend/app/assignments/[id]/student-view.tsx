@@ -101,7 +101,7 @@ export default function StudentView({ assignment }: { assignment: AssignmentOut 
 type CellsByItem = Map<number, CellOut>;
 
 /** LLM output that can carry evidence: the escalation re-judgment, else the on-demand evidence lookup. */
-const llmView = (cell: CellOut | undefined) => cell?.gemini ?? cell?.evidence ?? null;
+const llmView = (cell: CellOut | undefined) => cell?.secondary ?? cell?.evidence ?? null;
 
 function AnswerCard({
   assignmentId,
@@ -119,7 +119,7 @@ function AnswerCard({
   onFocus: (itemId: number | null) => void;
 }) {
   const gate = items.find((i) => i.kind === "gate");
-  const offTopic = gate && byItem.get(gate.id)?.route === "auto" && byItem.get(gate.id)?.jev?.pred === false;
+  const offTopic = gate && byItem.get(gate.id)?.route === "auto" && byItem.get(gate.id)?.primary?.pred === false;
   const scored = items.filter((i) => i.kind !== "gate");
   const groups = scored.map((i) => ({ id: i.id, quotes: llmView(byItem.get(i.id))?.evidence ?? [] }));
   const segments = annotate(submission.clean_text, groups);
@@ -198,10 +198,10 @@ function JudgmentNotes({
           const cell = byItem.get(item.id);
           if (!cell) return null;
           const color = itemColor(items, item.id);
-          const judge = cell.gemini && cell.route !== "auto" ? cell.gemini : cell.jev;
+          const judge = cell.secondary && cell.route !== "auto" ? cell.secondary : cell.primary;
           const llm = llmView(cell);
-          // an on-demand lookup that disagrees with a confident Jev judgment: worth a second look
-          const disagrees = cell.route === "auto" && llm?.pred != null && llm.pred !== cell.jev?.pred;
+          // an on-demand lookup that disagrees with a confident decision-model judgment: worth a second look
+          const disagrees = cell.route === "auto" && llm?.pred != null && llm.pred !== cell.primary?.pred;
           return (
             <button
               key={item.id}
@@ -226,8 +226,8 @@ function JudgmentNotes({
               </div>
               <div className="flex items-baseline gap-2">
                 <strong>{cell.route === "skip" ? "판단 생략" : formatPred(item, judge?.pred)}</strong>
-                {cell.jev?.conf != null && cell.route !== "skip" && (
-                  <span className="text-xs text-muted-foreground">Jev 확신도 {Math.round(cell.jev.conf * 100)}%</span>
+                {cell.primary?.conf != null && cell.route !== "skip" && (
+                  <span className="text-xs text-muted-foreground">확신도 {Math.round(cell.primary.conf * 100)}%</span>
                 )}
               </div>
               {cell.route !== "skip" && (

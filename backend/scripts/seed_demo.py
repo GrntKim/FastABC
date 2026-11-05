@@ -2,7 +2,7 @@
 
     uv run python scripts/seed_demo.py
 
-Synthetic answers only (fine for the Gemini free tier). Costs about $0.02 per run.
+Synthetic answers only (fine for a free-tier LLM key). Costs about $0.02 per run.
 Each run creates a new assignment.
 """
 

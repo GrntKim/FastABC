@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 from app.judges.base import Judge, Judgment, Questions
-from app.judges.jev import is_auto
 
 
 class Route(StrEnum):
@@ -29,7 +28,7 @@ class Recommendation:
 
 
 def needs_escalation(j: Judgment) -> bool:
-    return not j.skipped and not is_auto(j)
+    return not j.skipped and not j.confident
 
 
 def route(primary: list[Judgment], secondary: list[Judgment]) -> list[Recommendation]:

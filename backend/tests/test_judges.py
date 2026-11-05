@@ -1,4 +1,4 @@
-"""Judge logic without network calls: Jev parsing, evidence check, routing."""
+"""Judge logic without network calls: decision-model parsing, evidence check, routing."""
 
 from app.judges.base import Judgment, Questions
 from app.judges.gemini import verify_evidence
@@ -13,9 +13,9 @@ def test_parse_answers():
         "c": {"type": "choice", "choice": "x", "probabilities": {"x": 0.6, "y": 0.4}, "confidence": 0.5},
     }}
     a, b, c = parse_answers(data)
-    assert (a.pred, a.conf, a.raw) == (True, 0.8, 0.9)
-    assert (b.pred, b.conf) == (2, 0.85)
-    assert (c.pred, c.conf) == ("x", 0.5)
+    assert (a.pred, a.conf, a.raw, a.confident) == (True, 0.8, 0.9, True)
+    assert (b.pred, b.conf, b.confident) == (2, 0.85, True)
+    assert (c.pred, c.conf, c.confident) == ("x", 0.5, False)  # the adapter applies its own thresholds
 
 
 def test_thresholds():
@@ -38,7 +38,7 @@ def test_verify_evidence_ignores_whitespace():
 
 def test_route():
     primary = [
-        Judgment("is_on_topic", "noul", True, conf=0.9),
+        Judgment("is_on_topic", "noul", True, conf=0.9, confident=True),
         Judgment("agree", "noul", True, conf=0.1),
         Judgment("disagree", "noul", True, conf=0.1),
         Judgment("failed", "noul", True, conf=0.1),
@@ -69,7 +69,10 @@ class FakeJudge:
 
 def test_grade_sends_only_escalated_questions():
     questions = {"sure": {"type": "noul"}, "unsure": {"type": "noul"}}
-    primary = FakeJudge([Judgment("sure", "noul", True, conf=0.9), Judgment("unsure", "noul", False, conf=0.2)])
+    primary = FakeJudge([
+        Judgment("sure", "noul", True, conf=0.9, confident=True),
+        Judgment("unsure", "noul", False, conf=0.2),
+    ])
     secondary = FakeJudge([Judgment("unsure", "noul", False)])
     recs = grade("p", "a", questions, primary, secondary)
     assert secondary.calls == [{"unsure": {"type": "noul"}}]
@@ -78,5 +81,6 @@ def test_grade_sends_only_escalated_questions():
 
 def test_grade_skips_secondary_when_all_confident():
     secondary = FakeJudge([])
-    grade("p", "a", {"q": {"type": "noul"}}, FakeJudge([Judgment("q", "noul", True, conf=0.9)]), secondary)
+    primary = FakeJudge([Judgment("q", "noul", True, conf=0.9, confident=True)])
+    grade("p", "a", {"q": {"type": "noul"}}, primary, secondary)
     assert secondary.calls == []

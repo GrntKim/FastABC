@@ -8,7 +8,7 @@ import pytest
 from app.db import get_session_factory
 from app.grading import Judges, get_judges
 from app.judges.base import Judgment
-from app.judges.jev import apply_gate
+from app.judges.jev import apply_gate, is_auto
 from app.main import app as fastapi_app
 from app.models import Grade, JudgmentRecord, RubricItem, Submission
 from tests.test_assignments import make_body
@@ -27,7 +27,7 @@ CONFIDENT = {
 class FakePrimary:
     """Answers by answer text: {answer: {key: (pred, conf)}}, CONFIDENT for unlisted keys."""
 
-    model = "fake-jev"
+    model = "fake-primary"
     last_latency = 0.2
 
     def __init__(self, overrides: dict[str, dict] | None = None, error: Exception | None = None):
@@ -39,11 +39,14 @@ class FakePrimary:
             raise self.error
         script = CONFIDENT | self.overrides.get(answer, {})
         types = {k: q["type"] for k, q in questions.items()}
-        return apply_gate([Judgment(k, types[k], *script[k]) for k in questions])
+        judgments = [Judgment(k, types[k], *script[k]) for k in questions]
+        for j in judgments:
+            j.confident = is_auto(j)  # same thresholds as the real decision-model adapter
+        return apply_gate(judgments)
 
 
 class FakeSecondary:
-    model = "fake-gemini"
+    model = "fake-secondary"
 
     def __init__(self, preds: dict[str, dict] | None = None, error: Exception | None = None):
         self.preds = preds or {}
@@ -100,10 +103,10 @@ def test_routes_and_points(client, db, grading):
     assert status == {"total": 14, "pending": 0, "done": True, "routes": {"auto": 12, "llm": 1, "human": 1}}
 
     records = db.query(JudgmentRecord).all()
-    assert sum(r.source == "jev" for r in records) == 14
-    gemini = [r for r in records if r.source == "gemini"]
-    assert len(gemini) == 2 and gemini[0].evidence == ["근거"] and gemini[0].model == "fake-gemini"
-    assert {r.latency_ms for r in records if r.source == "jev"} == {200}
+    assert sum(r.source == "primary" for r in records) == 14
+    secondary = [r for r in records if r.source == "secondary"]
+    assert len(secondary) == 2 and secondary[0].evidence == ["근거"] and secondary[0].model == "fake-secondary"
+    assert {r.latency_ms for r in records if r.source == "primary"} == {200}
 
 
 def test_confident_gate_false_skips(client, db, grading):

@@ -27,14 +27,14 @@ def test_cells(client, graded):
 
     column = client.get(f"/assignments/{aid}/cells", params={"item_id": items["accuracy"]}).json()
     assert [c["label"] for c in column] == ["S001", "S002"]
-    assert column[0]["jev"]["conf"] == 0.9 and column[0]["gemini"] is None
+    assert column[0]["primary"]["conf"] == 0.9 and column[0]["secondary"] is None
 
     row = client.get(f"/assignments/{aid}/cells", params={"submission_id": column[1]["submission_id"]}).json()
     assert [c["item_key"] for c in row][:2] == ["is_on_topic", "mentions_chain_rule"]
 
     human = cells["b", "misc_is_optimizer"]
     assert human["route"] == "human" and human["recommended_points"] is None
-    assert human["gemini"]["evidence"] == ["근거"]  # reference for the grader
+    assert human["secondary"]["evidence"] == ["근거"]  # reference for the grader
     assert all(c["final_points"] is None for c in cells.values())  # never pre-filled
 
 
@@ -163,7 +163,7 @@ def test_find_evidence(client, db, graded):
     row = {c["item_key"]: c for c in client.get(f"/assignments/{aid}/cells", params={"submission_id": sid}).json()}
     assert row["accuracy"]["evidence"]["evidence"] == ["근거"]
     assert row["accuracy"]["route"] == "auto"  # display only
-    assert row["mentions_chain_rule"]["evidence"] is None and row["mentions_chain_rule"]["gemini"] is not None
+    assert row["mentions_chain_rule"]["evidence"] is None and row["mentions_chain_rule"]["secondary"] is not None
 
     assert client.post(f"/submissions/{sid}/evidence").json() == {"requested": 0}  # cached
     assert len(secondary.calls) == 1

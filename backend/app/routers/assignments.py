@@ -5,7 +5,7 @@ from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.judges.jev import DEFAULT_MODEL
+from app.grading import PRIMARY_MODEL
 from app.models import Assignment, Grade, RubricItem, Submission
 from app.schemas import AssignmentIn, AssignmentOut, AssignmentSummary, RubricItemOut
 from app.scoring import max_total
@@ -43,7 +43,7 @@ def _items(body: AssignmentIn) -> list[RubricItem]:
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_assignment(body: AssignmentIn, db: Session = Depends(get_db)) -> AssignmentOut:
-    assignment = Assignment(title=body.title, problem=body.problem, judge_model=DEFAULT_MODEL, items=_items(body))
+    assignment = Assignment(title=body.title, problem=body.problem, judge_model=PRIMARY_MODEL, items=_items(body))
     db.add(assignment)
     db.commit()
     return _out(db, assignment)

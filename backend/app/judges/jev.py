@@ -9,7 +9,7 @@ from typing import Any
 
 import httpx
 
-from app.judges.base import Judgment, Questions
+from app.judges.base import GATE, Judgment, Questions
 
 URL = "https://api.typesafe.ai/v1/systemone"
 DEFAULT_MODEL = "jev-1.13.0"  # pinned: thresholds are tuned per model version
@@ -18,8 +18,6 @@ DEFAULT_MODEL = "jev-1.13.0"  # pinned: thresholds are tuned per model version
 # Noul confidence is |2p - 1|, so T_NOUL = 0.6 means p <= 0.2 or p >= 0.8.
 T_NOUL = 0.6
 T_OTHER = 0.8
-
-GATE = "is_on_topic"
 
 
 def make_client(api_key: str | None = None, timeout: float = 30) -> httpx.Client:
@@ -60,6 +58,8 @@ def parse_answers(data: dict) -> list[Judgment]:
             judgments.append(Judgment(qid, "score", pred=int(top), conf=a["confidence"], raw=a["score"]))
         elif a["type"] == "choice":
             judgments.append(Judgment(qid, "choice", pred=a["choice"], conf=a["confidence"], raw=a["probabilities"]))
+    for j in judgments:
+        j.confident = is_auto(j)
     return judgments
 
 

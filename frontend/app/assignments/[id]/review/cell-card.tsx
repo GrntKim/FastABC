@@ -28,7 +28,7 @@ export default function CellCard({
   const mutation = useDecide(assignmentId);
   const decide = { isPending: mutation.isPending, mutate: (body: GradeDecisionIn) => mutation.mutate({ gradeId: cell.grade_id, body }) };
 
-  const evidence = (cell.gemini ?? cell.evidence)?.evidence ?? [];
+  const evidence = (cell.secondary ?? cell.evidence)?.evidence ?? [];
   const decided = cell.final_points !== null;
   const pending = cell.route === "pending";
 
@@ -67,16 +67,16 @@ export default function CellCard({
 
         <div className="flex flex-col gap-3 text-sm">
           <JudgeLine
-            title="Jev"
-            pred={cell.jev ? formatPred(item, cell.jev.pred) : "—"}
-            detail={describePred(item, cell.jev?.pred)}
-            extra={cell.jev?.conf != null ? `확신도 ${Math.round(cell.jev.conf * 100)}%` : undefined}
+            title="판단 모델"
+            pred={cell.primary ? formatPred(item, cell.primary.pred) : "—"}
+            detail={describePred(item, cell.primary?.pred)}
+            extra={cell.primary?.conf != null ? `확신도 ${Math.round(cell.primary.conf * 100)}%` : undefined}
           />
-          {cell.gemini && (
+          {cell.secondary && (
             <JudgeLine
-              title={cell.route === "human" ? "Gemini (참고)" : "Gemini"}
-              pred={formatPred(item, cell.gemini.pred)}
-              detail={cell.gemini.reasoning ?? undefined}
+              title={cell.route === "human" ? "LLM (참고)" : "LLM"}
+              pred={formatPred(item, cell.secondary.pred)}
+              detail={cell.secondary.reasoning ?? undefined}
             />
           )}
 

@@ -389,8 +389,8 @@ export interface components {
             decision: string | null;
             /** Decided At */
             decided_at: string | null;
-            jev: components["schemas"]["JudgeView"] | null;
-            gemini: components["schemas"]["JudgeView"] | null;
+            primary: components["schemas"]["JudgeView"] | null;
+            secondary: components["schemas"]["JudgeView"] | null;
             evidence: components["schemas"]["JudgeView"] | null;
         };
         /** EvidenceOut */

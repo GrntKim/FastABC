@@ -92,8 +92,8 @@ def list_cells(
             final_points=g.final_points,
             decision=g.decision,
             decided_at=g.decided_at,
-            jev=view(s, i, JudgeSource.JEV),
-            gemini=view(s, i, JudgeSource.GEMINI),
+            primary=view(s, i, JudgeSource.PRIMARY),
+            secondary=view(s, i, JudgeSource.SECONDARY),
             evidence=view(s, i, JudgeSource.EVIDENCE),
         )
         for g, s, i in rows
@@ -201,7 +201,7 @@ def find_evidence(
     assignment = submission.assignment
     with_llm = select(JudgmentRecord.rubric_item_id).where(
         JudgmentRecord.submission_id == submission_id,
-        JudgmentRecord.source.in_([JudgeSource.GEMINI, JudgeSource.EVIDENCE]),
+        JudgmentRecord.source.in_([JudgeSource.SECONDARY, JudgeSource.EVIDENCE]),
     )
     items = db.scalars(
         select(RubricItem)
