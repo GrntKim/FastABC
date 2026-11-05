@@ -3,7 +3,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import assignments, courses, grading, review, submissions
+from app.routers import assignments, courses, drafts, grading, review, submissions
 
 app = FastAPI()
 app.add_middleware(
@@ -15,6 +15,7 @@ app.add_middleware(
 )
 app.include_router(courses.router)
 app.include_router(assignments.router)
+app.include_router(drafts.router)
 app.include_router(submissions.router)
 app.include_router(grading.router)
 app.include_router(review.router)

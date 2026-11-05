@@ -14,7 +14,8 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.judges.base import Judge, Judgment, Questions
-from app.judges.gemini import GeminiJudge
+from app.drafting import RubricDrafter
+from app.judges.gemini import GeminiJudge, GeminiRubricDrafter
 from app.judges.jev import DEFAULT_MODEL as PRIMARY_MODEL
 from app.judges.jev import JevJudge
 from app.judges.routing import Route, needs_escalation, route
@@ -37,6 +38,12 @@ class Judges:
 def get_judges() -> Judges:
     """FastAPI dependency and the only place that picks concrete judges. Overridden in tests."""
     return Judges(JevJudge(model=PRIMARY_MODEL), GeminiJudge())
+
+
+@lru_cache
+def get_drafter() -> RubricDrafter:
+    """FastAPI dependency: the LLM that turns a plain-language rubric into items. Overridden in tests."""
+    return GeminiRubricDrafter()
 
 
 def questions_for(items: list[RubricItem]) -> Questions:

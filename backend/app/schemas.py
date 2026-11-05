@@ -212,3 +212,14 @@ class SubmissionResult(BaseModel):
     cells: int
     total: float | None  # None until every cell is decided
     max_points: float
+
+
+class RubricDraftIn(BaseModel):
+    problem: str = Field(min_length=1)
+    rubric_text: str = Field(min_length=1, max_length=5000)  # the grader's own wording, e.g. "연쇄법칙 언급 2점 …"
+
+
+class RubricDraftOut(BaseModel):
+    items: list[dict[str, Any]]  # RubricItemIn-shaped, unvalidated: the grader edits them before saving
+    warnings: list[str]  # adjustments made while converting
+    problems: list[str]  # validation messages to fix before saving ("2번 항목: …")

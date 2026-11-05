@@ -87,6 +87,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/rubric-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Draft Rubric
+         * @description One LLM call; nothing is stored. The grader reviews the items and saves them with the assignment.
+         */
+        post: operations["draft_rubric_rubric_drafts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/assignments/{assignment_id}/submissions/csv": {
         parameters: {
             query?: never;
@@ -604,6 +624,24 @@ export interface components {
             /** Attention */
             attention: number;
         };
+        /** RubricDraftIn */
+        RubricDraftIn: {
+            /** Problem */
+            problem: string;
+            /** Rubric Text */
+            rubric_text: string;
+        };
+        /** RubricDraftOut */
+        RubricDraftOut: {
+            /** Items */
+            items: {
+                [key: string]: unknown;
+            }[];
+            /** Warnings */
+            warnings: string[];
+            /** Problems */
+            problems: string[];
+        };
         /** RubricItemIn */
         RubricItemIn: {
             /** Key */
@@ -1011,6 +1049,39 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    draft_rubric_rubric_drafts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RubricDraftIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RubricDraftOut"];
+                };
             };
             /** @description Validation Error */
             422: {

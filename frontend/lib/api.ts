@@ -15,6 +15,8 @@ export type CourseIn = Schemas["CourseIn"];
 export type CourseSummary = Schemas["CourseSummary"];
 export type CourseOut = Schemas["CourseOut"];
 export type ProgressOut = Schemas["ProgressOut"];
+export type RubricItemIn = Schemas["RubricItemIn"];
+export type RubricDraftOut = Schemas["RubricDraftOut"];
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 

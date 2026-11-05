@@ -12,6 +12,7 @@ from typing import Literal
 from google import genai
 from pydantic import BaseModel, ValidationError
 
+from app.drafting import RubricDraft
 from app.judges.base import Judgment, Questions
 
 logger = logging.getLogger(__name__)
@@ -171,3 +172,46 @@ class GeminiJudge:
             logger.warning("no valid Gemini judgment for %s", qid)
             results[qid] = Judgment(qid, q["type"], pred=None)
         return [results[qid] for qid in questions]
+
+
+DRAFT_SYSTEM = """당신은 대학 서술형 채점 기준 설계 보조자입니다. 채점자가 평소 쓰는 채점 기준 문장을, 판단 모델이 답안 하나에 대해 판단할 질문 목록으로 바꿉니다.
+
+규칙:
+- 채점 기준 문장에 있는 항목만 만든다. 없는 항목을 지어내지 않는다.
+- topic: 답안이 문제의 주제를 다루려고 시도하는지 묻는 명제. "`answer`가 `question`의 주제인 …을(를) 설명하려고 시도한다." 형태.
+- 언급 여부·포함 여부처럼 예/아니오로 답할 항목은 type "noul". instructions는 "`answer`가 …한다." 형태의 명제 하나.
+- 정확도·완성도처럼 수준으로 매기는 항목은 type "score". instructions는 "`answer`의 …은(는) 얼마나 …한가?" 형태. levels는 가장 낮은 수준(0)부터 높은 순서, 수준마다 구체적인 설명. level_points는 수준별 점수.
+- 오개념·오류처럼 해당하면 깎는 항목은 kind "deduction", type "noul". 오개념마다 항목 하나. instructions는 "`answer`가 …라고 주장한다." 형태.
+- 나머지는 kind "credit".
+- noul 항목의 criteria_true / criteria_false: 참·거짓으로 볼 기준을 한 문장씩. points: 배점(감점 항목은 깎는 점수, 양수).
+- score 항목은 criteria_true, criteria_false를 ""로, points를 0으로 둔다. noul 항목은 levels, level_points를 빈 배열로 둔다.
+- 배점이 문장에 없으면 noul은 1점, score는 수준 번호를 점수로 쓴다.
+- key: 영어 snake_case, 40자 이내, 항목마다 다르게. label: 채점자가 볼 짧은 한국어 이름(20자 이내). 감점 항목 label은 "오개념: …" 형태.
+- 문장은 한국어로 쓴다. 문제에 나온 전문 용어는 그대로 쓴다."""
+
+DRAFT_EXAMPLE = """## 예시
+문제: 신경망 학습에서 역전파(backpropagation)가 어떻게 동작하는지 설명하시오.
+채점 기준: 연쇄법칙 언급 2점, 설명 정확도 0~4점(완전하면 4), 오개념(역전파를 최적화 알고리즘으로 봄) 1점 감점
+결과(요약):
+- topic: "`answer`가 `question`의 주제인 역전파를 설명하려고 시도한다."
+- mentions_chain_rule / 연쇄법칙 언급 / noul / credit / "`answer`가 역전파는 연쇄법칙을 이용해 기울기를 계산한다고 설명한다." / points 2
+- accuracy / 설명 정확도 / score / credit / "`answer`의 역전파 동작 원리 설명은 얼마나 정확한가?" / levels 4개(전혀 설명 없음 → 정확하고 완전함) / level_points [0, 1, 2, 4]
+- misc_is_optimizer / 오개념: 역전파를 최적화 알고리즘으로 봄 / noul / deduction / "`answer`가 역전파 자체를 가중치를 갱신하는 최적화 알고리즘이라고 주장한다." / points 1"""
+
+
+class GeminiRubricDrafter:
+    """Plain-language rubric -> RubricDraft, one structured-output call."""
+
+    def __init__(self, client: genai.Client | None = None, model: str = DEFAULT_MODEL):
+        self.client = client or genai.Client()
+        self.model = model
+
+    def draft(self, problem: str, rubric_text: str) -> RubricDraft:
+        interaction = self.client.interactions.create(
+            model=self.model,
+            system_instruction=DRAFT_SYSTEM,
+            input=f"{DRAFT_EXAMPLE}\n\n## 문제\n{problem}\n\n## 채점 기준\n{rubric_text}",
+            response_format={"type": "text", "mime_type": "application/json", "schema": RubricDraft.model_json_schema()},
+            store=False,
+        )
+        return RubricDraft.model_validate_json(interaction.output_text)
