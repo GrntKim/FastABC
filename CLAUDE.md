@@ -211,7 +211,7 @@ class GeminiJudge: ...  # 에스컬레이션 + "LLM 단독" 베이스라인. Jev
 │   │   ├── schemas.py    # API 요청·응답 Pydantic 스키마 (채점 기준 검증 포함)
 │   │   ├── redact.py     # 외부 API 전송 전 식별 정보 제거
 │   │   ├── grading.py    # 채점 실행: Jev 동기 + Gemini 에스컬레이션 백그라운드
-│   │   ├── routers/      # assignments.py, submissions.py, grading.py
+│   │   ├── routers/      # assignments.py, submissions.py, grading.py, review.py
 │   │   └── judges/       # base.py, jev.py, gemini.py, routing.py
 │   ├── alembic/          # 마이그레이션 (alembic.ini는 backend/)
 │   ├── tests/            # pytest. 별도 DB fastabc_test 사용, 테스트마다 롤백

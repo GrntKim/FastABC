@@ -1,7 +1,7 @@
 """API request and response schemas."""
 
 from datetime import datetime
-from typing import Any, Self
+from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -105,3 +105,57 @@ class GradingStatus(BaseModel):
     pending: int  # waiting for the LLM re-judgment
     done: bool
     routes: dict[str, int]  # route -> cell count
+
+
+class JudgeView(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    model: str
+    pred: Any
+    conf: float | None
+    evidence: list[str]
+    reasoning: str | None
+
+
+class CellOut(BaseModel):
+    """One submission x rubric item, as shown in the review UI."""
+
+    grade_id: int
+    submission_id: int
+    label: str
+    answer: str  # clean_text
+    rubric_item_id: int
+    item_key: str
+    route: str
+    recommended_pred: Any
+    recommended_points: float | None
+    final_points: float | None
+    decision: str | None
+    decided_at: datetime | None
+    jev: JudgeView | None
+    gemini: JudgeView | None  # also shown for the human route, as reference only
+
+
+class GradeDecisionIn(BaseModel):
+    action: Literal["accept", "set", "clear"]
+    points: float | None = None  # required for "set"
+
+    @model_validator(mode="after")
+    def check_points(self) -> Self:
+        if (self.action == "set") != (self.points is not None):
+            raise ValueError("points is required for 'set' and only for 'set'")
+        return self
+
+
+class BulkAcceptOut(BaseModel):
+    accepted: int
+
+
+class SubmissionResult(BaseModel):
+    submission_id: int
+    label: str
+    student_ref: str
+    decided: int
+    cells: int
+    total: float | None  # None until every cell is decided
+    max_points: float

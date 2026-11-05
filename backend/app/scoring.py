@@ -35,3 +35,15 @@ def max_total(items: list[RubricItem]) -> float:
         else:
             total_max += max((item.points_map or {}).values(), default=0.0)
     return total_max
+
+
+def point_range(item: RubricItem) -> tuple[float, float]:
+    """Points a grader may give for one cell."""
+    if item.kind == ItemKind.GATE:
+        return 0.0, 0.0
+    if item.kind == ItemKind.DEDUCTION:
+        return -(item.points or 0.0), 0.0
+    if item.type == ItemType.NOUL:
+        return 0.0, item.points or 0.0
+    values = (item.points_map or {}).values()
+    return min(values, default=0.0), max(values, default=0.0)
