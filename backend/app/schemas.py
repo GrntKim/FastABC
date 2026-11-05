@@ -127,6 +127,7 @@ class CellOut(BaseModel):
     rubric_item_id: int
     item_key: str
     route: str
+    sampled: bool  # auto cell picked for a manual look: excluded from bulk accept
     recommended_pred: Any
     recommended_points: float | None
     final_points: float | None

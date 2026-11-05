@@ -5,6 +5,7 @@ the rest stay `pending` until the secondary judge has answered.
 """
 
 import logging
+import random
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
@@ -20,6 +21,9 @@ from app.models import Assignment, ExtractionStatus, Grade, GradeRoute, JudgeSou
 from app.scoring import item_points
 
 logger = logging.getLogger(__name__)
+
+# Share of auto cells flagged for a manual look, so graders keep checking the confident ones too
+SAMPLE_RATE = 0.1
 
 
 @dataclass
@@ -79,6 +83,7 @@ def run_primary(db: Session, assignment: Assignment, judge: Judge) -> int:
     items = {item.key: item for item in assignment.items}
     questions = questions_for(assignment.items)
     pending = 0
+    rng = random.Random(assignment.id)  # same sample on re-grade
     for submission in assignment.submissions:
         if submission.extraction_status == ExtractionStatus.FAILED:
             continue
@@ -92,7 +97,12 @@ def run_primary(db: Session, assignment: Assignment, judge: Judge) -> int:
                 grade = Grade(route=GradeRoute.PENDING)
                 pending += 1
             else:
-                grade = Grade(route=GradeRoute.AUTO, recommended_pred=j.pred, recommended_points=item_points(item, j.pred))
+                grade = Grade(
+                    route=GradeRoute.AUTO,
+                    sampled=rng.random() < SAMPLE_RATE,
+                    recommended_pred=j.pred,
+                    recommended_points=item_points(item, j.pred),
+                )
             grade.submission_id, grade.rubric_item_id = submission.id, item.id
             db.add(grade)
     db.commit()

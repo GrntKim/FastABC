@@ -115,3 +115,14 @@ def test_unknown_assignment(client):
     for path in ("cells", "results", "export.csv"):
         assert client.get(f"/assignments/999999/{path}").status_code == 404
     assert client.post("/assignments/999999/accept-confident").status_code == 404
+
+
+def test_sampled_cells_excluded_from_bulk_accept(client, grading, monkeypatch):
+    monkeypatch.setattr("app.grading.SAMPLE_RATE", 1.0)
+    aid = grading(FakePrimary(), FakeSecondary(), ["a"])
+    client.post(f"/assignments/{aid}/grade")
+    cells = client.get(f"/assignments/{aid}/cells").json()
+    assert all(c["sampled"] for c in cells if c["route"] == "auto")
+    assert client.post(f"/assignments/{aid}/accept-confident").json() == {"accepted": 0}
+    r = client.patch(f"/grades/{cells[1]['grade_id']}", json={"action": "accept"})
+    assert r.json()["decision"] == "accepted"  # still accepted one by one

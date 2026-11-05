@@ -46,3 +46,9 @@ def client(db):
     fastapi_app.dependency_overrides[get_db] = lambda: db
     yield TestClient(fastapi_app)
     fastapi_app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def no_sampling(monkeypatch):
+    """Random audit sampling off by default so counts are deterministic; tests opt in."""
+    monkeypatch.setattr("app.grading.SAMPLE_RATE", 0.0)

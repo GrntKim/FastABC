@@ -8,7 +8,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import DateTime, Float, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, Float, ForeignKey, String, Text, UniqueConstraint, false, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -136,6 +136,7 @@ class Grade(Base):
     submission_id: Mapped[int] = mapped_column(ForeignKey("submissions.id", ondelete="CASCADE"))
     rubric_item_id: Mapped[int] = mapped_column(ForeignKey("rubric_items.id", ondelete="CASCADE"))
     route: Mapped[str] = mapped_column(String(16))  # GradeRoute
+    sampled: Mapped[bool] = mapped_column(default=False, server_default=false())  # random audit of an auto cell
     recommended_pred: Mapped[Any] = mapped_column(JSONB, nullable=True)
     recommended_points: Mapped[float | None] = mapped_column(Float)
     final_points: Mapped[float | None] = mapped_column(Float)
