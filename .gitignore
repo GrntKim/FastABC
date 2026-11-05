@@ -72,3 +72,4 @@ Thumbs.db
 *.swo
 # local-only agent instructions
 CLAUDE.md
+CLAUDE_LEGACY.md
