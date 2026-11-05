@@ -11,6 +11,7 @@ from app.models import ItemKind, ItemType
 
 class RubricItemIn(BaseModel):
     key: str = Field(pattern=r"^[a-z][a-z0-9_]{0,99}$")  # Jev question id
+    label: str | None = Field(default=None, max_length=100)  # display name for graders
     type: ItemType
     instructions: str = Field(min_length=1)
     criteria: Any = None  # noul {"true", "false"} (optional) / score [level descriptions] / choice {name: description}

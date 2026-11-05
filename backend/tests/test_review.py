@@ -126,3 +126,11 @@ def test_sampled_cells_excluded_from_bulk_accept(client, grading, monkeypatch):
     assert client.post(f"/assignments/{aid}/accept-confident").json() == {"accepted": 0}
     r = client.patch(f"/grades/{cells[1]['grade_id']}", json={"action": "accept"})
     assert r.json()["decision"] == "accepted"  # still accepted one by one
+
+
+def test_accept_confident_for_one_submission(client, graded):
+    aid, cells = graded["aid"], graded["cells"]
+    sid = cells["b", "accuracy"]["submission_id"]
+    assert client.post(f"/assignments/{aid}/accept-confident", params={"submission_id": sid}).json() == {"accepted": 5}
+    after = client.get(f"/assignments/{aid}/cells", params={"submission_id": cells["a", "accuracy"]["submission_id"]}).json()
+    assert all(c["decision"] is None for c in after)  # other submission untouched

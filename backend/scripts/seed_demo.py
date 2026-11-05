@@ -18,10 +18,21 @@ from app.main import app
 FIXTURE = Path(__file__).resolve().parents[2] / "data" / "backprop_v1.json"
 
 
+LABELS = {
+    "is_on_topic": "주제 관련성",
+    "mentions_chain_rule": "연쇄법칙 언급",
+    "mentions_weight_update": "가중치 갱신 언급",
+    "accuracy": "설명 정확도",
+    "misc_is_optimizer": "오개념: 역전파를 최적화 알고리즘으로 봄",
+    "misc_error_copied": "오개념: 오차를 그대로 모든 층에 전달",
+    "misc_reverse_inference": "오개념: 신경망을 거꾸로 실행",
+}
+
+
 def rubric(questions: dict) -> list[dict]:
     items = []
     for key, q in questions.items():
-        item = {"key": key, **q}
+        item = {"key": key, "label": LABELS.get(key), **q}
         if key == "is_on_topic":
             item["kind"] = "gate"
         elif key.startswith("misc_"):

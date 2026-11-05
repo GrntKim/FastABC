@@ -130,8 +130,16 @@ def decide(grade_id: int, body: GradeDecisionIn, db: Session = Depends(get_db)) 
 
 
 @router.post("/assignments/{assignment_id}/accept-confident")
-def accept_confident(assignment_id: int, item_id: int | None = None, db: Session = Depends(get_db)) -> BulkAcceptOut:
-    """Accept every undecided auto/skip cell (optionally one rubric item). Skips llm/human and sampled cells."""
+def accept_confident(
+    assignment_id: int,
+    item_id: int | None = None,
+    submission_id: int | None = None,
+    db: Session = Depends(get_db),
+) -> BulkAcceptOut:
+    """Accept every undecided auto/skip cell, optionally for one rubric item or one submission.
+
+    Skips llm/human and sampled cells.
+    """
     _get_assignment(db, assignment_id)
     query = _grades_query(assignment_id).where(
         Grade.route.in_(CONFIDENT_ROUTES),
@@ -141,6 +149,8 @@ def accept_confident(assignment_id: int, item_id: int | None = None, db: Session
     )
     if item_id is not None:
         query = query.where(Grade.rubric_item_id == item_id)
+    if submission_id is not None:
+        query = query.where(Grade.submission_id == submission_id)
     now = datetime.now(UTC)
     grades = [g for g, _, _ in db.execute(query).all()]
     for g in grades:

@@ -34,6 +34,7 @@ def assignment(client) -> dict:
 
 def test_create(assignment):
     assert assignment["judge_model"] == "jev-1.13.0"
+    assert assignment["items"][0]["label"] is None  # optional
     assert assignment["max_points"] == 8.0  # 2 + 2 + 4
     assert assignment["submission_count"] == 0
     assert [i["position"] for i in assignment["items"]] == list(range(7))
@@ -103,3 +104,10 @@ def test_cors_preflight(client):
     assert client.options("/assignments", headers=headers).headers["access-control-allow-origin"] == "http://localhost:3000"
     headers["Origin"] = "http://evil.example"
     assert "access-control-allow-origin" not in client.options("/assignments", headers=headers).headers
+
+
+def test_label(client):
+    body = make_body()
+    body["items"][1]["label"] = "연쇄법칙 언급"
+    item = client.post("/assignments", json=body).json()["items"][1]
+    assert (item["key"], item["label"]) == ("mentions_chain_rule", "연쇄법칙 언급")
