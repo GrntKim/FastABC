@@ -1,0 +1,13 @@
+{
+  "name": "fastabc",
+  "private": true,
+  "scripts": {
+    "dev": "docker compose up -d --wait db && concurrently -k -n api,web -c blue,green \"pnpm:dev:api\" \"pnpm:dev:web\"",
+    "dev:api": "cd backend && uv run fastapi dev app/main.py --port 8000",
+    "dev:web": "pnpm --dir frontend dev"
+  },
+  "packageManager": "pnpm@12.9.1",
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
+}
