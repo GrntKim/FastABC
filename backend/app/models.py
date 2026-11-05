@@ -62,9 +62,11 @@ class Assignment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     items: Mapped[list["RubricItem"]] = relationship(
-        back_populates="assignment", cascade="all, delete-orphan", order_by="RubricItem.position"
+        back_populates="assignment", cascade="all, delete-orphan", passive_deletes=True, order_by="RubricItem.position"
     )
-    submissions: Mapped[list["Submission"]] = relationship(back_populates="assignment", cascade="all, delete-orphan")
+    submissions: Mapped[list["Submission"]] = relationship(
+        back_populates="assignment", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class RubricItem(Base):
@@ -100,8 +102,8 @@ class Submission(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     assignment: Mapped[Assignment] = relationship(back_populates="submissions")
-    judgments: Mapped[list["JudgmentRecord"]] = relationship(cascade="all, delete-orphan")
-    grades: Mapped[list["Grade"]] = relationship(cascade="all, delete-orphan")
+    judgments: Mapped[list["JudgmentRecord"]] = relationship(cascade="all, delete-orphan", passive_deletes=True)
+    grades: Mapped[list["Grade"]] = relationship(cascade="all, delete-orphan", passive_deletes=True)
 
 
 class JudgmentRecord(Base):
