@@ -198,8 +198,10 @@ def build_cells(questions: list[dict], run_dir: Path) -> tuple[list[dict], list[
                 "escalated": len(rec["escalation"]["judgments"]) > 0,
             })
             gate = by["primary"].get(GATE)
+            off_topic = GATE in items and parse_label(row.get(GATE), items[GATE]) is False
             for key, item in items.items():
-                label = parse_label(row.get(key), item)
+                # the grader judged the answer off topic: every other item scores 0 anyway, so only the gate counts
+                label = None if off_topic and key != GATE else parse_label(row.get(key), item)
                 p = by["primary"].get(key, {})
                 cells.append({
                     "question": q["id"],
@@ -254,14 +256,16 @@ def metrics(cells: list[dict]) -> dict:
     for c, r, pred in routed:
         by_route.setdefault(r, []).append((pred, c["label"]))
     n = len(labeled)
+    covered_correct = sum(p == lab for p, lab in covered)
     return {
         "cells": n,
+        "hybrid_final_acc": (covered_correct + len(by_route.get("human", []))) / n if n else None,
         "llm_only_acc": _acc([(c["llm_pred"], c["label"]) for c in labeled]),
         "primary_only_acc": _acc([(c["skip_pred"] if c["skipped"] else c["primary_pred"], c["label"]) for c in labeled]),
         "hybrid_coverage": len(covered) / n if n else None,
         "hybrid_acc_covered": _acc(covered),
         "hybrid_human_cells": len(by_route.get("human", [])),
-        "routes": {r: {"cells": len(v), "acc": _acc(v)} for r, v in sorted(by_route.items())},
+        "routes": {r: {"cells": len(v), "acc": None if r == "human" else _acc(v)} for r, v in sorted(by_route.items())},
     }
 
 
@@ -334,14 +338,17 @@ def analyze(args) -> None:
         "",
         "## Accuracy",
         "",
-        "| | LLM only | decision model only | hybrid coverage | hybrid acc (covered) | cells left to grader |",
-        "|---|---|---|---|---|---|",
+        "| | LLM only | decision model only | hybrid coverage | hybrid acc (covered) | cells left to grader "
+        "| hybrid final (grader decides those) |",
+        "|---|---|---|---|---|---|---|",
     ]
     for name, m in [("all", overall), *per_q.items()]:
         lines.append(f"| {name} | {_fmt(m['llm_only_acc'], True)} | {_fmt(m['primary_only_acc'], True)} | "
                      f"{_fmt(m['hybrid_coverage'], True)} | {_fmt(m['hybrid_acc_covered'], True)} | "
-                     f"{m['hybrid_human_cells']} |")
-    lines += ["", "Hybrid by route:", "", "| route | cells | acc |", "|---|---|---|"]
+                     f"{m['hybrid_human_cells']} | {_fmt(m['hybrid_final_acc'], True)} |")
+    lines += ["", "Labels of non-gate items are ignored for answers the grader judged off topic.",
+              "", "Hybrid by route (human: no recommendation, the grader decides):", "",
+              "| route | cells | acc |", "|---|---|---|"]
     lines += [f"| {r} | {v['cells']} | {_fmt(v['acc'], True)} |" for r, v in overall["routes"].items()]
     lines += ["", "## Cost (USD, whole set)", "", "| | total | per answer |", "|---|---|---|"]
     lines += [f"| {k} | {v:.4f} | {v / len(answers):.5f} |" for k, v in cost.items()]
