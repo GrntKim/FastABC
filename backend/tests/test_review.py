@@ -3,6 +3,8 @@ import io
 
 import pytest
 
+from app.grading import Judges, get_judges
+from app.main import app as fastapi_app
 from app.models import Grade
 from tests.test_grading import FakePrimary, FakeSecondary, grading  # noqa: F401  (fixture)
 
@@ -134,3 +136,41 @@ def test_accept_confident_for_one_submission(client, graded):
     assert client.post(f"/assignments/{aid}/accept-confident", params={"submission_id": sid}).json() == {"accepted": 5}
     after = client.get(f"/assignments/{aid}/cells", params={"submission_id": cells["a", "accuracy"]["submission_id"]}).json()
     assert all(c["decision"] is None for c in after)  # other submission untouched
+
+
+def test_clear_decisions(client, graded):
+    aid, items, cells = graded["aid"], graded["items"], graded["cells"]
+    client.post(f"/assignments/{aid}/accept-confident")  # 12 cells: all but llm and human
+    client.patch(f"/grades/{cells['b', 'misc_is_optimizer']['grade_id']}", json={"action": "set", "points": -1})
+
+    r = client.post(f"/assignments/{aid}/clear-decisions", params={"item_id": items["accuracy"]})
+    assert r.json() == {"cleared": 2}
+    sid = cells["b", "accuracy"]["submission_id"]
+    assert client.post(f"/assignments/{aid}/clear-decisions", params={"submission_id": sid}).json() == {"cleared": 5}
+    assert client.post(f"/assignments/{aid}/clear-decisions").json() == {"cleared": 6}  # rest of "a"
+    assert all(c["decision"] is None for c in client.get(f"/assignments/{aid}/cells").json())
+
+
+def test_find_evidence(client, db, graded):
+    aid, cells = graded["aid"], graded["cells"]
+    sid = cells["b", "accuracy"]["submission_id"]
+    secondary = FakeSecondary({"b": {"accuracy": 3}})
+    fastapi_app.dependency_overrides[get_judges] = lambda: Judges(FakePrimary(), secondary)
+
+    # 6 scored items; chain_rule and misc_is_optimizer already have escalation output
+    assert client.post(f"/submissions/{sid}/evidence").json() == {"requested": 4}
+    assert sorted(secondary.calls[0][1]) == ["accuracy", "mentions_weight_update", "misc_error_copied", "misc_reverse_inference"]
+    row = {c["item_key"]: c for c in client.get(f"/assignments/{aid}/cells", params={"submission_id": sid}).json()}
+    assert row["accuracy"]["evidence"]["evidence"] == ["근거"]
+    assert row["accuracy"]["route"] == "auto"  # display only
+    assert row["mentions_chain_rule"]["evidence"] is None and row["mentions_chain_rule"]["gemini"] is not None
+
+    assert client.post(f"/submissions/{sid}/evidence").json() == {"requested": 0}  # cached
+    assert len(secondary.calls) == 1
+    assert client.post("/submissions/999999/evidence").status_code == 404
+
+
+def test_find_evidence_failure(client, graded):
+    sid = graded["cells"]["a", "accuracy"]["submission_id"]
+    fastapi_app.dependency_overrides[get_judges] = lambda: Judges(FakePrimary(), FakeSecondary(error=RuntimeError("quota")))
+    assert client.post(f"/submissions/{sid}/evidence").status_code == 502

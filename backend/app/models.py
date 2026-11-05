@@ -35,7 +35,8 @@ class ExtractionStatus(StrEnum):
 
 class JudgeSource(StrEnum):
     JEV = "jev"
-    GEMINI = "gemini"
+    GEMINI = "gemini"  # escalation re-judgment: decides the llm/human route
+    EVIDENCE = "evidence"  # Gemini asked later only to locate evidence for display; never changes the route
 
 
 class GradeRoute(StrEnum):

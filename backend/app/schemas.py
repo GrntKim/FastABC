@@ -136,6 +136,7 @@ class CellOut(BaseModel):
     decided_at: datetime | None
     jev: JudgeView | None
     gemini: JudgeView | None  # also shown for the human route, as reference only
+    evidence: JudgeView | None  # on-demand evidence lookup for cells that were not escalated
 
 
 class GradeDecisionIn(BaseModel):
@@ -151,6 +152,14 @@ class GradeDecisionIn(BaseModel):
 
 class BulkAcceptOut(BaseModel):
     accepted: int
+
+
+class BulkClearOut(BaseModel):
+    cleared: int
+
+
+class EvidenceOut(BaseModel):
+    requested: int  # cells sent to the LLM in this call (0 when every cell already had evidence)
 
 
 class SubmissionResult(BaseModel):

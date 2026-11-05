@@ -48,7 +48,9 @@ def questions_for(items: list[RubricItem]) -> Questions:
     return questions
 
 
-def _record(submission: Submission, item: RubricItem, j: Judgment, source: JudgeSource, judge: Judge) -> JudgmentRecord:
+def judgment_record(
+    submission: Submission, item: RubricItem, j: Judgment, source: JudgeSource, judge: Judge
+) -> JudgmentRecord:
     latency = getattr(judge, "last_latency", None)
     return JudgmentRecord(
         submission_id=submission.id,
@@ -90,7 +92,7 @@ def run_primary(db: Session, assignment: Assignment, judge: Judge) -> int:
         judgments = judge.evaluate(assignment.problem, submission.clean_text, questions)
         for j in judgments:
             item = items[j.question_id]
-            db.add(_record(submission, item, j, JudgeSource.JEV, judge))
+            db.add(judgment_record(submission, item, j, JudgeSource.JEV, judge))
             if j.skipped:
                 grade = Grade(route=GradeRoute.SKIP, recommended_points=item_points(item, None, gate_passed=False))
             elif needs_escalation(j):
@@ -143,7 +145,7 @@ def escalate(session_factory: Callable[[], Session], assignment_id: int, judge: 
                 first = Judgment(item.key, item.type, p.pred, conf=p.conf, raw=p.raw, skipped=p.skipped)
                 (rec,) = route([first], second)
                 if (s := by_key.get(item.key)) is not None:
-                    db.add(_record(submission, item, s, JudgeSource.GEMINI, judge))
+                    db.add(judgment_record(submission, item, s, JudgeSource.GEMINI, judge))
                 if rec.route == Route.LLM:
                     grade.route = GradeRoute.LLM
                     grade.recommended_pred = rec.pred

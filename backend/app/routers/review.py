@@ -6,6 +6,7 @@ Recommendations are never copied into final_points unless the grader accepts the
 
 import csv
 import io
+import logging
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -13,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.grading import Judges, get_judges, judgment_record, questions_for
 from app.models import (
     Assignment,
     Decision,
@@ -24,8 +26,10 @@ from app.models import (
     RubricItem,
     Submission,
 )
-from app.schemas import BulkAcceptOut, CellOut, GradeDecisionIn, JudgeView, SubmissionResult
+from app.schemas import BulkAcceptOut, BulkClearOut, CellOut, EvidenceOut, GradeDecisionIn, JudgeView, SubmissionResult
 from app.scoring import max_total, point_range, total
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["review"])
 
@@ -90,6 +94,7 @@ def list_cells(
             decided_at=g.decided_at,
             jev=view(s, i, JudgeSource.JEV),
             gemini=view(s, i, JudgeSource.GEMINI),
+            evidence=view(s, i, JudgeSource.EVIDENCE),
         )
         for g, s, i in rows
     ]
@@ -157,6 +162,70 @@ def accept_confident(
         g.final_points, g.decision, g.decided_at = g.recommended_points, Decision.ACCEPTED, now
     db.commit()
     return BulkAcceptOut(accepted=len(grades))
+
+
+@router.post("/assignments/{assignment_id}/clear-decisions")
+def clear_decisions(
+    assignment_id: int,
+    item_id: int | None = None,
+    submission_id: int | None = None,
+    db: Session = Depends(get_db),
+) -> BulkClearOut:
+    """Undo every confirmed cell (accepted, modified, or manual), optionally for one rubric item or one submission."""
+    _get_assignment(db, assignment_id)
+    query = _grades_query(assignment_id).where(Grade.decision.is_not(None))
+    if item_id is not None:
+        query = query.where(Grade.rubric_item_id == item_id)
+    if submission_id is not None:
+        query = query.where(Grade.submission_id == submission_id)
+    grades = [g for g, _, _ in db.execute(query).all()]
+    for g in grades:
+        g.final_points, g.decision, g.decided_at = None, None, None
+    db.commit()
+    return BulkClearOut(cleared=len(grades))
+
+
+@router.post("/submissions/{submission_id}/evidence")
+def find_evidence(
+    submission_id: int,
+    db: Session = Depends(get_db),
+    judges: Judges = Depends(get_judges),
+) -> EvidenceOut:
+    """Ask the LLM where the answer supports each judgment, for cells that have no LLM output yet.
+
+    Display only: routes and recommendations stay as they are. One call per submission; later calls are no-ops.
+    """
+    submission = db.get(Submission, submission_id)
+    if submission is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "submission not found")
+    assignment = submission.assignment
+    with_llm = select(JudgmentRecord.rubric_item_id).where(
+        JudgmentRecord.submission_id == submission_id,
+        JudgmentRecord.source.in_([JudgeSource.GEMINI, JudgeSource.EVIDENCE]),
+    )
+    items = db.scalars(
+        select(RubricItem)
+        .join(Grade, Grade.rubric_item_id == RubricItem.id)
+        .where(
+            Grade.submission_id == submission_id,
+            Grade.route.in_([GradeRoute.AUTO, GradeRoute.LLM, GradeRoute.HUMAN]),
+            RubricItem.kind != ItemKind.GATE,
+            RubricItem.id.not_in(with_llm),
+        )
+    ).all()
+    if not items:
+        return EvidenceOut(requested=0)
+
+    try:
+        found = judges.secondary.evaluate(assignment.problem, submission.clean_text, questions_for(items))
+    except Exception as e:
+        logger.exception("evidence lookup failed for submission %s", submission_id)
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "evidence lookup failed") from e
+    by_key = {item.key: item for item in items}
+    for j in found:
+        db.add(judgment_record(submission, by_key[j.question_id], j, JudgeSource.EVIDENCE, judges.secondary))
+    db.commit()
+    return EvidenceOut(requested=len(items))
 
 
 def _results(db: Session, assignment: Assignment) -> list[SubmissionResult]:
