@@ -64,9 +64,12 @@ def parse_answers(data: dict) -> list[Judgment]:
 
 
 def apply_gate(judgments: list[Judgment], gate: str = GATE) -> list[Judgment]:
-    """Mark every non-gate judgment as skipped when the gate question is False."""
+    """Mark every non-gate judgment as skipped when the gate question is confidently False.
+
+    An unsure gate is escalated like any other question, so the rest are still judged.
+    """
     gate_j = next((j for j in judgments if j.question_id == gate), None)
-    if gate_j is None or gate_j.pred:
+    if gate_j is None or gate_j.pred or not is_auto(gate_j):
         return judgments
     for j in judgments:
         j.skipped = j.question_id != gate
@@ -87,7 +90,8 @@ class JevJudge:
     def __init__(self, client: httpx.Client | None = None, model: str = DEFAULT_MODEL):
         self.client = client or make_client()
         self.model = model
+        self.last_latency: float = 0.0
 
     def evaluate(self, problem: str, answer: str, questions: Questions) -> list[Judgment]:
-        data, _ = call_jev(self.client, {"question": problem, "answer": answer}, questions, self.model)
+        data, self.last_latency = call_jev(self.client, {"question": problem, "answer": answer}, questions, self.model)
         return apply_gate(parse_answers(data))

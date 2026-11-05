@@ -23,3 +23,8 @@ class Base(DeclarativeBase):
 def get_db() -> Iterator[Session]:
     with SessionLocal() as session:
         yield session
+
+
+def get_session_factory() -> sessionmaker[Session]:
+    """For work that outlives the request (background tasks). Overridden in tests."""
+    return SessionLocal

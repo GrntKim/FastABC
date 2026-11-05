@@ -98,3 +98,10 @@ class SubmissionOut(BaseModel):
     extraction_status: str
     clean_text: str
     created_at: datetime
+
+
+class GradingStatus(BaseModel):
+    total: int  # cells (submission x rubric item)
+    pending: int  # waiting for the LLM re-judgment
+    done: bool
+    routes: dict[str, int]  # route -> cell count

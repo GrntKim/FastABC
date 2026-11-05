@@ -62,7 +62,7 @@
         ↓
 Jev 병렬 판단 (답안 1건 = 요청 1회, 항목 전부 포함)
         ↓
- ├─ 게이트 False      → skip: 나머지 항목 판단 생략
+ ├─ 게이트 확신 False → skip: 나머지 항목 판단 생략
  ├─ 확신도 ≥ 임계값   → auto: Jev 판단을 추천
  ├─ 확신도 < 임계값   → Gemini 재판단 (에스컬레이션 항목만)
  │    ├─ 두 판단 일치 → llm: 추천 + Gemini 근거
@@ -101,7 +101,7 @@ Jev 병렬 판단 (답안 1건 = 요청 1회, 항목 전부 포함)
 
 **질문 설계 규칙**
 
-- 게이트 질문 `is_on_topic`(noul)을 항상 포함. False면 나머지 항목 skip
+- 게이트 질문 `is_on_topic`(noul)을 항상 포함. 확신 높은 False일 때만 나머지 항목 skip (애매한 게이트는 다른 질문처럼 에스컬레이션)
 - 오개념은 Choice 하나로 묶지 않고 오개념별 Noul 질문으로 분리
 
 채점 기준과 질문 형식 대응 예시:
@@ -210,7 +210,8 @@ class GeminiJudge: ...  # 에스컬레이션 + "LLM 단독" 베이스라인. Jev
 │   │   ├── scoring.py    # 점수 규칙 (gate / credit / deduction, 총점 0점 하한)
 │   │   ├── schemas.py    # API 요청·응답 Pydantic 스키마 (채점 기준 검증 포함)
 │   │   ├── redact.py     # 외부 API 전송 전 식별 정보 제거
-│   │   ├── routers/      # assignments.py, submissions.py
+│   │   ├── grading.py    # 채점 실행: Jev 동기 + Gemini 에스컬레이션 백그라운드
+│   │   ├── routers/      # assignments.py, submissions.py, grading.py
 │   │   └── judges/       # base.py, jev.py, gemini.py, routing.py
 │   ├── alembic/          # 마이그레이션 (alembic.ini는 backend/)
 │   ├── tests/            # pytest. 별도 DB fastabc_test 사용, 테스트마다 롤백
