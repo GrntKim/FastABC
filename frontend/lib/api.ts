@@ -24,7 +24,8 @@ export class ApiError extends Error {
 }
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const headers = init?.body instanceof FormData ? undefined : { "Content-Type": "application/json" };
+  // JSON bodies only: a Content-Type on GET would trigger a CORS preflight for every request
+  const headers = typeof init?.body === "string" ? { "Content-Type": "application/json" } : undefined;
   const res = await fetch(`${API_URL}${path}`, { ...init, headers: { ...headers, ...init?.headers } });
   if (!res.ok) {
     const body = await res.json().catch(() => null);
