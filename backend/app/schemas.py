@@ -86,3 +86,15 @@ class AssignmentSummary(BaseModel):
 class AssignmentOut(AssignmentSummary):
     problem: str
     items: list[RubricItemOut]
+
+
+class SubmissionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    label: str
+    student_ref: str
+    source_filename: str | None
+    extraction_status: str
+    clean_text: str
+    created_at: datetime

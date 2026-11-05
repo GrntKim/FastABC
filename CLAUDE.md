@@ -208,8 +208,12 @@ class GeminiJudge: ...  # 에스컬레이션 + "LLM 단독" 베이스라인. Jev
 │   │   ├── db.py         # engine, SessionLocal, Base, get_db
 │   │   ├── models.py     # assignments, rubric_items, submissions, judgments, grades
 │   │   ├── scoring.py    # 점수 규칙 (gate / credit / deduction, 총점 0점 하한)
+│   │   ├── schemas.py    # API 요청·응답 Pydantic 스키마 (채점 기준 검증 포함)
+│   │   ├── redact.py     # 외부 API 전송 전 식별 정보 제거
+│   │   ├── routers/      # assignments.py, submissions.py
 │   │   └── judges/       # base.py, jev.py, gemini.py, routing.py
 │   ├── alembic/          # 마이그레이션 (alembic.ini는 backend/)
+│   ├── tests/            # pytest. 별도 DB fastabc_test 사용, 테스트마다 롤백
 │   ├── notebooks/        # 01_jev_response_check, 02_gemini_escalation (outputs/는 gitignore)
 │   ├── pyproject.toml
 │   └── uv.lock
@@ -220,7 +224,6 @@ class GeminiJudge: ...  # 에스컬레이션 + "LLM 단독" 베이스라인. Jev
 
 ```
 backend/
-├── app/              # routers/ 등 추가 예정
 ├── scripts/          # 재현 가능한 최종 평가 (run_eval.py)
 └── ...
 data/raw/, data/private/   # 외부 자료·비공개 파일 (gitignore)
