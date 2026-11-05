@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +20,7 @@ import {
   SAMPLED_HINT,
 } from "@/lib/rubric";
 import { cn } from "@/lib/utils";
-import { useAcceptConfident, useDecide } from "@/lib/use-decide";
+import { useAcceptConfident, useClearDecisions, useDecide, useFindEvidence } from "@/lib/use-decide";
 
 /** One student at a time: the whole answer first, judgments beside it, points below. */
 export default function StudentView({ assignment }: { assignment: AssignmentOut }) {
@@ -81,6 +81,7 @@ export default function StudentView({ assignment }: { assignment: AssignmentOut 
 
       <div className="grid items-start gap-4 lg:grid-cols-[1fr_22rem]">
         <AnswerCard
+          assignmentId={assignment.id}
           submission={submission}
           items={assignment.items}
           byItem={byItem}
@@ -99,13 +100,18 @@ export default function StudentView({ assignment }: { assignment: AssignmentOut 
 
 type CellsByItem = Map<number, CellOut>;
 
+/** LLM output that can carry evidence: the escalation re-judgment, else the on-demand evidence lookup. */
+const llmView = (cell: CellOut | undefined) => cell?.gemini ?? cell?.evidence ?? null;
+
 function AnswerCard({
+  assignmentId,
   submission,
   items,
   byItem,
   focused,
   onFocus,
 }: {
+  assignmentId: number;
   submission: SubmissionOut;
   items: RubricItemOut[];
   byItem: CellsByItem;
@@ -114,16 +120,37 @@ function AnswerCard({
 }) {
   const gate = items.find((i) => i.kind === "gate");
   const offTopic = gate && byItem.get(gate.id)?.route === "auto" && byItem.get(gate.id)?.jev?.pred === false;
-  const groups = items
-    .filter((i) => i.kind !== "gate")
-    .map((i) => ({ id: i.id, quotes: byItem.get(i.id)?.gemini?.evidence ?? [] }));
+  const scored = items.filter((i) => i.kind !== "gate");
+  const groups = scored.map((i) => ({ id: i.id, quotes: llmView(byItem.get(i.id))?.evidence ?? [] }));
   const segments = annotate(submission.clean_text, groups);
+
+  // Evidence is fetched once per submission the first time a grader opens it (design option A)
+  const findEvidence = useFindEvidence(assignmentId);
+  const attempted = useRef(new Set<number>());
+  const missing = scored.some((i) => {
+    const cell = byItem.get(i.id);
+    return cell && ["auto", "llm", "human"].includes(cell.route) && !llmView(cell);
+  });
+  const { mutate } = findEvidence;
+  useEffect(() => {
+    if (!missing || !submission.clean_text || attempted.current.has(submission.id)) return;
+    attempted.current.add(submission.id);
+    mutate(submission.id);
+  }, [missing, submission.id, submission.clean_text, mutate]);
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center gap-2">
         <CardTitle className="font-mono text-lg">{submission.label}</CardTitle>
         {offTopic && <Badge variant="destructive">주제에서 벗어난 답안</Badge>}
+        <span className="ml-auto text-xs text-muted-foreground">
+          {findEvidence.isPending && "답안에서 근거 찾는 중…"}
+          {findEvidence.isError && (
+            <Button size="xs" variant="ghost" onClick={() => findEvidence.mutate(submission.id)}>
+              근거 찾기 실패: 다시 시도
+            </Button>
+          )}
+        </span>
       </CardHeader>
       <CardContent>
         {submission.clean_text ? (
@@ -172,6 +199,9 @@ function JudgmentNotes({
           if (!cell) return null;
           const color = itemColor(items, item.id);
           const judge = cell.gemini && cell.route !== "auto" ? cell.gemini : cell.jev;
+          const llm = llmView(cell);
+          // an on-demand lookup that disagrees with a confident Jev judgment: worth a second look
+          const disagrees = cell.route === "auto" && llm?.pred != null && llm.pred !== cell.jev?.pred;
           return (
             <button
               key={item.id}
@@ -201,9 +231,16 @@ function JudgmentNotes({
                 )}
               </div>
               {cell.route !== "skip" && (
-                <p className="text-muted-foreground">{cell.gemini?.reasoning ?? describePred(item, judge?.pred)}</p>
+                <p className="text-muted-foreground">
+                  {disagrees ? describePred(item, judge?.pred) : (llm?.reasoning ?? describePred(item, judge?.pred))}
+                </p>
               )}
               {cell.route === "human" && <p className="text-destructive text-xs">두 판단이 달라 직접 판단이 필요합니다.</p>}
+              {disagrees && (
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  참고: LLM은 &lsquo;{formatPred(item, llm.pred)}&rsquo;로 봤습니다. {llm.reasoning}
+                </p>
+              )}
             </button>
           );
         })}
@@ -224,6 +261,7 @@ function ScoreTable({
 }) {
   const decide = useDecide(assignmentId);
   const acceptConfident = useAcceptConfident(assignmentId);
+  const clearDecisions = useClearDecisions(assignmentId);
   const rows = items.map((item) => ({ item, cell: byItem.get(item.id) })).filter((r) => r.cell);
   const finals = rows.map((r) => r.cell!.final_points);
   const open = finals.filter((p) => p === null).length;
@@ -247,6 +285,17 @@ function ScoreTable({
           title="자동 판단 중 확신 높은 칸만 수용합니다. LLM 확인·직접 판단·샘플 검토 칸은 제외됩니다."
         >
           고확신 항목 일괄 수용
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={clearDecisions.isPending || open === rows.length}
+          onClick={() =>
+            confirm(`${submission.label}의 확정 ${rows.length - open}칸을 모두 취소할까요? 직접 입력한 점수도 지워집니다.`) &&
+            clearDecisions.mutate({ submission_id: submission.id })
+          }
+        >
+          일괄 취소
         </Button>
       </CardHeader>
       <CardContent>

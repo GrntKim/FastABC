@@ -37,3 +37,32 @@ export function useAcceptConfident(assignmentId: number) {
     onError: (e) => toast.error(e instanceof ApiError ? String(e.detail) : "일괄 수용에 실패했습니다"),
   });
 }
+
+/** Undo confirmed cells (any decision), optionally for one item or one submission. */
+export function useClearDecisions(assignmentId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (filter: { item_id?: number; submission_id?: number }) => {
+      const params = new URLSearchParams(Object.entries(filter).map(([k, v]) => [k, String(v)]));
+      return api<{ cleared: number }>(`/assignments/${assignmentId}/clear-decisions?${params}`, { method: "POST" });
+    },
+    onSuccess: ({ cleared }) => {
+      toast.success(`${cleared}칸의 확정을 취소했습니다`);
+      queryClient.invalidateQueries({ queryKey: ["cells", assignmentId] });
+      queryClient.invalidateQueries({ queryKey: ["results", assignmentId] });
+    },
+    onError: (e) => toast.error(e instanceof ApiError ? String(e.detail) : "일괄 취소에 실패했습니다"),
+  });
+}
+
+/** Ask the LLM to locate evidence for one submission's cells that have none yet (display only). */
+export function useFindEvidence(assignmentId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (submissionId: number) =>
+      api<{ requested: number }>(`/submissions/${submissionId}/evidence`, { method: "POST" }),
+    onSuccess: ({ requested }) => {
+      if (requested > 0) queryClient.invalidateQueries({ queryKey: ["cells", assignmentId] });
+    },
+  });
+}

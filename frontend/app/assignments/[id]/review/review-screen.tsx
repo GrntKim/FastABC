@@ -14,7 +14,7 @@ import {
   type RubricItemOut,
 } from "@/lib/api";
 import { itemName, KIND_HINT, KIND_LABEL } from "@/lib/rubric";
-import { useAcceptConfident } from "@/lib/use-decide";
+import { useAcceptConfident, useClearDecisions } from "@/lib/use-decide";
 import CellCard from "./cell-card";
 import ResultsPanel from "./results-panel";
 
@@ -129,6 +129,7 @@ function ItemPanel({
   onFilter: (f: Filter) => void;
 }) {
   const acceptConfident = useAcceptConfident(assignmentId);
+  const clearDecisions = useClearDecisions(assignmentId);
 
   return (
     <div className="flex flex-col gap-3 pt-2">
@@ -156,6 +157,17 @@ function ItemPanel({
           title="자동 판단 중 확신 높은 칸만 수용합니다. LLM 확인·직접 판단·샘플 검토 칸은 제외됩니다."
         >
           고확신 일괄 수용
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={clearDecisions.isPending}
+          onClick={() =>
+            confirm(`'${itemName(item)}' 항목의 확정을 모든 답안에서 취소할까요? 직접 입력한 점수도 지워집니다.`) &&
+            clearDecisions.mutate({ item_id: item.id })
+          }
+        >
+          일괄 취소
         </Button>
       </div>
 

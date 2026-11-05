@@ -250,6 +250,8 @@ data/raw/, data/private/   # 외부 자료·비공개 파일 (gitignore)
 - 재채점은 기존 `judgments`·`grades`를 지우고 새로 생성. 확정된 칸이 있으면 막음
 - `auto` 칸의 약 10%를 무작위 샘플 검토 대상(`grades.sampled`)으로 표시. 일괄 수용에서 제외 (자동화 편향 대응)
 - 채점 항목의 `label`은 채점자에게 보이는 이름, `key`는 Jev 질문 id. 판단 모델은 `instructions`·`criteria`만 읽음
+- 근거 표시: 에스컬레이션되지 않은 칸은 Jev만 판단해 근거 문장이 없음. 채점자가 학생 화면을 처음 열 때 `POST /submissions/{id}/evidence`로 Gemini에 근거만 요청 (답안당 1회, `judgments.source = "evidence"`로 저장). 표시 전용이라 경로·추천은 바꾸지 않음. Jev와 판단이 다르면 참고 문구만 표시
+- 일괄 수용(`accept-confident`)·일괄 취소(`clear-decisions`)는 항목별 또는 학생별로 범위 지정. 일괄 취소는 직접 입력한 점수도 지움 (UI에서 확인 창)
 - PDF 추출 시 제어 문자는 공백으로, 줄바꿈은 추측해서 잇지 않음. 근거 인용 검증은 공백을 모두 무시하고 비교
 
 **보안**

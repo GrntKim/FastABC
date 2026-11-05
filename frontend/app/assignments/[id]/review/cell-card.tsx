@@ -28,7 +28,7 @@ export default function CellCard({
   const mutation = useDecide(assignmentId);
   const decide = { isPending: mutation.isPending, mutate: (body: GradeDecisionIn) => mutation.mutate({ gradeId: cell.grade_id, body }) };
 
-  const evidence = cell.gemini?.evidence ?? [];
+  const evidence = (cell.gemini ?? cell.evidence)?.evidence ?? [];
   const decided = cell.final_points !== null;
   const pending = cell.route === "pending";
 

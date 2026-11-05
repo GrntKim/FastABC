@@ -194,6 +194,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/assignments/{assignment_id}/clear-decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Clear Decisions
+         * @description Undo every confirmed cell (accepted, modified, or manual), optionally for one rubric item or one submission.
+         */
+        post: operations["clear_decisions_assignments__assignment_id__clear_decisions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/submissions/{submission_id}/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Find Evidence
+         * @description Ask the LLM where the answer supports each judgment, for cells that have no LLM output yet.
+         *
+         *     Display only: routes and recommendations stay as they are. One call per submission; later calls are no-ops.
+         */
+        post: operations["find_evidence_submissions__submission_id__evidence_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/assignments/{assignment_id}/results": {
         parameters: {
             query?: never;
@@ -311,6 +353,11 @@ export interface components {
             /** Accepted */
             accepted: number;
         };
+        /** BulkClearOut */
+        BulkClearOut: {
+            /** Cleared */
+            cleared: number;
+        };
         /**
          * CellOut
          * @description One submission x rubric item, as shown in the review UI.
@@ -344,6 +391,12 @@ export interface components {
             decided_at: string | null;
             jev: components["schemas"]["JudgeView"] | null;
             gemini: components["schemas"]["JudgeView"] | null;
+            evidence: components["schemas"]["JudgeView"] | null;
+        };
+        /** EvidenceOut */
+        EvidenceOut: {
+            /** Requested */
+            requested: number;
         };
         /** GradeDecisionIn */
         GradeDecisionIn: {
@@ -892,6 +945,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BulkAcceptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_decisions_assignments__assignment_id__clear_decisions_post: {
+        parameters: {
+            query?: {
+                item_id?: number | null;
+                submission_id?: number | null;
+            };
+            header?: never;
+            path: {
+                assignment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkClearOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    find_evidence_submissions__submission_id__evidence_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                submission_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvidenceOut"];
                 };
             };
             /** @description Validation Error */
