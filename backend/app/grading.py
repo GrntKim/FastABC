@@ -32,11 +32,17 @@ SAMPLE_RATE = 0.1
 class Judges:
     primary: Judge
     secondary: Judge
+    # display-only evidence lookup: locating quotes is easier than judging, so a lighter setting is enough
+    evidence: Judge | None = None
+
+    @property
+    def evidence_judge(self) -> Judge:
+        return self.evidence or self.secondary
 
 
 def make_judges() -> Judges:
     """The only place that picks concrete judges. Fresh instances (they keep per-call usage and latency)."""
-    return Judges(JevJudge(model=PRIMARY_MODEL), GeminiJudge())
+    return Judges(JevJudge(model=PRIMARY_MODEL), GeminiJudge(), evidence=GeminiJudge(thinking_level="low"))
 
 
 @lru_cache

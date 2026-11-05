@@ -108,7 +108,7 @@ def run_answer(question: dict, row: dict) -> dict:
         "primary": primary,
         "escalation": _call(judges.secondary, problem, answer, {k: questions[k] for k in escalated}),
         "llm_only": _call(judges.secondary, problem, answer, questions),
-        "evidence": _call(judges.secondary, problem, answer, {k: questions[k] for k in confident}),
+        "evidence": _call(judges.evidence_judge, problem, answer, {k: questions[k] for k in confident}),
     }
 
 
@@ -129,6 +129,7 @@ def run(args) -> None:
         "git_commit": commit,
         "primary_model": PRIMARY_MODEL,
         "secondary_model": getattr(judges.secondary, "model", "?"),
+        "evidence_thinking_level": getattr(judges.evidence_judge, "thinking_level", None),
         "questions": [q["id"] for q in questions],
         "price_per_1m_tokens": PRICE,
     }
@@ -217,6 +218,7 @@ def build_cells(questions: list[dict], run_dir: Path) -> tuple[list[dict], list[
                     "escalation_pred": by["escalation"].get(key, {}).get("pred"),
                     "llm_pred": by["llm_only"].get(key, {}).get("pred"),
                     "evidence_pred": by["evidence"].get(key, {}).get("pred"),
+                    "evidence_quotes": len(by["evidence"].get(key, {}).get("evidence") or []),
                     "skip_pred": _skip_pred(item),
                 })
     return cells, answers
@@ -314,6 +316,9 @@ def analyze(args) -> None:
         return statistics.mean(a[key] for a in answers)
 
     hybrid_latency = [a["latency_primary"] + a["latency_escalation"] for a in answers]
+    ev = [c for c in cells if c["evidence_pred"] is not None]
+    quoted = sum(c["evidence_quotes"] > 0 for c in ev) / len(ev) if ev else None
+    ev_disagree = sum(c["evidence_pred"] != c["primary_pred"] for c in ev) / len(ev) if ev else None
     cost = {
         "(a) judgment: hybrid": sum(a["cost_primary"] + a["cost_escalation"] for a in answers),
         "(a) judgment: LLM only": sum(a["cost_llm_only"] for a in answers),
@@ -348,6 +353,10 @@ def analyze(args) -> None:
             ("LLM only", [a["latency_llm_only"] for a in answers]),
             ("evidence lookup (on open)", [a["latency_evidence"] for a in answers]),
         ]],
+        "", "## Evidence lookup (display only)", "",
+        f"{len(ev)} confident cells looked up; {_fmt(quoted, True)} got at least one verified quote; "
+        f"{_fmt(ev_disagree, True)} where the lookup's judgment differed from the decision model "
+        f"(shown to graders as a note)",
         "", f"Answers with an escalation: {sum(a['escalated'] for a in answers)}/{len(answers)}; "
         f"mean decision-model cost {mean('cost_primary'):.6f} USD/answer",
         "", "## Threshold sweep (one threshold for every question type; escalations approximated by LLM-only judgments)",

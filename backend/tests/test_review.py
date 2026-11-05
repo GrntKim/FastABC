@@ -174,3 +174,11 @@ def test_find_evidence_failure(client, graded):
     sid = graded["cells"]["a", "accuracy"]["submission_id"]
     fastapi_app.dependency_overrides[get_judges] = lambda: Judges(FakePrimary(), FakeSecondary(error=RuntimeError("quota")))
     assert client.post(f"/submissions/{sid}/evidence").status_code == 502
+
+
+def test_find_evidence_uses_evidence_judge(client, graded):
+    sid = graded["cells"]["a", "accuracy"]["submission_id"]
+    secondary, evidence = FakeSecondary(), FakeSecondary()
+    fastapi_app.dependency_overrides[get_judges] = lambda: Judges(FakePrimary(), secondary, evidence=evidence)
+    client.post(f"/submissions/{sid}/evidence")
+    assert (len(secondary.calls), len(evidence.calls)) == (0, 1)

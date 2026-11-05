@@ -217,13 +217,13 @@ def find_evidence(
         return EvidenceOut(requested=0)
 
     try:
-        found = judges.secondary.evaluate(assignment.problem, submission.clean_text, questions_for(items))
+        found = judges.evidence_judge.evaluate(assignment.problem, submission.clean_text, questions_for(items))
     except Exception as e:
         logger.exception("evidence lookup failed for submission %s", submission_id)
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "evidence lookup failed") from e
     by_key = {item.key: item for item in items}
     for j in found:
-        db.add(judgment_record(submission, by_key[j.question_id], j, JudgeSource.EVIDENCE, judges.secondary))
+        db.add(judgment_record(submission, by_key[j.question_id], j, JudgeSource.EVIDENCE, judges.evidence_judge))
     db.commit()
     return EvidenceOut(requested=len(items))
 
