@@ -28,6 +28,12 @@ def test_upload(client, assignment_id):
     assert client.get(f"/assignments/{assignment_id}").json()["submission_count"] == 2
 
 
+def test_korean_headers(client, assignment_id):
+    r = upload(client, assignment_id, CSV.replace("student_id,name,answer", "학번,이름,답안"))
+    assert r.status_code == 201
+    assert r.json()[0]["clean_text"].startswith("[식별 정보]입니다.")  # 이름 still used for redaction
+
+
 def test_labels_continue_and_list(client, assignment_id):
     upload(client, assignment_id, CSV)
     r = upload(client, assignment_id, "student_id,answer\n20231236,답\n")

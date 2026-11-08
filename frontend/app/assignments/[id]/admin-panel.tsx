@@ -220,7 +220,11 @@ function SubmissionsCard({ assignmentId }: { assignmentId: number }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         <p className="text-sm text-muted-foreground">
-          열: <code>student_id</code>, <code>answer</code>, 선택 <code>name</code> (식별 정보 제거에만 쓰고 저장하지 않음). UTF-8 또는 CP949.
+          열: 학번, 답안, 선택 이름 (영문 <code>student_id</code>, <code>answer</code>, <code>name</code>도 됨). 이름은 식별
+          정보 제거에만 쓰고 저장하지 않습니다. UTF-8 또는 CP949.{" "}
+          <a href="/answers_template.csv" download className="underline underline-offset-2">
+            예시 CSV
+          </a>
         </p>
         {submissions.data?.length ? (
           <Table>
