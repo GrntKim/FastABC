@@ -1,0 +1,112 @@
+{
+  "id": "q2_sql_injection",
+  "title": "SQL 인젝션",
+  "problem": "SQL 인젝션의 원리를 예를 들어 설명하고 방어 방법을 제시하시오.",
+  "rubric_text": "사용자 입력이 쿼리 구문으로 해석되는 원리 설명 2점, 공격 예시 제시 1점, 매개변수화 쿼리(prepared statement) 제시 2점, 추가 방어(입력 검증·최소 권한) 1점, 설명의 정확성 0~3점. 이스케이프만으로 완전히 막을 수 있다고 주장하면 1점 감점",
+  "items": [
+    {
+      "key": "is_on_topic",
+      "label": "주제 관련성",
+      "type": "noul",
+      "kind": "gate",
+      "instructions": "`answer`가 `question`의 주제인 SQL 인젝션의 원리와 방어 방법을 설명하려고 시도한다.",
+      "criteria": {
+        "true": "`answer`가 SQL 인젝션의 원리나 방어 방법에 대해 설명하고 있다.",
+        "false": "`answer`가 SQL 인젝션과 관련 없는 내용을 다루거나 답안 작성을 시도하지 않았다."
+      },
+      "points": null,
+      "points_map": null
+    },
+    {
+      "key": "principle_query_interpretation",
+      "label": "원리 설명",
+      "type": "noul",
+      "kind": "credit",
+      "instructions": "`answer`가 사용자 입력이 쿼리 구문으로 해석되어 의도치 않은 명령이 실행된다는 SQL 인젝션의 원리를 설명한다.",
+      "criteria": {
+        "true": "`answer`에 사용자 입력이 쿼리 구문으로 해석된다는 원리가 포함되어 있다.",
+        "false": "`answer`에 사용자 입력이 쿼리 구문으로 해석된다는 원리가 포함되어 있지 않다."
+      },
+      "points": 2.0,
+      "points_map": null
+    },
+    {
+      "key": "attack_example",
+      "label": "공격 예시 제시",
+      "type": "noul",
+      "kind": "credit",
+      "instructions": "`answer`가 SQL 인젝션 공격의 예시를 제시한다.",
+      "criteria": {
+        "true": "구체적인 입력값(예: ' OR '1'='1)이나 그 입력으로 쿼리가 어떻게 바뀌는지 등 구체적인 공격 예시를 제시한다.",
+        "false": "구체적인 예시가 없다. '악의적인 SQL을 넣는다'처럼 일반적으로만 말한 경우도 포함한다."
+      },
+      "points": 1.0,
+      "points_map": null
+    },
+    {
+      "key": "prepared_statement_defense",
+      "label": "매개변수화 쿼리 제시",
+      "type": "noul",
+      "kind": "credit",
+      "instructions": "`answer`가 SQL 인젝션 방어 방법으로 매개변수화 쿼리(prepared statement)를 제시한다.",
+      "criteria": {
+        "true": "매개변수화 쿼리, prepared statement, 또는 입력을 쿼리 코드와 분리해 바인딩 변수로 전달하는 방법을 방어 방법으로 제시한다.",
+        "false": "`answer`에 매개변수화 쿼리 또는 prepared statement가 방어 방법으로 언급되어 있지 않다."
+      },
+      "points": 2.0,
+      "points_map": null
+    },
+    {
+      "key": "additional_defenses",
+      "label": "추가 방어 방법 제시",
+      "type": "noul",
+      "kind": "credit",
+      "instructions": "`answer`가 매개변수화 쿼리 외의 추가 방어 방법(입력 검증, 최소 권한, 오류 메시지 노출 제한 등)을 하나 이상 제시한다.",
+      "criteria": {
+        "true": "매개변수화 쿼리 외의 방어 방법을 하나 이상 제시한다.",
+        "false": "매개변수화 쿼리 외의 방어 방법을 제시하지 않는다."
+      },
+      "points": 1.0,
+      "points_map": null
+    },
+    {
+      "key": "explanation_accuracy",
+      "label": "설명의 정확성",
+      "type": "score",
+      "kind": "credit",
+      "instructions": "`answer`가 SQL 인젝션에 대해 쓴 내용은 얼마나 정확한가? (빠진 내용은 다른 항목에서 보므로, 쓴 내용이 맞는지만 판단한다)",
+      "criteria": [
+        "효과 없는 방법을 주된 방어로 권장하거나, 쓴 내용 대부분이 틀렸다.",
+        "틀린 서술이 둘 이상 있다.",
+        "사소한 부정확함이 하나 있다.",
+        "쓴 내용에 틀린 서술이 없다."
+      ],
+      "points": null,
+      "points_map": {
+        "0": 0.0,
+        "1": 1.0,
+        "2": 2.0,
+        "3": 3.0
+      }
+    },
+    {
+      "key": "misc_escape_only_sufficient",
+      "label": "오개념: 이스케이프 오용",
+      "type": "noul",
+      "kind": "deduction",
+      "instructions": "`answer`가 이스케이프 처리만으로 SQL 인젝션을 완전히 막을 수 있다고 주장한다.",
+      "criteria": {
+        "true": "`answer`에 이스케이프 처리만으로 완전히 방어할 수 있다는 주장이 포함되어 있다.",
+        "false": "`answer`에 이스케이프 처리만으로 완전히 방어할 수 있다는 주장이 포함되어 있지 않다."
+      },
+      "points": 1.0,
+      "points_map": null
+    }
+  ],
+  "revisions": [
+    {
+      "date": "2026-11-05",
+      "note": "LLM 초안 검토 후 수정 (q1 교훈 반영): 설명 정확성을 쓴 내용의 정확성만 보도록 수준 재정의, 공격 예시는 구체적 예시만 인정, 매개변수화에 바인딩 변수 방식 포함, 추가 방어를 '매개변수화 외 하나 이상'으로 명확화"
+    }
+  ]
+}
