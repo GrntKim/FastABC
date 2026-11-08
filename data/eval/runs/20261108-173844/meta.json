@@ -1,0 +1,17 @@
+{
+  "run_id": "20261108-173844",
+  "started": "2026-11-08T17:38:45",
+  "git_commit": "aa2e81f",
+  "primary_model": "jev-1.13.0",
+  "secondary_model": "gemini-3.6-flash",
+  "evidence_thinking_level": "low",
+  "questions": [
+    "q1_password_storage",
+    "q2_sql_injection"
+  ],
+  "price_per_1m_tokens": {
+    "primary_input": 0.042,
+    "secondary_input": 0.75,
+    "secondary_output": 3.75
+  }
+}
