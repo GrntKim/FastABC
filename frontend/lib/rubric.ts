@@ -36,7 +36,6 @@ export type PointOption = { label: string; points: number };
 /** Quick-entry buttons for one cell. */
 export function pointOptions(item: RubricItemOut): PointOption[] {
   const points = item.points ?? 0;
-  if (item.kind === "gate") return [{ label: "0점", points: 0 }];
   if (item.kind === "deduction") return [{ label: "없음 (0)", points: 0 }, { label: `있음 (−${points})`, points: -points }];
   if (item.type === "noul") return [{ label: "미충족 (0)", points: 0 }, { label: `충족 (${points})`, points }];
   return Object.entries(item.points_map ?? {}).map(([key, value]) => ({

@@ -89,18 +89,18 @@ def test_routes_and_points(client, db, grading):
 
     r = client.post(f"/assignments/{aid}/grade")
     assert r.status_code == 202
-    assert r.json()["total"] == 14
+    assert r.json()["total"] == 12  # the gate is judged but is not a cell
 
     # background task ran after the response
     assert secondary.calls == [("b", ["mentions_chain_rule", "misc_is_optimizer"])]
     c = cells(db)
     assert (c["a", "accuracy"].route, c["a", "accuracy"].recommended_points) == ("auto", 4)
-    assert (c["a", "is_on_topic"].route, c["a", "is_on_topic"].recommended_points) == ("auto", 0)
+    assert ("a", "is_on_topic") not in c
     assert (c["b", "mentions_chain_rule"].route, c["b", "mentions_chain_rule"].recommended_points) == ("llm", 2)
     assert (c["b", "misc_is_optimizer"].route, c["b", "misc_is_optimizer"].recommended_pred) == ("human", None)
 
     status = client.get(f"/assignments/{aid}/grading").json()
-    assert status == {"total": 14, "pending": 0, "done": True, "routes": {"auto": 12, "llm": 1, "human": 1}}
+    assert status == {"total": 12, "pending": 0, "done": True, "routes": {"auto": 10, "llm": 1, "human": 1}}
 
     records = db.query(JudgmentRecord).all()
     assert sum(r.source == "primary" for r in records) == 14
@@ -114,18 +114,17 @@ def test_confident_gate_false_skips(client, db, grading):
     aid = grading(FakePrimary({"off": {"is_on_topic": (False, 0.9), "accuracy": (3, 0.1)}}), secondary, ["off"])
     client.post(f"/assignments/{aid}/grade")
     c = cells(db)
-    assert c["off", "is_on_topic"].route == "auto"
-    assert {(g.route, g.recommended_points) for k, g in c.items() if k[1] != "is_on_topic"} == {("skip", 0)}
+    assert {(g.route, g.recommended_points) for g in c.values()} == {("skip", 0)}
     assert secondary.calls == []
 
 
 def test_unsure_gate_does_not_skip(client, db, grading):
-    secondary = FakeSecondary({"x": {"is_on_topic": True}})
+    secondary = FakeSecondary()
     aid = grading(FakePrimary({"x": {"is_on_topic": (False, 0.2)}}), secondary, ["x"])
     client.post(f"/assignments/{aid}/grade")
     c = cells(db)
-    assert c["x", "is_on_topic"].route == "human"  # judges disagree
-    assert c["x", "accuracy"].route == "auto"
+    assert ("x", "is_on_topic") not in c and c["x", "accuracy"].route == "auto"
+    assert secondary.calls == []  # an unsure gate needs no re-judgment: it only matters when confidently False
 
 
 def test_secondary_failure_routes_to_human(client, db, grading):
@@ -147,7 +146,7 @@ def test_regrade_replaces_and_confirmed_blocks(client, db, grading):
     aid = grading(FakePrimary(), FakeSecondary(), ["x"])
     client.post(f"/assignments/{aid}/grade")
     client.post(f"/assignments/{aid}/grade")
-    assert db.query(Grade).count() == 7
+    assert db.query(Grade).count() == 6  # the gate is judged but is not a cell
     assert db.query(JudgmentRecord).count() == 7
 
     db.query(Grade).first().decision = "accepted"

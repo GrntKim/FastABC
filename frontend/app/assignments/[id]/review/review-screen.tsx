@@ -60,9 +60,9 @@ export default function ReviewScreen({ assignmentId }: { assignmentId: number })
   }
   if (!assignment.data || !cells.data) return <p className="text-muted-foreground">불러오는 중…</p>;
 
-  const items = assignment.data.items;
-  // start on the first scored item: gate cells rarely need a look
-  const current = tab ?? String((items.find((i) => i.kind !== "gate") ?? items[0])?.id);
+  // the gate question carries no points and has no cells to decide
+  const items = assignment.data.items.filter((i) => i.kind !== "gate");
+  const current = tab ?? String(items[0]?.id);
   const open = (itemId: number) => cells.data.filter((c) => c.rubric_item_id === itemId && c.final_points === null).length;
   const decided = cells.data.filter((c) => c.final_points !== null).length;
 

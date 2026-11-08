@@ -23,14 +23,14 @@ def graded(client, grading) -> dict:
 
 def test_cells(client, graded):
     aid, items, cells = graded["aid"], graded["items"], graded["cells"]
-    assert len(cells) == 14
+    assert len(cells) == 12 and ("a", "is_on_topic") not in cells  # the gate is not a cell
 
     column = client.get(f"/assignments/{aid}/cells", params={"item_id": items["accuracy"]}).json()
     assert [c["label"] for c in column] == ["S001", "S002"]
     assert column[0]["primary"]["conf"] == 0.9 and column[0]["secondary"] is None
 
     row = client.get(f"/assignments/{aid}/cells", params={"submission_id": column[1]["submission_id"]}).json()
-    assert [c["item_key"] for c in row][:2] == ["is_on_topic", "mentions_chain_rule"]
+    assert [c["item_key"] for c in row][:2] == ["mentions_chain_rule", "mentions_weight_update"]
 
     human = cells["b", "misc_is_optimizer"]
     assert human["route"] == "human" and human["recommended_points"] is None
@@ -61,7 +61,7 @@ def test_accept_set_clear(client, graded):
 
 @pytest.mark.parametrize(
     "key, points",
-    [("misc_is_optimizer", 1), ("misc_is_optimizer", -2), ("accuracy", 5), ("is_on_topic", 1)],
+    [("misc_is_optimizer", 1), ("misc_is_optimizer", -2), ("accuracy", 5)],
 )
 def test_points_out_of_range(client, graded, key, points):
     grade_id = graded["cells"]["a", key]["grade_id"]
@@ -86,7 +86,7 @@ def test_accept_confident(client, graded):
     r = client.post(f"/assignments/{aid}/accept-confident", params={"item_id": items["mentions_weight_update"]})
     assert r.json() == {"accepted": 2}
 
-    assert client.post(f"/assignments/{aid}/accept-confident").json() == {"accepted": 9}  # 14 - 2 - llm - human - modified
+    assert client.post(f"/assignments/{aid}/accept-confident").json() == {"accepted": 7}  # 12 - 2 - llm - human - modified
     after = {(c["answer"], c["item_key"]): c for c in client.get(f"/assignments/{aid}/cells").json()}
     assert after["a", "accuracy"]["decision"] == "modified"  # not overwritten
     assert after["b", "mentions_chain_rule"]["decision"] is None  # llm needs a look
@@ -97,8 +97,8 @@ def test_results_and_export(client, graded):
     aid, cells = graded["aid"], graded["cells"]
     client.post(f"/assignments/{aid}/accept-confident")
     a, b = client.get(f"/assignments/{aid}/results").json()
-    assert (a["label"], a["decided"], a["cells"], a["total"], a["max_points"]) == ("S001", 7, 7, 8, 8)
-    assert (b["decided"], b["total"]) == (5, None)
+    assert (a["label"], a["decided"], a["cells"], a["total"], a["max_points"]) == ("S001", 6, 6, 8, 8)
+    assert (b["decided"], b["total"]) == (4, None)
 
     client.patch(f"/grades/{cells['b', 'mentions_chain_rule']['grade_id']}", json={"action": "accept"})
     client.patch(f"/grades/{cells['b', 'misc_is_optimizer']['grade_id']}", json={"action": "set", "points": -1})
@@ -133,21 +133,21 @@ def test_sampled_cells_excluded_from_bulk_accept(client, grading, monkeypatch):
 def test_accept_confident_for_one_submission(client, graded):
     aid, cells = graded["aid"], graded["cells"]
     sid = cells["b", "accuracy"]["submission_id"]
-    assert client.post(f"/assignments/{aid}/accept-confident", params={"submission_id": sid}).json() == {"accepted": 5}
+    assert client.post(f"/assignments/{aid}/accept-confident", params={"submission_id": sid}).json() == {"accepted": 4}
     after = client.get(f"/assignments/{aid}/cells", params={"submission_id": cells["a", "accuracy"]["submission_id"]}).json()
     assert all(c["decision"] is None for c in after)  # other submission untouched
 
 
 def test_clear_decisions(client, graded):
     aid, items, cells = graded["aid"], graded["items"], graded["cells"]
-    client.post(f"/assignments/{aid}/accept-confident")  # 12 cells: all but llm and human
+    client.post(f"/assignments/{aid}/accept-confident")  # 10 cells: all but llm and human
     client.patch(f"/grades/{cells['b', 'misc_is_optimizer']['grade_id']}", json={"action": "set", "points": -1})
 
     r = client.post(f"/assignments/{aid}/clear-decisions", params={"item_id": items["accuracy"]})
     assert r.json() == {"cleared": 2}
     sid = cells["b", "accuracy"]["submission_id"]
-    assert client.post(f"/assignments/{aid}/clear-decisions", params={"submission_id": sid}).json() == {"cleared": 5}
-    assert client.post(f"/assignments/{aid}/clear-decisions").json() == {"cleared": 6}  # rest of "a"
+    assert client.post(f"/assignments/{aid}/clear-decisions", params={"submission_id": sid}).json() == {"cleared": 4}
+    assert client.post(f"/assignments/{aid}/clear-decisions").json() == {"cleared": 5}  # rest of "a"
     assert all(c["decision"] is None for c in client.get(f"/assignments/{aid}/cells").json())
 
 

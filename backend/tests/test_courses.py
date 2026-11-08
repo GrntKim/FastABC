@@ -41,7 +41,7 @@ def test_progress_through_stages(client, grading):
 
     client.post(f"/assignments/{aid}/grade")
     p = client.get(f"/assignments/{aid}").json()["progress"]
-    assert (p["stage"], p["submissions"], p["cells"], p["decided"], p["attention"]) == ("review", 2, 14, 0, 1)
+    assert (p["stage"], p["submissions"], p["cells"], p["decided"], p["attention"]) == ("review", 2, 12, 0, 1)
 
     course = client.get(f"/courses/{course_id}").json()
     assert (course["stages"], course["attention"], course["submission_count"]) == ({"review": 1}, 1, 2)
@@ -50,7 +50,7 @@ def test_progress_through_stages(client, grading):
     llm_cell = next(c for c in client.get(f"/assignments/{aid}/cells").json() if c["route"] == "llm")
     client.patch(f"/grades/{llm_cell['grade_id']}", json={"action": "accept"})
     p = client.get(f"/assignments/{aid}").json()["progress"]
-    assert (p["stage"], p["decided"], p["attention"]) == ("done", 14, 0)
+    assert (p["stage"], p["decided"], p["attention"]) == ("done", 12, 0)
 
 
 def test_update_and_delete_cascade(client, db, course_id):

@@ -19,7 +19,17 @@ from app.judges.gemini import GeminiJudge, GeminiRubricDrafter
 from app.judges.jev import DEFAULT_MODEL as PRIMARY_MODEL
 from app.judges.jev import JevJudge
 from app.judges.routing import Route, needs_escalation, route
-from app.models import Assignment, ExtractionStatus, Grade, GradeRoute, JudgeSource, JudgmentRecord, RubricItem, Submission
+from app.models import (
+    Assignment,
+    ExtractionStatus,
+    Grade,
+    GradeRoute,
+    ItemKind,
+    JudgeSource,
+    JudgmentRecord,
+    RubricItem,
+    Submission,
+)
 from app.scoring import item_points
 
 logger = logging.getLogger(__name__)
@@ -112,6 +122,8 @@ def run_primary(db: Session, assignment: Assignment, judge: Judge) -> int:
         for j in judgments:
             item = items[j.question_id]
             db.add(judgment_record(submission, item, j, JudgeSource.PRIMARY, judge))
+            if item.kind == ItemKind.GATE:
+                continue  # carries no points: its judgment is kept, but it is not a cell to decide
             if j.skipped:
                 grade = Grade(route=GradeRoute.SKIP, recommended_points=item_points(item, None, gate_passed=False))
             elif needs_escalation(j):

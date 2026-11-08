@@ -219,8 +219,8 @@ function AnswerCard({
   focused: number | null;
   onFocus: (itemId: number | null) => void;
 }) {
-  const gate = items.find((i) => i.kind === "gate");
-  const offTopic = gate && byItem.get(gate.id)?.route === "auto" && byItem.get(gate.id)?.primary?.pred === false;
+  // a confident off-topic gate skips every scored item
+  const offTopic = [...byItem.values()].some((c) => c.route === "skip");
   const scored = items.filter((i) => i.kind !== "gate");
   const groups = scored.map((i) => ({ id: i.id, quotes: llmView(byItem.get(i.id))?.evidence ?? [] }));
   const segments = annotate(submission.clean_text, groups);
