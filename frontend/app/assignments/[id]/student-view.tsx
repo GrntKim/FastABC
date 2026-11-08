@@ -100,13 +100,18 @@ export default function StudentView({ assignment }: { assignment: AssignmentOut 
     setSelected(list[(i + list.length) % list.length].id);
     setFocused(null);
   };
+  // Any action (a decision, bulk accept, …) pins the order and the open student before it changes the data
+  const pin = () => {
+    if (!frozen) setFrozen({ mode, ids });
+    if (selected === null) setSelected(submission.id);
+  };
   const resort = (next: SortMode) => setFrozen({ mode: next, ids: sortIds(all, cellList, next) });
   const nextAttention = [...list.slice(index + 1), ...list.slice(0, index + 1)].find(
     (s) => s.id !== submission.id && attention(loads.get(s.id)!) > 0,
   );
 
   return (
-    <div className="flex flex-col gap-4 pt-2">
+    <div className="flex flex-col gap-4 pt-2" onClickCapture={pin}>
       <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm">
         {totalAttention > 0 ? (
           <>
