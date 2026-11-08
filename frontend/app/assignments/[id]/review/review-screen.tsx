@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,10 +14,10 @@ import {
   type GradingStatus,
   type RubricItemOut,
 } from "@/lib/api";
+import { termLabel } from "@/lib/progress";
 import { itemName, KIND_HINT, KIND_LABEL, plain } from "@/lib/rubric";
 import { useAcceptConfident, useClearDecisions } from "@/lib/use-decide";
 import CellCard from "./cell-card";
-import ResultsPanel from "./results-panel";
 
 const FILTERS = {
   all: { label: "전체", match: () => true },
@@ -26,8 +27,6 @@ const FILTERS = {
   sampled: { label: "샘플 검토", match: (c: CellOut) => c.sampled },
 } satisfies Record<string, { label: string; match: (c: CellOut) => boolean }>;
 type Filter = keyof typeof FILTERS;
-
-const RESULTS_TAB = "results";
 
 export default function ReviewScreen({ assignmentId }: { assignmentId: number }) {
   const queryClient = useQueryClient();
@@ -65,17 +64,33 @@ export default function ReviewScreen({ assignmentId }: { assignmentId: number })
   const current = tab ?? String(items[0]?.id);
   const open = (itemId: number) => cells.data.filter((c) => c.rubric_item_id === itemId && c.final_points === null).length;
   const decided = cells.data.filter((c) => c.final_points !== null).length;
+  const a = assignment.data;
+  const locked = a.progress.stage === "finalized";
 
   return (
     <div className="flex flex-col gap-4">
+      <nav className="text-sm text-muted-foreground">
+        <Link href="/" className="hover:underline">
+          과목
+        </Link>{" "}
+        › {termLabel(a.course.term)} ›{" "}
+        <Link href={`/courses/${a.course.id}`} className="hover:underline">
+          {a.course.name} ({a.course.section}분반)
+        </Link>{" "}
+        ›{" "}
+        <Link href={`/assignments/${assignmentId}`} className="hover:underline">
+          {a.title}
+        </Link>
+      </nav>
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold">{assignment.data.title}</h1>
-        <p className="text-muted-foreground whitespace-pre-wrap">{assignment.data.problem}</p>
+        <h1 className="text-2xl font-bold">{a.title} · 항목별 보기</h1>
+        <p className="text-muted-foreground whitespace-pre-wrap">{a.problem}</p>
         <p className="text-sm">
           확정 {decided} / {cells.data.length}칸
           {status.data && !status.data.done && (
             <span className="text-muted-foreground"> · LLM 재판단 {status.data.pending}칸 진행 중</span>
           )}
+          {locked && <span className="text-muted-foreground"> · 성적이 확정되어 잠겼습니다 (개정은 문항 화면의 결과 탭)</span>}
         </p>
       </header>
 
@@ -90,9 +105,6 @@ export default function ReviewScreen({ assignmentId }: { assignmentId: number })
                 {open(item.id) > 0 && <Badge variant="secondary">{open(item.id)}</Badge>}
               </TabsTrigger>
             ))}
-            <TabsTrigger value={RESULTS_TAB} className="h-7 flex-none">
-              결과
-            </TabsTrigger>
           </TabsList>
 
           {items.map((item) => (
@@ -103,12 +115,10 @@ export default function ReviewScreen({ assignmentId }: { assignmentId: number })
                 cells={cells.data.filter((c) => c.rubric_item_id === item.id && FILTERS[filter].match(c))}
                 filter={filter}
                 onFilter={setFilter}
+                locked={locked}
               />
             </TabsContent>
           ))}
-          <TabsContent value={RESULTS_TAB}>
-            <ResultsPanel assignmentId={assignmentId} />
-          </TabsContent>
         </Tabs>
       )}
     </div>
@@ -121,12 +131,14 @@ function ItemPanel({
   cells,
   filter,
   onFilter,
+  locked,
 }: {
   assignmentId: number;
   item: RubricItemOut;
   cells: CellOut[];
   filter: Filter;
   onFilter: (f: Filter) => void;
+  locked: boolean; // grades are finalized
 }) {
   const acceptConfident = useAcceptConfident(assignmentId);
   const clearDecisions = useClearDecisions(assignmentId);
@@ -152,7 +164,7 @@ function ItemPanel({
           size="sm"
           variant="outline"
           className="ml-auto"
-          disabled={acceptConfident.isPending}
+          disabled={acceptConfident.isPending || locked}
           onClick={() => acceptConfident.mutate({ item_id: item.id })}
           title="자동 판단 중 확신 높은 칸만 수용합니다. LLM 확인·직접 판단·샘플 검토 칸은 제외됩니다."
         >
@@ -161,7 +173,7 @@ function ItemPanel({
         <Button
           size="sm"
           variant="ghost"
-          disabled={clearDecisions.isPending}
+          disabled={clearDecisions.isPending || locked}
           onClick={() =>
             confirm(`'${itemName(item)}' 항목의 확정을 모든 답안에서 취소할까요? 직접 입력한 점수도 지워집니다.`) &&
             clearDecisions.mutate({ item_id: item.id })
@@ -174,7 +186,7 @@ function ItemPanel({
       {cells.length === 0 ? (
         <p className="text-muted-foreground py-6 text-center">해당하는 칸이 없습니다.</p>
       ) : (
-        cells.map((cell) => <CellCard key={cell.grade_id} assignmentId={assignmentId} cell={cell} item={item} />)
+        cells.map((cell) => <CellCard key={cell.grade_id} assignmentId={assignmentId} cell={cell} item={item} locked={locked} />)
       )}
     </div>
   );

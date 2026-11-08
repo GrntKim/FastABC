@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, ApiError, type AssignmentOut, type GradingStatus } from "@/lib/api";
 import { termLabel } from "@/lib/progress";
 import AdminPanel from "./admin-panel";
+import ResultsTab from "./results-tab";
 import StudentView from "./student-view";
 
 export default function DetailScreen({ assignmentId }: { assignmentId: number }) {
@@ -29,6 +30,7 @@ export default function DetailScreen({ assignmentId }: { assignmentId: number })
   if (!assignment.data || !status.data) return <p className="text-muted-foreground">불러오는 중…</p>;
   const a = assignment.data;
   const graded = status.data.total > 0;
+  const defaultTab = !graded ? "admin" : ["done", "finalized"].includes(a.progress.stage) ? "results" : "grade";
 
   return (
     <div className="flex flex-col gap-4">
@@ -54,15 +56,19 @@ export default function DetailScreen({ assignmentId }: { assignmentId: number })
         )}
       </header>
 
-      {/* grading first once there is something to grade; setup first otherwise */}
-      <Tabs value={tab ?? (graded ? "grade" : "admin")} onValueChange={(v) => setTab(String(v))}>
+      {/* setup until graded, grading while cells are open, results once every cell is decided */}
+      <Tabs value={tab ?? defaultTab} onValueChange={(v) => setTab(String(v))}>
         <TabsList>
           <TabsTrigger value="grade" disabled={!graded}>
             채점
           </TabsTrigger>
+          <TabsTrigger value="results" disabled={!graded}>
+            결과
+          </TabsTrigger>
           <TabsTrigger value="admin">관리</TabsTrigger>
         </TabsList>
         <TabsContent value="grade">{graded && <StudentView assignment={a} />}</TabsContent>
+        <TabsContent value="results">{graded && <ResultsTab assignment={a} />}</TabsContent>
         <TabsContent value="admin">
           <AdminPanel assignment={a} />
         </TabsContent>

@@ -325,11 +325,52 @@ export interface paths {
         };
         /**
          * Export Csv
-         * @description Final points per rubric item and total. Undecided cells are empty.
+         * @description Final points per rubric item and total. Undecided cells are empty. A finalized file names its version and hash.
          */
         get: operations["export_csv_assignments__assignment_id__export_csv_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assignments/{assignment_id}/finalizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Finalizations
+         * @description Every version, newest first.
+         */
+        get: operations["list_finalizations_assignments__assignment_id__finalizations_get"];
+        put?: never;
+        /** Finalize */
+        post: operations["finalize_assignments__assignment_id__finalizations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assignments/{assignment_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reopen
+         * @description Unlock the grades for a revision. The signed-off version stays; finalizing again adds the next one.
+         */
+        post: operations["reopen_assignments__assignment_id__reopen_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -558,6 +599,40 @@ export interface components {
             /** Requested */
             requested: number;
         };
+        /** FinalizationOut */
+        FinalizationOut: {
+            /** Id */
+            id: number;
+            /** Version */
+            version: number;
+            /** Finalized By */
+            finalized_by: string;
+            /**
+             * Finalized At
+             * Format: date-time
+             */
+            finalized_at: string;
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Snapshot Hash */
+            snapshot_hash: string;
+            /** Reopened At */
+            reopened_at: string | null;
+            /** Reopen Reason */
+            reopen_reason: string | null;
+        };
+        /** FinalizeIn */
+        FinalizeIn: {
+            /** Finalized By */
+            finalized_by: string;
+            /**
+             * Confirmed
+             * @constant
+             */
+            confirmed: true;
+        };
         /** GradeDecisionIn */
         GradeDecisionIn: {
             /**
@@ -623,6 +698,11 @@ export interface components {
             pending: number;
             /** Attention */
             attention: number;
+        };
+        /** ReopenIn */
+        ReopenIn: {
+            /** Reason */
+            reason: string;
         };
         /** RubricDraftIn */
         RubricDraftIn: {
@@ -1468,6 +1548,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_finalizations_assignments__assignment_id__finalizations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assignment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinalizationOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    finalize_assignments__assignment_id__finalizations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assignment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinalizeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinalizationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reopen_assignments__assignment_id__reopen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assignment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReopenIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinalizationOut"];
                 };
             };
             /** @description Validation Error */

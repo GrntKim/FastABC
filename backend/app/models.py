@@ -167,3 +167,22 @@ class Grade(Base):
     final_points: Mapped[float | None] = mapped_column(Float)
     decision: Mapped[str | None] = mapped_column(String(16))  # Decision
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Finalization(Base):
+    """A grader's sign-off on an assignment's final grades. Locks the grades until reopened; reopening and
+    finalizing again adds the next version, so earlier versions stay as history."""
+
+    __tablename__ = "finalizations"
+    __table_args__ = (UniqueConstraint("assignment_id", "version"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    assignment_id: Mapped[int] = mapped_column(ForeignKey("assignments.id", ondelete="CASCADE"))
+    version: Mapped[int]
+    finalized_by: Mapped[str] = mapped_column(String(100))  # typed name: there is no login
+    finalized_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    counts: Mapped[dict[str, int]] = mapped_column(JSONB)  # decision -> cells
+    snapshot: Mapped[Any] = mapped_column(JSONB)  # final points and decisions per student
+    snapshot_hash: Mapped[str] = mapped_column(String(64))  # sha256 of the canonical snapshot JSON
+    reopened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reopen_reason: Mapped[str | None] = mapped_column(Text)

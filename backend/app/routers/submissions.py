@@ -8,6 +8,7 @@ from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.finalization import ensure_unlocked
 from app.models import Assignment, ExtractionStatus, Grade, Submission
 from app.redact import redact
 from app.schemas import SubmissionOut
@@ -64,6 +65,7 @@ def upload_csv(assignment_id: int, file: UploadFile, db: Session = Depends(get_d
     """Columns: student_id, answer, optional name (used only for redaction, not stored)."""
     if db.get(Assignment, assignment_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "assignment not found")
+    ensure_unlocked(db, assignment_id)  # a new answer would change finalized results
     data = file.file.read(MAX_UPLOAD_BYTES + 1)  # sync route: runs in the threadpool like the DB calls
     if len(data) > MAX_UPLOAD_BYTES:
         raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "CSV is larger than 5 MB")

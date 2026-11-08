@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.finalization import ensure_unlocked, latest
 from app.grading import Judges, get_judges, judgment_record, questions_for
 from app.models import (
     Assignment,
@@ -108,6 +109,7 @@ def decide(grade_id: int, body: GradeDecisionIn, db: Session = Depends(get_db)) 
     if grade.route == GradeRoute.PENDING:
         raise HTTPException(status.HTTP_409_CONFLICT, "LLM re-judgment is still running")
     item = db.get(RubricItem, grade.rubric_item_id)
+    ensure_unlocked(db, item.assignment_id)
 
     if body.action == "clear":
         grade.final_points, grade.decision, grade.decided_at = None, None, None
@@ -146,6 +148,7 @@ def accept_confident(
     Skips llm/human and sampled cells.
     """
     _get_assignment(db, assignment_id)
+    ensure_unlocked(db, assignment_id)
     query = _grades_query(assignment_id).where(
         Grade.route.in_(CONFIDENT_ROUTES),
         Grade.sampled.is_(False),
@@ -173,6 +176,7 @@ def clear_decisions(
 ) -> BulkClearOut:
     """Undo every confirmed cell (accepted, modified, or manual), optionally for one rubric item or one submission."""
     _get_assignment(db, assignment_id)
+    ensure_unlocked(db, assignment_id)
     query = _grades_query(assignment_id).where(Grade.decision.is_not(None))
     if item_id is not None:
         query = query.where(Grade.rubric_item_id == item_id)
@@ -254,7 +258,7 @@ def results(assignment_id: int, db: Session = Depends(get_db)) -> list[Submissio
 
 @router.get("/assignments/{assignment_id}/export.csv")
 def export_csv(assignment_id: int, db: Session = Depends(get_db)) -> Response:
-    """Final points per rubric item and total. Undecided cells are empty."""
+    """Final points per rubric item and total. Undecided cells are empty. A finalized file names its version and hash."""
     assignment = _get_assignment(db, assignment_id)
     finals = {(g.submission_id, g.rubric_item_id): g.final_points for g, _, _ in db.execute(_grades_query(assignment_id)).all()}
     items = [i for i in assignment.items if i.kind != ItemKind.GATE]
@@ -265,8 +269,11 @@ def export_csv(assignment_id: int, db: Session = Depends(get_db)) -> Response:
     for r in _results(db, assignment):
         cells = [finals.get((r.submission_id, i.id)) for i in items]
         writer.writerow([r.student_ref, r.label, *("" if p is None else p for p in cells), "" if r.total is None else r.total])
+    name = f"assignment_{assignment_id}"
+    if (f := latest(db, assignment_id)) is not None and f.reopened_at is None:
+        name += f"_v{f.version}_{f.snapshot_hash[:8]}"
     return Response(
         "﻿" + buf.getvalue(),  # BOM so Excel reads UTF-8 Korean
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="assignment_{assignment_id}.csv"'},
+        headers={"Content-Disposition": f'attachment; filename="{name}.csv"'},
     )

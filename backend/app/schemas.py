@@ -67,7 +67,7 @@ class CourseRef(CourseIn):
 class ProgressOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    stage: str  # setup / grading / review / done
+    stage: str  # setup / grading / review / done / finalized
     submissions: int
     cells: int
     decided: int
@@ -198,6 +198,42 @@ class BulkAcceptOut(BaseModel):
 
 class BulkClearOut(BaseModel):
     cleared: int
+
+
+class FinalizeIn(BaseModel):
+    finalized_by: str = Field(min_length=1, max_length=100)
+    confirmed: Literal[True]  # "I checked every cell and take responsibility for these grades"
+
+    @model_validator(mode="after")
+    def strip_name(self) -> Self:
+        self.finalized_by = self.finalized_by.strip()
+        if not self.finalized_by:
+            raise ValueError("finalized_by must not be blank")
+        return self
+
+
+class ReopenIn(BaseModel):
+    reason: str = Field(min_length=1, max_length=1000)
+
+    @model_validator(mode="after")
+    def strip_reason(self) -> Self:
+        self.reason = self.reason.strip()
+        if not self.reason:
+            raise ValueError("reason must not be blank")
+        return self
+
+
+class FinalizationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    version: int
+    finalized_by: str
+    finalized_at: datetime
+    counts: dict[str, int]  # decision -> cells
+    snapshot_hash: str
+    reopened_at: datetime | None
+    reopen_reason: str | None
 
 
 class EvidenceOut(BaseModel):

@@ -6,7 +6,7 @@ from enum import StrEnum
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.models import Grade, GradeRoute, Submission
+from app.models import Finalization, Grade, GradeRoute, Submission
 
 
 class Stage(StrEnum):
@@ -14,6 +14,7 @@ class Stage(StrEnum):
     GRADING = "grading"  # LLM re-judgment still running
     REVIEW = "review"  # some cells not confirmed
     DONE = "done"  # every cell confirmed
+    FINALIZED = "finalized"  # signed off and locked
 
 
 @dataclass
@@ -23,9 +24,12 @@ class Progress:
     decided: int = 0
     pending: int = 0
     attention: int = 0  # undecided cells a person must look at: human, llm, or sampled
+    finalized: bool = False
 
     @property
     def stage(self) -> Stage:
+        if self.finalized:
+            return Stage.FINALIZED
         if self.cells == 0:
             return Stage.SETUP
         if self.pending:
@@ -65,4 +69,12 @@ def progress(db: Session, assignment_ids: list[int]) -> dict[int, Progress]:
     for aid, cells, decided, pending, attention in rows:
         p = result[aid]
         p.cells, p.decided, p.pending, p.attention = cells, decided, pending or 0, attention or 0
+
+    # only the latest version can be open: a new one needs the previous one reopened
+    for aid in db.scalars(
+        select(Finalization.assignment_id).where(
+            Finalization.assignment_id.in_(assignment_ids), Finalization.reopened_at.is_(None)
+        )
+    ):
+        result[aid].finalized = True
     return result

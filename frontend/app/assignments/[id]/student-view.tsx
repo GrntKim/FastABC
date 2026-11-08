@@ -79,6 +79,7 @@ export default function StudentView({ assignment }: { assignment: AssignmentOut 
   // Order is live until the grader acts, then frozen so students do not jump around while being graded
   const [frozen, setFrozen] = useState<{ mode: SortMode; ids: number[] } | null>(null);
   const acceptRest = useAcceptConfident(assignment.id);
+  const locked = assignment.progress.stage === "finalized";
 
   if (!submissions.data || !cells.data) return <p className="text-muted-foreground pt-2">불러오는 중…</p>;
   const all = submissions.data;
@@ -115,7 +116,9 @@ export default function StudentView({ assignment }: { assignment: AssignmentOut 
   return (
     <div className="flex flex-col gap-4 pt-2" onClickCapture={pin}>
       <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm">
-        {totalAttention > 0 ? (
+        {locked ? (
+          <span>성적이 확정되어 잠겼습니다. 고치려면 &lsquo;결과&rsquo; 탭에서 개정하세요.</span>
+        ) : totalAttention > 0 ? (
           <>
             <span>
               확인이 필요한 칸 <strong>{totalAttention}칸</strong> 남음
@@ -140,7 +143,7 @@ export default function StudentView({ assignment }: { assignment: AssignmentOut 
             </Button>
           </>
         ) : (
-          <span>모든 칸을 확정했습니다. 결과는 &lsquo;항목별로 보기 → 결과&rsquo;에서 확인하세요.</span>
+          <span>모든 칸을 확정했습니다. &lsquo;결과&rsquo; 탭에서 성적을 확정하세요.</span>
         )}
         <span className="ml-auto flex items-center gap-1">
           {(Object.keys(SORT_LABEL) as SortMode[]).map((m) => (
@@ -196,7 +199,13 @@ export default function StudentView({ assignment }: { assignment: AssignmentOut 
         </div>
       </div>
 
-      <ScoreTable assignmentId={assignment.id} submission={submission} items={assignment.items} byItem={byItem} />
+      <ScoreTable
+        assignmentId={assignment.id}
+        submission={submission}
+        items={assignment.items}
+        byItem={byItem}
+        locked={locked}
+      />
     </div>
   );
 }
@@ -358,11 +367,13 @@ function ScoreTable({
   submission,
   items,
   byItem,
+  locked,
 }: {
   assignmentId: number;
   submission: SubmissionOut;
   items: RubricItemOut[];
   byItem: CellsByItem;
+  locked: boolean; // grades are finalized
 }) {
   const decide = useDecide(assignmentId);
   const acceptConfident = useAcceptConfident(assignmentId);
@@ -385,7 +396,7 @@ function ScoreTable({
           size="sm"
           variant="outline"
           className="ml-auto"
-          disabled={acceptConfident.isPending}
+          disabled={acceptConfident.isPending || locked}
           onClick={() => acceptConfident.mutate({ submission_id: submission.id })}
           title="자동 판단 중 확신 높은 칸만 수용합니다. LLM 확인·직접 판단·샘플 검토 칸은 제외됩니다."
         >
@@ -394,7 +405,7 @@ function ScoreTable({
         <Button
           size="sm"
           variant="ghost"
-          disabled={clearDecisions.isPending || open === rows.length}
+          disabled={clearDecisions.isPending || open === rows.length || locked}
           onClick={() =>
             confirm(`${submission.label}의 확정 ${rows.length - open}칸을 모두 취소할까요? 직접 입력한 점수도 지워집니다.`) &&
             clearDecisions.mutate({ submission_id: submission.id })
@@ -441,7 +452,7 @@ function ScoreTable({
                       <Button
                         size="xs"
                         variant="secondary"
-                        disabled={decide.isPending}
+                        disabled={decide.isPending || locked}
                         onClick={() => decide.mutate({ gradeId: c.grade_id, body: { action: "accept" } })}
                       >
                         {c.recommended_points}점 수용
@@ -455,13 +466,13 @@ function ScoreTable({
                           key={o.label}
                           size="xs"
                           variant={c.final_points === o.points ? "default" : "outline"}
-                          disabled={decide.isPending || blocked}
+                          disabled={decide.isPending || blocked || locked}
                           onClick={() => decide.mutate({ gradeId: c.grade_id, body: { action: "set", points: o.points } })}
                         >
                           {o.label}
                         </Button>
                       ))}
-                      {c.final_points !== null && (
+                      {c.final_points !== null && !locked && (
                         <Button
                           size="xs"
                           variant="ghost"

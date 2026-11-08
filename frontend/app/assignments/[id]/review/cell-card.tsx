@@ -20,13 +20,15 @@ export default function CellCard({
   assignmentId,
   cell,
   item,
+  locked,
 }: {
   assignmentId: number;
   cell: CellOut;
   item: RubricItemOut;
+  locked: boolean; // grades are finalized
 }) {
   const mutation = useDecide(assignmentId);
-  const decide = { isPending: mutation.isPending, mutate: (body: GradeDecisionIn) => mutation.mutate({ gradeId: cell.grade_id, body }) };
+  const decide = { isPending: mutation.isPending || locked, mutate: (body: GradeDecisionIn) => mutation.mutate({ gradeId: cell.grade_id, body }) };
 
   const evidence = (cell.secondary ?? cell.evidence)?.evidence ?? [];
   const decided = cell.final_points !== null;
@@ -108,7 +110,7 @@ export default function CellCard({
                 ))}
               </div>
               {decided && (
-                <Button size="sm" variant="ghost" onClick={() => decide.mutate({ action: "clear" })}>
+                <Button size="sm" variant="ghost" disabled={decide.isPending} onClick={() => decide.mutate({ action: "clear" })}>
                   확정 취소
                 </Button>
               )}
