@@ -9,12 +9,14 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { api, type AssignmentOut, type CellOut, type RubricItemOut, type SubmissionOut } from "@/lib/api";
 import { annotate } from "@/lib/highlight";
 import {
+  confLabel,
   describePred,
   formatPred,
   itemColor,
   itemName,
   KIND_HINT,
   KIND_LABEL,
+  plain,
   pointOptions,
   ROUTE_LABEL,
   SAMPLED_HINT,
@@ -328,7 +330,9 @@ function JudgmentNotes({
               <div className="flex items-baseline gap-2">
                 <strong>{cell.route === "skip" ? "판단 생략" : formatPred(item, judge?.pred)}</strong>
                 {cell.primary?.conf != null && cell.route !== "skip" && (
-                  <span className="text-xs text-muted-foreground">확신도 {Math.round(cell.primary.conf * 100)}%</span>
+                  <span className="text-xs text-muted-foreground" title={`확신도 ${Math.round(cell.primary.conf * 100)}%`}>
+                    {confLabel(cell.primary.conf)}
+                  </span>
                 )}
               </div>
               {cell.route !== "skip" && (
@@ -419,7 +423,7 @@ function ScoreTable({
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <span className={cn("size-2.5 shrink-0 rounded-full", color?.dot ?? "bg-muted-foreground")} />
-                      <span title={`${item.key}: ${item.instructions}`}>{itemName(item)}</span>
+                      <span title={plain(item.instructions)}>{itemName(item)}</span>
                       <span className="text-xs text-muted-foreground" title={KIND_HINT[item.kind]}>
                         {KIND_LABEL[item.kind]}
                       </span>

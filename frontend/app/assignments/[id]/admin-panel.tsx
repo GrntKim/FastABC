@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api, ApiError, type AssignmentOut, type GradingStatus, type RubricItemOut, type SubmissionOut } from "@/lib/api";
-import { itemName, KIND_HINT, KIND_LABEL, ROUTE_LABEL } from "@/lib/rubric";
+import { itemName, KIND_HINT, KIND_LABEL, plain, ROUTE_LABEL, TYPE_LABEL } from "@/lib/rubric";
 
 const errorMessage = (e: unknown, fallback: string) => (e instanceof ApiError ? String(e.detail) : fallback);
 
@@ -79,16 +79,17 @@ function RubricCard({ assignment }: { assignment: AssignmentOut }) {
             {items.map((item) => (
               <TableRow key={item.id}>
                 <TableCell>
-                  <div className="font-medium">{itemName(item)}</div>
-                  {item.label && <div className="font-mono text-xs text-muted-foreground">{item.key}</div>}
+                  <div className="font-medium" title={item.key}>
+                    {itemName(item)}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline" title={KIND_HINT[item.kind]}>
                     {KIND_LABEL[item.kind]}
                   </Badge>{" "}
-                  <span className="text-muted-foreground">{item.type}</span>
+                  <span className="text-muted-foreground">{TYPE_LABEL[item.type] ?? item.type}</span>
                 </TableCell>
-                <TableCell className="whitespace-normal">{item.instructions}</TableCell>
+                <TableCell className="whitespace-normal">{plain(item.instructions)}</TableCell>
                 <TableCell className="text-right">{pointsLabel(item)}</TableCell>
               </TableRow>
             ))}

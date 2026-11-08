@@ -1,7 +1,20 @@
 // Display helpers for rubric items. Point rules mirror backend app/scoring.py.
 import type { RubricItemOut } from "./api";
 
-export const KIND_LABEL: Record<string, string> = { gate: "게이트", credit: "가점", deduction: "감점" };
+export const KIND_LABEL: Record<string, string> = { gate: "주제 확인", credit: "가점", deduction: "감점" };
+
+export const TYPE_LABEL: Record<string, string> = { noul: "예/아니오", score: "수준", choice: "선택" };
+
+/** Judge-question text for graders: `answer` / `question` placeholders read as plain words. */
+export const plain = (text: string) =>
+  text.replaceAll("`answer`", "답안").replaceAll("`question`", "문제").replaceAll("`", "");
+
+/** Decision-model confidence in words; the number stays in the tooltip. */
+export function confLabel(conf: number): string {
+  if (conf >= 0.8) return "확신 높음";
+  if (conf >= 0.5) return "확신 보통";
+  return "확신 낮음";
+}
 
 export const ROUTE_LABEL: Record<string, string> = {
   pending: "재판단 중",
@@ -21,14 +34,14 @@ export function formatPred(item: RubricItemOut, pred: unknown): string {
 /** Description of a score level or choice, for tooltips. */
 export function describePred(item: RubricItemOut, pred: unknown): string | undefined {
   const criteria = item.criteria as unknown;
-  if (item.type === "score" && Array.isArray(criteria) && typeof pred === "number") return criteria[pred];
-  if (item.type === "choice" && criteria && typeof criteria === "object") {
-    return (criteria as Record<string, string>)[String(pred)];
+  let text: string | undefined;
+  if (item.type === "score" && Array.isArray(criteria) && typeof pred === "number") text = criteria[pred];
+  else if (item.type === "choice" && criteria && typeof criteria === "object") {
+    text = (criteria as Record<string, string>)[String(pred)];
+  } else if (item.type === "noul" && criteria && typeof criteria === "object" && typeof pred === "boolean") {
+    text = (criteria as Record<string, string>)[String(pred)];
   }
-  if (item.type === "noul" && criteria && typeof criteria === "object" && typeof pred === "boolean") {
-    return (criteria as Record<string, string>)[String(pred)];
-  }
-  return undefined;
+  return text && plain(text);
 }
 
 export type PointOption = { label: string; points: number };

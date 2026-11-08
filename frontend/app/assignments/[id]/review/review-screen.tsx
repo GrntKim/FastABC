@@ -13,7 +13,7 @@ import {
   type GradingStatus,
   type RubricItemOut,
 } from "@/lib/api";
-import { itemName, KIND_HINT, KIND_LABEL } from "@/lib/rubric";
+import { itemName, KIND_HINT, KIND_LABEL, plain } from "@/lib/rubric";
 import { useAcceptConfident, useClearDecisions } from "@/lib/use-decide";
 import CellCard from "./cell-card";
 import ResultsPanel from "./results-panel";
@@ -138,7 +138,7 @@ function ItemPanel({
           <Badge variant="outline" title={KIND_HINT[item.kind]}>
             {KIND_LABEL[item.kind]}
           </Badge>
-          <span className="font-medium">{item.instructions}</span>
+          <span className="font-medium">{plain(item.instructions)}</span>
         </div>
       </div>
 

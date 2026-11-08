@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CellOut, GradeDecisionIn, RubricItemOut } from "@/lib/api";
 import { highlight } from "@/lib/highlight";
-import { describePred, formatPred, pointOptions, ROUTE_LABEL, SAMPLED_HINT } from "@/lib/rubric";
+import { confLabel, describePred, formatPred, pointOptions, ROUTE_LABEL, SAMPLED_HINT } from "@/lib/rubric";
 import { useDecide } from "@/lib/use-decide";
 
 const ROUTE_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -70,7 +70,7 @@ export default function CellCard({
             title="판단 모델"
             pred={cell.primary ? formatPred(item, cell.primary.pred) : "—"}
             detail={describePred(item, cell.primary?.pred)}
-            extra={cell.primary?.conf != null ? `확신도 ${Math.round(cell.primary.conf * 100)}%` : undefined}
+            extra={cell.primary?.conf != null ? confLabel(cell.primary.conf) : undefined}
           />
           {cell.secondary && (
             <JudgeLine
