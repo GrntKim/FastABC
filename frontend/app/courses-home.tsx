@@ -56,7 +56,7 @@ export default function CoursesHome() {
 
       {attention > 0 && (
         <p className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-800 dark:bg-amber-950/40">
-          이번 학기에 직접 확인할 채점 항목이 <strong>{attention}개</strong> 있습니다.
+          이번 학기에 확인할 곳이 남은 과목이 <strong>{inTerm.filter((c) => c.attention > 0).length}개</strong> 있습니다. 표시된 과목부터 이어서 채점하세요.
         </p>
       )}
 

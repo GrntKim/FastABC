@@ -113,7 +113,6 @@ export default function StudentView({ assignment, onGoResults }: { assignment: A
   const cellList = cells.data;
 
   const loads = new Map(all.map((s) => [s.id, workload(cellList, s.id)]));
-  const totalAttention = all.reduce((sum, s) => sum + attention(loads.get(s.id)!), 0);
   const totalOpen = all.reduce((sum, s) => sum + loads.get(s.id)!.open, 0);
   const mode: SortMode = frozen?.mode ?? (totalOpen === 0 ? "label" : "attention");
   const liveIds = sortIds(all, cellList, mode);
@@ -150,42 +149,22 @@ export default function StudentView({ assignment, onGoResults }: { assignment: A
     (s) => s.id !== submission.id && attention(loads.get(s.id)!) > 0,
   );
 
-  // a banner only when there is something to do about the whole question
-  const banner = locked ? (
-    <div className="rounded-lg border bg-muted px-3 py-2 text-sm">
-      성적이 확정되어 잠겼습니다. 고치려면 &lsquo;결과&rsquo; 탭에서 개정하세요.
-    </div>
-  ) : totalOpen === 0 ? (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm dark:border-emerald-800 dark:bg-emerald-950/40">
-      <span>모든 항목을 확정했습니다. 이제 성적을 확정하세요.</span>
-      <Button size="sm" className="ml-auto" onClick={onGoResults}>
-        결과로 가기 →
-      </Button>
-    </div>
-  ) : totalAttention === 0 ? (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm dark:border-sky-800 dark:bg-sky-950/40">
-      <span>확인이 필요한 항목은 모두 봤습니다. 남은 {totalOpen}개 항목은 추천대로 확정하면 됩니다.</span>
-      <Button
-        size="sm"
-        className="ml-auto"
-        disabled={acceptRest.isPending}
-        onClick={() => confirm(`남은 ${totalOpen}개 항목을 모두 추천대로 확정할까요?`) && acceptRest.mutate({})}
-      >
-        남은 항목 추천대로 확정
-      </Button>
-    </div>
-  ) : null;
-
   return (
     <div className="flex flex-col gap-4 pt-2" onClickCapture={pin}>
-      {banner}
+      <ProgressStrip
+        cells={cellList}
+        loads={[...loads.values()]}
+        locked={locked}
+        onGoResults={onGoResults}
+        accepting={acceptRest.isPending}
+        onAcceptRest={() => confirm(`남은 ${totalOpen}개 항목을 모두 추천대로 확정할까요?`) && acceptRest.mutate({})}
+      />
       <div className="grid items-start gap-4 lg:grid-cols-[9.5rem_1fr]">
         <StudentList
           list={list}
           current={index}
           loads={loads}
           scores={new Map(all.map((s) => [s.id, scoreOf(assignment.items, cellList, s.id)]))}
-          totalAttention={totalAttention}
           mode={mode}
           canResort={frozen !== null}
           onSelect={go}
@@ -236,13 +215,114 @@ export default function StudentView({ assignment, onGoResults }: { assignment: A
   );
 }
 
+/** Cells a grader may confirm in bulk: confident, and not drawn for a spot check. */
+const isQuick = (c: CellOut) => (c.route === "auto" || c.route === "skip") && !c.sampled;
+
+/**
+ * Where the question stands, as a bar rather than a to-do count: how much the AI was sure of
+ * (confirmable at once), what still needs the grader's eyes, and what is already confirmed.
+ */
+function ProgressStrip({
+  cells,
+  loads,
+  locked,
+  onGoResults,
+  accepting,
+  onAcceptRest,
+}: {
+  cells: CellOut[];
+  loads: Workload[];
+  locked: boolean;
+  onGoResults: () => void;
+  accepting: boolean;
+  onAcceptRest: () => void;
+}) {
+  const [explain, setExplain] = useState(false);
+  const total = cells.length || 1;
+  const done = cells.filter((c) => c.final_points !== null).length;
+  const quick = cells.filter((c) => c.final_points === null && isQuick(c)).length;
+  const look = total - done - quick;
+  const surePct = Math.round((cells.filter(isQuick).length / total) * 100);
+  const needs = loads.map(attention).filter((n) => n > 0);
+  const [few, many] = [Math.min(...needs), Math.max(...needs)];
+  const open = total - done;
+
+  const status = locked ? (
+    <span className="text-muted-foreground">성적이 확정되어 잠겼습니다. 고치려면 &lsquo;결과&rsquo; 탭에서 개정하세요.</span>
+  ) : open === 0 ? (
+    <>
+      <span className="text-emerald-700 dark:text-emerald-400">모든 항목을 확정했습니다</span>
+      <Button size="sm" onClick={onGoResults}>
+        결과로 가기 →
+      </Button>
+    </>
+  ) : needs.length > 0 ? (
+    <span>
+      확인할 학생 <strong>{needs.length}명</strong>
+      <span className="text-muted-foreground"> · 한 명당 {few === many ? few : `${few}~${many}`}개 항목</span>
+    </span>
+  ) : (
+    <>
+      <span>확인할 곳은 다 봤습니다. 남은 항목은 AI가 확신한 것들입니다.</span>
+      <Button size="sm" disabled={accepting} onClick={onAcceptRest}>
+        남은 항목 추천대로 확정
+      </Button>
+    </>
+  );
+
+  const segments = [
+    { n: done, label: "확정", className: "bg-emerald-500" },
+    { n: quick, label: "AI가 확신 · 한 번에 확정 가능", className: "bg-sky-300 dark:bg-sky-700" },
+    { n: look, label: "확인 필요", className: "bg-amber-400" },
+  ];
+
+  return (
+    <section className="flex flex-col gap-2 rounded-lg border bg-card px-4 py-3 text-sm shadow-xs">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <span className="font-semibold">
+          AI가 확신한 항목 <span className="text-base tabular-nums">{surePct}%</span>
+        </span>
+        <div className="ml-auto flex flex-wrap items-center gap-2">{status}</div>
+      </div>
+      <div className="flex h-2.5 overflow-hidden rounded-full bg-muted" role="img" aria-label={segments.map((g) => `${g.label} ${g.n}`).join(", ")}>
+        {segments.map((g) => (
+          <div
+            key={g.label}
+            className={cn("h-full transition-[width] duration-500", g.className)}
+            style={{ width: `${(g.n / total) * 100}%` }}
+            title={`${g.label} ${g.n}개`}
+          />
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        {segments.map((g) => (
+          <span key={g.label} className="flex items-center gap-1.5">
+            <span className={cn("size-2 rounded-full", g.className)} />
+            {g.label}
+          </span>
+        ))}
+        <button type="button" className="ml-auto underline-offset-2 hover:underline" onClick={() => setExplain(!explain)} aria-expanded={explain}>
+          어떻게 고르나요? {explain ? "▴" : "▾"}
+        </button>
+      </div>
+      {explain && (
+        <ul className="ml-4 list-disc space-y-1 rounded-md bg-muted/60 py-2 pr-3 pl-5 text-xs leading-5">
+          <li>AI가 모든 학생의 모든 항목을 먼저 판단합니다. 확신한 항목은 추천대로 한 번에 확정할 수 있게 둡니다.</li>
+          <li>AI가 확신하지 못했거나, 다시 읽은 AI와 의견이 갈린 항목만 &lsquo;확인 필요&rsquo;로 보여 드립니다.</li>
+          <li>확신한 항목 중 일부(약 10%)도 &lsquo;무작위 점검&rsquo;으로 섞어 AI가 놓친 것이 없는지 보게 합니다.</li>
+          <li>점수는 어느 경우든 채점자가 확정해야 기록됩니다.</li>
+        </ul>
+      )}
+    </section>
+  );
+}
+
 /** Who to grade: a column beside the work on wide screens, a wrapped row above it otherwise. */
 function StudentList({
   list,
   current,
   loads,
   scores,
-  totalAttention,
   mode,
   canResort,
   onSelect,
@@ -252,7 +332,6 @@ function StudentList({
   current: number;
   loads: Map<number, Workload>;
   scores: Map<number, Score>;
-  totalAttention: number;
   mode: SortMode;
   canResort: boolean; // the order is frozen and may be stale
   onSelect: (index: number) => void;
@@ -279,11 +358,6 @@ function StudentList({
           </Button>
         )}
       </div>
-      {totalAttention > 0 && (
-        <p className="text-xs text-amber-800 dark:text-amber-300">
-          확인 필요 항목 <strong>{totalAttention}개</strong>
-        </p>
-      )}
       <ul className="flex flex-row flex-wrap gap-1 lg:max-h-[70vh] lg:flex-col lg:flex-nowrap lg:overflow-y-auto">
         {list.map((s, i) => {
           const w = loads.get(s.id)!;
@@ -483,6 +557,11 @@ function ItemList({
   const isOpen = (item: RubricItemOut, cell: CellOut) =>
     opened[item.id] ?? (cell.final_points === null && checkReason(cell) !== null);
   const allOpen = rows.every(({ item, cell }) => isOpen(item, cell));
+  // rows that still need a look: undecided with a reason to check
+  const needsLook = (cell: CellOut) => cell.final_points === null && checkReason(cell) !== null;
+  const checkRows = rows.filter(({ cell }) => needsLook(cell));
+  // exactly the rows to check are open (the default view)
+  const checkOnly = checkRows.length > 0 && rows.every(({ item, cell }) => isOpen(item, cell) === needsLook(cell));
   const score = scoreOf(items, [...byItem.values()], submission.id);
   const open = score.open;
   const [showAnswer, setShowAnswer] = useState(false);
@@ -516,10 +595,21 @@ function ItemList({
               {showAnswer ? "답안 닫기 ▴" : "답안 보기 ▾"}
             </Button>
           )}
+          {checkRows.length > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className={cn(!paperGone && "ml-auto")}
+              // from any state, one click shows just the rows to check; from that view, one click folds them
+              onClick={() => setOpened(Object.fromEntries(rows.map(({ item, cell }) => [item.id, !checkOnly && needsLook(cell)])))}
+            >
+              {checkOnly ? "확인 필요 접기" : "확인 필요만 펼치기"}
+            </Button>
+          )}
           <Button
             size="sm"
             variant="ghost"
-            className={cn(!paperGone && "ml-auto")}
+            className={cn(!paperGone && checkRows.length === 0 && "ml-auto")}
             onClick={() => setOpened(Object.fromEntries(rows.map(({ item }) => [item.id, !allOpen])))}
           >
             {allOpen ? "모두 접기" : "모두 펼치기"}
