@@ -3,7 +3,6 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
-import { buttonVariants } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, ApiError, type AssignmentOut, type GradingStatus } from "@/lib/api";
 import { termLabel } from "@/lib/progress";
@@ -43,31 +42,40 @@ export default function DetailScreen({ assignmentId }: { assignmentId: number })
           {a.course.name} ({a.course.section}분반)
         </Link>
       </nav>
-      <header className="flex items-start gap-4">
-        <div className="flex flex-1 flex-col gap-1">
-          {a.assessment && <p className="text-sm text-muted-foreground">{a.assessment}</p>}
+      <header className="flex flex-col gap-3">
+        <div className="flex items-baseline gap-2">
           <h1 className="text-2xl font-bold">{a.title}</h1>
-          <p className="text-muted-foreground whitespace-pre-wrap">{a.problem}</p>
+          {a.assessment && <span className="text-sm text-muted-foreground">{a.assessment}</span>}
         </div>
-        {graded && (
-          <Link href={`/assignments/${assignmentId}/review`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-            항목별로 보기
-          </Link>
-        )}
+        {/* the question is what every answer is read against: as prominent as the answer itself */}
+        <section className="rounded-xl border-l-4 border-l-primary bg-card px-4 py-3 shadow-xs ring-1 ring-foreground/10">
+          <p className="text-xs font-medium text-primary">문제</p>
+          <p className="whitespace-pre-wrap text-[1.05rem] leading-7">{a.problem}</p>
+        </section>
       </header>
 
       {/* setup until graded, grading while cells are open, results once every cell is decided */}
       <Tabs value={tab ?? defaultTab} onValueChange={(v) => setTab(String(v))}>
-        <TabsList>
-          <TabsTrigger value="grade" disabled={!graded}>
-            채점
-          </TabsTrigger>
-          <TabsTrigger value="results" disabled={!graded}>
-            결과
-          </TabsTrigger>
-          <TabsTrigger value="admin">관리</TabsTrigger>
-        </TabsList>
-        <TabsContent value="grade">{graded && <StudentView assignment={a} />}</TabsContent>
+        <div className="flex items-center gap-2">
+          <TabsList>
+            <TabsTrigger value="admin">준비</TabsTrigger>
+            <TabsTrigger value="grade" disabled={!graded}>
+              채점
+            </TabsTrigger>
+            <TabsTrigger value="results" disabled={!graded}>
+              결과
+            </TabsTrigger>
+          </TabsList>
+          {graded && (
+            <Link
+              href={`/assignments/${assignmentId}/review`}
+              className="ml-auto text-sm text-muted-foreground hover:text-foreground hover:underline"
+            >
+              항목별로 보기 →
+            </Link>
+          )}
+        </div>
+        <TabsContent value="grade">{graded && <StudentView assignment={a} onGoResults={() => setTab("results")} />}</TabsContent>
         <TabsContent value="results">{graded && <ResultsTab assignment={a} />}</TabsContent>
         <TabsContent value="admin">
           <AdminPanel assignment={a} onGradingStarted={() => setTab("grade")} />

@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api, ApiError, type AssignmentOut, type GradingStatus, type RubricItemOut, type SubmissionOut } from "@/lib/api";
-import { itemName, KIND_HINT, KIND_LABEL, plain, ROUTE_LABEL, TYPE_LABEL } from "@/lib/rubric";
+import { itemName, KIND_HINT, KIND_LABEL, plain, TYPE_LABEL } from "@/lib/rubric";
 
 const errorMessage = (e: unknown, fallback: string) => (e instanceof ApiError ? String(e.detail) : fallback);
 
@@ -37,9 +37,10 @@ export default function AdminPanel({
 
   return (
     <div className="flex flex-col gap-6 pt-2">
-      <GradingCard assignmentId={assignment.id} submissionCount={assignment.submission_count} onStarted={onGradingStarted} />
-      <SubmissionsCard assignmentId={assignment.id} />
+      {/* in working order: criteria, answers, then the grading run */}
       <RubricCard assignment={assignment} />
+      <SubmissionsCard assignmentId={assignment.id} />
+      <GradingCard assignmentId={assignment.id} submissionCount={assignment.submission_count} onStarted={onGradingStarted} />
       <div className="flex justify-end">
         <Button
           variant="destructive"
@@ -55,7 +56,7 @@ export default function AdminPanel({
 }
 
 function RubricCard({ assignment }: { assignment: AssignmentOut }) {
-  const items = assignment.items;
+  const items = assignment.items.filter((i) => i.kind !== "gate"); // the topic check is always there
   return (
     <Card>
       <CardHeader className="flex flex-row items-center gap-2">
@@ -77,7 +78,7 @@ function RubricCard({ assignment }: { assignment: AssignmentOut }) {
             <TableRow>
               <TableHead>항목</TableHead>
               <TableHead>구분</TableHead>
-              <TableHead>판단 질문</TableHead>
+              <TableHead>AI가 확인할 내용</TableHead>
               <TableHead className="text-right">배점</TableHead>
             </TableRow>
           </TableHeader>
@@ -101,6 +102,9 @@ function RubricCard({ assignment }: { assignment: AssignmentOut }) {
             ))}
           </TableBody>
         </Table>
+        <p className="pt-2 text-xs text-muted-foreground">
+          빈 답안이나 문제와 관련 없는 답안은 AI가 알아보고 모든 항목에 0점을 추천합니다.
+        </p>
       </CardContent>
     </Card>
   );
@@ -152,14 +156,15 @@ function GradingCard({
       <CardHeader className="flex flex-row items-center gap-2">
         <CardTitle>채점</CardTitle>
         <div className="ml-auto flex gap-2">
-          <Button disabled={submissionCount === 0 || grade.isPending || (graded && !s.done)} onClick={start}>
+          {/* once graded, going to grade is the next step; re-grading is the rare one */}
+          <Button
+            variant={graded ? "outline" : "default"}
+            disabled={submissionCount === 0 || grade.isPending || (graded && !s.done)}
+            onClick={start}
+          >
             {grade.isPending ? "판단 중…" : graded ? "다시 채점" : "채점 시작"}
           </Button>
-          {graded && (
-            <Link href={`/assignments/${assignmentId}/review`} className={buttonVariants({ variant: "outline" })}>
-              검토하기
-            </Link>
-          )}
+          {graded && <Button onClick={onStarted}>채점하러 가기</Button>}
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
@@ -168,15 +173,10 @@ function GradingCard({
           <>
             <Progress value={((s.total - s.pending) / s.total) * 100} />
             <p className="text-sm">
-              {s.done ? "판단 완료" : `LLM 재판단 진행 중 (${s.pending}칸 남음)`} · 전체 {s.total}칸
+              {s.done
+                ? `${s.total}칸 모두 추천을 만들었습니다. 채점 탭에서 확인이 필요한 칸부터 보세요.`
+                : `${s.total}칸 중 ${s.pending}칸은 AI가 다시 보는 중입니다. 기다리는 동안 채점을 시작해도 됩니다.`}
             </p>
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(s.routes).map(([route, count]) => (
-                <Badge key={route} variant="secondary">
-                  {ROUTE_LABEL[route] ?? route} {count}
-                </Badge>
-              ))}
-            </div>
           </>
         )}
       </CardContent>
@@ -184,9 +184,12 @@ function GradingCard({
   );
 }
 
+const PREVIEW_ROWS = 5; // a long class list buries the grading card below it
+
 function SubmissionsCard({ assignmentId }: { assignmentId: number }) {
   const queryClient = useQueryClient();
   const fileInput = useRef<HTMLInputElement>(null);
+  const [showAll, setShowAll] = useState(false);
   const submissions = useQuery({
     queryKey: ["submissions", assignmentId],
     queryFn: () => api<SubmissionOut[]>(`/assignments/${assignmentId}/submissions`),
@@ -252,7 +255,7 @@ function SubmissionsCard({ assignmentId }: { assignmentId: number }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {submissions.data.map((s) => (
+              {(showAll ? submissions.data : submissions.data.slice(0, PREVIEW_ROWS)).map((s) => (
                 <TableRow key={s.id}>
                   <TableCell className="font-mono align-top">{s.label}</TableCell>
                   <TableCell className="max-w-xl truncate">{s.clean_text || <span className="text-muted-foreground">(빈 답안)</span>}</TableCell>
@@ -272,6 +275,11 @@ function SubmissionsCard({ assignmentId }: { assignmentId: number }) {
           </Table>
         ) : (
           <p className="text-muted-foreground">아직 올린 답안이 없습니다.</p>
+        )}
+        {(submissions.data?.length ?? 0) > PREVIEW_ROWS && (
+          <Button size="sm" variant="ghost" className="self-start" onClick={() => setShowAll(!showAll)}>
+            {showAll ? "접기" : `${submissions.data!.length}건 모두 보기`}
+          </Button>
         )}
       </CardContent>
     </Card>

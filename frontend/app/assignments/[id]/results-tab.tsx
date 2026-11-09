@@ -9,9 +9,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { api, ApiError, json, type AssignmentOut, type CellOut, type FinalizationOut } from "@/lib/api";
+import { DECISION_LABEL } from "@/lib/rubric";
 import ResultsPanel from "./results-panel";
-
-const DECISION_LABEL: Record<string, string> = { accepted: "추천 수용", modified: "수정", manual: "직접 입력" };
 
 const when = (iso: string) =>
   new Date(iso).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -66,22 +65,22 @@ export default function ResultsTab({ assignment }: { assignment: AssignmentOut }
           </div>
           {current ? (
             <p className="rounded-md border bg-muted/30 px-3 py-2">
-              <strong>v{current.version} 확정</strong> · {current.finalized_by} · {when(current.finalized_at)} · 해시{" "}
-              <code title={current.snapshot_hash}>{current.snapshot_hash.slice(0, 8)}</code>
+              <strong title={`결과 해시 ${current.snapshot_hash}`}>v{current.version} 확정</strong> · {current.finalized_by} ·{" "}
+              {when(current.finalized_at)}
               <span className="text-muted-foreground"> — 점수가 잠겼습니다. 고치려면 사유를 적고 개정하세요.</span>
             </p>
           ) : (
             <p className="text-muted-foreground">
               {open > 0
                 ? `확정하지 않은 칸이 ${open}칸 남았습니다. 모든 칸을 확정하면 성적을 확정할 수 있습니다.`
-                : "모든 칸을 확정했습니다. 성적을 확정하면 확정자와 시각, 결과 해시가 기록되고 점수가 잠깁니다."}
+                : "모든 칸을 확정했습니다. 성적을 확정하면 확정자와 시각이 기록되고 점수가 잠깁니다."}
             </p>
           )}
           {history.data.length > 0 && (
             <ul className="flex flex-col gap-1 text-muted-foreground">
               {history.data.map((f) => (
                 <li key={f.id}>
-                  v{f.version} · {f.finalized_by} · {when(f.finalized_at)} · <code>{f.snapshot_hash.slice(0, 8)}</code>
+                  <span title={`결과 해시 ${f.snapshot_hash}`}>v{f.version}</span> · {f.finalized_by} · {when(f.finalized_at)}
                   {f.reopened_at && ` · ${when(f.reopened_at)} 개정: ${f.reopen_reason}`}
                 </li>
               ))}

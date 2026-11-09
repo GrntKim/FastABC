@@ -8,21 +8,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api, type AssignmentOut, type CellOut, type RubricItemOut, type SubmissionOut } from "@/lib/api";
 import { annotate } from "@/lib/highlight";
 import {
-  confLabel,
+  CHECK_HINT,
+  DECISION_LABEL,
+  formatPoints,
+  itemMax,
+  outcomeName,
+  CHECK_TONE,
+  checkReason,
   describePred,
-  formatPred,
   itemColor,
   itemName,
   KIND_HINT,
-  KIND_LABEL,
+  outcome,
   plain,
-  pointOptions,
-  ROUTE_LABEL,
-  ROUTE_TONE,
-  SAMPLED_HINT,
+  predPoints,
 } from "@/lib/rubric";
 import { cn } from "@/lib/utils";
 import { useAcceptConfident, useClearDecisions, useDecide, useFindEvidence } from "@/lib/use-decide";
+import SplitOpinion, { otherOptions } from "./split-opinion";
 
 type SortMode = "attention" | "label" | "student";
 const SORT_LABEL: Record<SortMode, string> = { attention: "확인 필요순", label: "라벨순", student: "학번순" };
@@ -45,6 +48,18 @@ function workload(cells: CellOut[], submissionId: number): Workload {
 
 const attention = (w: Workload) => w.human + w.llm + w.sampled;
 
+type Score = { sum: number; max: number; open: number; total: number | null };
+
+/** Points so far for one student; the total (floored at 0, as in app/scoring.py) once every cell is decided. */
+function scoreOf(items: RubricItemOut[], cells: CellOut[], submissionId: number): Score {
+  const scored = new Map(items.filter((i) => i.kind !== "gate").map((i) => [i.id, i]));
+  const own = cells.filter((c) => c.submission_id === submissionId && scored.has(c.rubric_item_id));
+  const sum = own.reduce((acc, c) => acc + (c.final_points ?? 0), 0);
+  const open = own.filter((c) => c.final_points === null).length;
+  const max = [...scored.values()].reduce((acc, i) => acc + itemMax(i), 0);
+  return { sum, max, open, total: own.length > 0 && open === 0 ? Math.max(0, sum) : null };
+}
+
 function sortIds(list: SubmissionOut[], cells: CellOut[], mode: SortMode): number[] {
   const sorted = [...list];
   if (mode === "student") sorted.sort((a, b) => a.student_ref.localeCompare(b.student_ref, "ko", { numeric: true }));
@@ -64,8 +79,8 @@ function sortIds(list: SubmissionOut[], cells: CellOut[], mode: SortMode): numbe
   return sorted.map((s) => s.id);
 }
 
-/** One student at a time: the whole answer first, judgments beside it, points below. */
-export default function StudentView({ assignment }: { assignment: AssignmentOut }) {
+/** One student at a time: the students on the side, then the answer and its items. */
+export default function StudentView({ assignment, onGoResults }: { assignment: AssignmentOut; onGoResults: () => void }) {
   const submissions = useQuery({
     queryKey: ["submissions", assignment.id],
     queryFn: () => api<SubmissionOut[]>(`/assignments/${assignment.id}/submissions`),
@@ -113,114 +128,177 @@ export default function StudentView({ assignment }: { assignment: AssignmentOut 
     (s) => s.id !== submission.id && attention(loads.get(s.id)!) > 0,
   );
 
+  // a banner only when there is something to do about the whole question
+  const banner = locked ? (
+    <div className="rounded-lg border bg-muted px-3 py-2 text-sm">
+      성적이 확정되어 잠겼습니다. 고치려면 &lsquo;결과&rsquo; 탭에서 개정하세요.
+    </div>
+  ) : totalOpen === 0 ? (
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm dark:border-emerald-800 dark:bg-emerald-950/40">
+      <span>모든 칸을 확정했습니다. 이제 성적을 확정하세요.</span>
+      <Button size="sm" className="ml-auto" onClick={onGoResults}>
+        결과로 가기 →
+      </Button>
+    </div>
+  ) : totalAttention === 0 ? (
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm dark:border-sky-800 dark:bg-sky-950/40">
+      <span>확인이 필요한 칸은 모두 끝났습니다. 남은 {totalOpen}칸은 추천대로 확정하면 됩니다.</span>
+      <Button
+        size="sm"
+        className="ml-auto"
+        disabled={acceptRest.isPending}
+        onClick={() => confirm(`남은 ${totalOpen}칸을 모두 추천대로 확정할까요?`) && acceptRest.mutate({})}
+      >
+        남은 칸 추천대로 확정
+      </Button>
+    </div>
+  ) : null;
+
   return (
     <div className="flex flex-col gap-4 pt-2" onClickCapture={pin}>
-      <div
-        className={cn(
-          "flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-sm",
-          locked
-            ? "bg-muted"
-            : totalAttention > 0
-              ? "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40"
-              : totalOpen > 0
-                ? "border-sky-200 bg-sky-50 dark:border-sky-800 dark:bg-sky-950/40"
-                : "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/40",
-        )}
-      >
-        {locked ? (
-          <span>성적이 확정되어 잠겼습니다. 고치려면 &lsquo;결과&rsquo; 탭에서 개정하세요.</span>
-        ) : totalAttention > 0 ? (
-          <>
-            <span>
-              확인이 필요한 칸 <strong>{totalAttention}칸</strong> 남음
-            </span>
-            {nextAttention && (
-              <Button size="sm" onClick={() => go(list.indexOf(nextAttention))}>
-                다음 확인 필요 학생 ({nextAttention.label}) →
-              </Button>
-            )}
-          </>
-        ) : totalOpen > 0 ? (
-          <>
-            <span>확인이 필요한 칸은 모두 처리했습니다. 남은 {totalOpen}칸은 자동 판단입니다.</span>
-            <Button
-              size="sm"
-              disabled={acceptRest.isPending}
-              onClick={() =>
-                confirm(`남은 자동 판단을 모두 추천대로 수용할까요? (샘플 검토 칸은 제외)`) && acceptRest.mutate({})
-              }
-            >
-              나머지 일괄 수용
-            </Button>
-          </>
-        ) : (
-          <span>모든 칸을 확정했습니다. &lsquo;결과&rsquo; 탭에서 성적을 확정하세요.</span>
-        )}
-        <span className="ml-auto flex items-center gap-1">
-          {(Object.keys(SORT_LABEL) as SortMode[]).map((m) => (
-            <Button key={m} size="xs" variant={m === mode ? "secondary" : "ghost"} onClick={() => resort(m)}>
-              {SORT_LABEL[m]}
-            </Button>
-          ))}
-          {frozen && (
-            <Button size="xs" variant="ghost" onClick={() => resort(mode)} title="지금 상태로 다시 정렬">
-              다시 정렬
-            </Button>
-          )}
-        </span>
+      {banner}
+      <div className="grid items-start gap-4 lg:grid-cols-[9.5rem_1fr]">
+        <StudentList
+          list={list}
+          current={index}
+          loads={loads}
+          scores={new Map(all.map((s) => [s.id, scoreOf(assignment.items, cellList, s.id)]))}
+          totalAttention={totalAttention}
+          mode={mode}
+          canResort={frozen !== null}
+          onSelect={go}
+          onSort={resort}
+        />
+        <div className="flex min-w-0 flex-col gap-4">
+          <AnswerCard
+            assignmentId={assignment.id}
+            submission={submission}
+            items={assignment.items}
+            byItem={byItem}
+            focused={focused}
+            onFocus={setFocused}
+          />
+          <ItemList
+            key={submission.id}
+            assignmentId={assignment.id}
+            submission={submission}
+            items={assignment.items}
+            byItem={byItem}
+            focused={focused}
+            onFocus={setFocused}
+            locked={locked}
+            footer={
+              <>
+                <Button size="sm" variant="ghost" onClick={() => go(index - 1)}>
+                  ← 이전 학생
+                </Button>
+                {nextAttention ? (
+                  <Button size="sm" className="ml-auto" onClick={() => go(list.indexOf(nextAttention))}>
+                    다음 확인 필요 학생 ({nextAttention.label}) →
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" className="ml-auto" onClick={() => go(index + 1)}>
+                    다음 학생 →
+                  </Button>
+                )}
+              </>
+            }
+          />
+        </div>
       </div>
+    </div>
+  );
+}
 
-      <nav className="flex flex-wrap items-center gap-1">
-        <Button size="sm" variant="ghost" onClick={() => go(index - 1)} aria-label="이전 학생">
-          ←
-        </Button>
+/** Who to grade: a column beside the work on wide screens, a wrapped row above it otherwise. */
+function StudentList({
+  list,
+  current,
+  loads,
+  scores,
+  totalAttention,
+  mode,
+  canResort,
+  onSelect,
+  onSort,
+}: {
+  list: SubmissionOut[];
+  current: number;
+  loads: Map<number, Workload>;
+  scores: Map<number, Score>;
+  totalAttention: number;
+  mode: SortMode;
+  canResort: boolean; // the order is frozen and may be stale
+  onSelect: (index: number) => void;
+  onSort: (mode: SortMode) => void;
+}) {
+  return (
+    <nav className="flex flex-col gap-2 lg:sticky lg:top-4">
+      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+        <select
+          className="h-7 w-32 rounded-md border bg-card px-1.5 text-xs text-foreground lg:w-auto lg:min-w-0 lg:flex-1"
+          value={mode}
+          onChange={(e) => onSort(e.target.value as SortMode)}
+          aria-label="정렬"
+        >
+          {(Object.keys(SORT_LABEL) as SortMode[]).map((m) => (
+            <option key={m} value={m}>
+              {SORT_LABEL[m]}
+            </option>
+          ))}
+        </select>
+        {canResort && (
+          <Button size="xs" variant="ghost" onClick={() => onSort(mode)} title="지금 상태로 다시 정렬" aria-label="다시 정렬">
+            ↻
+          </Button>
+        )}
+      </div>
+      {totalAttention > 0 && (
+        <p className="text-xs text-amber-800 dark:text-amber-300">
+          확인 필요 <strong>{totalAttention}칸</strong>
+        </p>
+      )}
+      <ul className="flex flex-row flex-wrap gap-1 lg:max-h-[70vh] lg:flex-col lg:flex-nowrap lg:overflow-y-auto">
         {list.map((s, i) => {
           const w = loads.get(s.id)!;
-          const done = w.total > 0 && w.open === 0;
+          const score = scores.get(s.id)!;
+          const need = attention(w);
           return (
-            <Button
-              key={s.id}
-              size="sm"
-              variant={i === index ? "default" : "outline"}
-              className="font-mono"
-              onClick={() => go(i)}
-              title={`확정 ${w.decided}/${w.total}` + (attention(w) ? ` · 확인 필요 ${attention(w)}` : "")}
-            >
-              {s.label}
-              {done ? " ✓" : attention(w) > 0 && <span className="ml-0.5 text-[0.65rem] text-destructive">●</span>}
-            </Button>
+            <li key={s.id}>
+              <button
+                type="button"
+                onClick={() => onSelect(i)}
+                title={`확정 ${w.decided}/${w.total}` + (need ? ` · 확인 필요 ${need}` : "")}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-md px-2 py-1 font-mono text-sm transition-colors",
+                  i === current ? "bg-primary text-primary-foreground" : "hover:bg-muted",
+                )}
+              >
+                {s.label}
+                <span className="ml-auto text-xs">
+                  {score.total !== null ? (
+                    <span className={cn("font-sans tabular-nums", i !== current && "text-emerald-700 dark:text-emerald-400")}>
+                      {score.total}/{score.max}
+                    </span>
+                  ) : (
+                    need > 0 && (
+                      <span
+                        className={cn(
+                          "rounded-full px-1.5 font-sans font-medium",
+                          i === current ? "bg-primary-foreground/20" : "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200",
+                        )}
+                      >
+                        {need}
+                      </span>
+                    )
+                  )}
+                </span>
+              </button>
+            </li>
           );
         })}
-        <Button size="sm" variant="ghost" onClick={() => go(index + 1)} aria-label="다음 학생">
-          →
-        </Button>
-      </nav>
-
-      <AnswerCard
-        assignmentId={assignment.id}
-        submission={submission}
-        items={assignment.items}
-        byItem={byItem}
-        focused={focused}
-        onFocus={setFocused}
-      />
-      <JudgmentNotes
-        assignmentId={assignment.id}
-        items={assignment.items}
-        byItem={byItem}
-        focused={focused}
-        onFocus={setFocused}
-        locked={locked}
-      />
-
-      <ScoreSummary
-        assignmentId={assignment.id}
-        submission={submission}
-        items={assignment.items}
-        byItem={byItem}
-        locked={locked}
-      />
-    </div>
+      </ul>
+    </nav>
   );
 }
 
@@ -307,245 +385,251 @@ function AnswerCard({
   );
 }
 
-
-function JudgmentNotes({
+/** Every scored item of one student: what to check, the recommendation, and the grader's decision. */
+function ItemList({
   assignmentId,
+  submission,
   items,
   byItem,
   focused,
   onFocus,
   locked,
-}: {
-  assignmentId: number;
-  items: RubricItemOut[];
-  byItem: CellsByItem;
-  focused: number | null;
-  onFocus: (itemId: number | null) => void;
-  locked: boolean;
-}) {
-  return (
-    <div className="grid items-start gap-2 sm:grid-cols-2 xl:grid-cols-3">
-      {items
-        .filter((i) => i.kind !== "gate")
-        .map((item) => {
-          const cell = byItem.get(item.id);
-          if (!cell) return null;
-          const color = itemColor(items, item.id);
-          const judge = cell.secondary && cell.route !== "auto" ? cell.secondary : cell.primary;
-          const llm = llmView(cell);
-          // an on-demand lookup that disagrees with a confident decision-model judgment: worth a second look
-          const disagrees = cell.route === "auto" && llm?.pred != null && llm.pred !== cell.primary?.pred;
-          // undecided cells the grader must look at get an accent edge
-          const accent =
-            cell.decision === null &&
-            (cell.route === "human"
-              ? "border-l-4 border-l-rose-400"
-              : cell.route === "llm"
-                ? "border-l-4 border-l-violet-400"
-                : cell.sampled && "border-l-4 border-l-amber-400");
-          return (
-            <div
-              key={item.id}
-              className={cn(
-                "flex flex-col rounded-lg border bg-card text-sm shadow-xs",
-                accent,
-                cell.decision !== null && "bg-muted/40",
-                focused === item.id && cn("ring-2", color?.ring),
-              )}
-            >
-              {/* the judgment: clicking it marks its evidence in the answer */}
-              <button
-                type="button"
-                onClick={() => onFocus(focused === item.id ? null : item.id)}
-                className="flex flex-col gap-1 rounded-t-lg p-3 text-left transition-colors hover:bg-muted/50"
-              >
-                <div className="flex items-center gap-2">
-                  <span className={cn("size-2.5 shrink-0 rounded-full", color?.dot)} />
-                  <span className="font-medium" title={plain(item.instructions)}>
-                    {itemName(item)}
-                  </span>
-                  {item.kind === "deduction" && (
-                    <Badge variant="outline" title={KIND_HINT.deduction}>
-                      감점
-                    </Badge>
-                  )}
-                  <span className="ml-auto flex shrink-0 gap-1">
-                    {cell.sampled && cell.decision === null && (
-                      <span
-                        className="whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
-                        title={SAMPLED_HINT}
-                      >
-                        샘플 검토
-                      </span>
-                    )}
-                    <span className={cn("whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium", ROUTE_TONE[cell.route])}>
-                      {ROUTE_LABEL[cell.route]}
-                    </span>
-                  </span>
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <strong>{cell.route === "skip" ? "판단 생략" : formatPred(item, judge?.pred)}</strong>
-                  {cell.primary?.conf != null && cell.route !== "skip" && (
-                    <span className="text-xs text-muted-foreground" title={`확신도 ${Math.round(cell.primary.conf * 100)}%`}>
-                      {confLabel(cell.primary.conf)}
-                    </span>
-                  )}
-                </div>
-                {cell.route !== "skip" && (
-                  <p className="text-muted-foreground">
-                    {disagrees ? describePred(item, judge?.pred) : (llm?.reasoning ?? describePred(item, judge?.pred))}
-                  </p>
-                )}
-                {cell.route === "human" && <p className="text-destructive text-xs">두 판단이 달라 직접 판단이 필요합니다.</p>}
-                {disagrees && (
-                  <p className="text-xs text-amber-700 dark:text-amber-400">
-                    참고: LLM은 &lsquo;{formatPred(item, llm.pred)}&rsquo;로 봤습니다. {llm.reasoning}
-                  </p>
-                )}
-              </button>
-              <CellDecision assignmentId={assignmentId} item={item} cell={cell} locked={locked} />
-            </div>
-          );
-        })}
-    </div>
-  );
-}
-
-const DECISION_LABEL: Record<string, string> = { accepted: "추천 수용", modified: "수정", manual: "직접 입력" };
-
-/** The grader's decision for one cell: accept the recommendation, or pick the points. */
-function CellDecision({
-  assignmentId,
-  item,
-  cell,
-  locked,
-}: {
-  assignmentId: number;
-  item: RubricItemOut;
-  cell: CellOut;
-  locked: boolean; // grades are finalized
-}) {
-  const decide = useDecide(assignmentId);
-  const blocked = cell.route === "pending";
-  const busy = decide.isPending || locked;
-  const set = (body: { action: "accept" | "clear" } | { action: "set"; points: number }) =>
-    decide.mutate({ gradeId: cell.grade_id, body });
-
-  return (
-    <div className="flex flex-col gap-2 border-t px-3 py-2">
-      {cell.final_points !== null ? (
-        <div className="flex items-center gap-2">
-          <span className="text-emerald-700 dark:text-emerald-400">✓</span>
-          <strong>{cell.final_points}점</strong>
-          <span className="text-xs text-muted-foreground">{cell.decision && DECISION_LABEL[cell.decision]}</span>
-          {!locked && (
-            <Button size="xs" variant="ghost" className="ml-auto" disabled={busy} onClick={() => set({ action: "clear" })}>
-              취소
-            </Button>
-          )}
-        </div>
-      ) : cell.recommended_points !== null ? (
-        // confident auto cells can go through bulk accept: keep their button quiet so the ones to check stand out
-        <Button
-          size="sm"
-          variant={cell.route === "auto" && !cell.sampled ? "secondary" : "default"}
-          disabled={busy}
-          onClick={() => set({ action: "accept" })}
-        >
-          추천 {cell.recommended_points}점 수용
-        </Button>
-      ) : (
-        <span className="text-xs text-muted-foreground">{blocked ? "LLM 재판단 중…" : "추천 없음: 아래에서 점수를 고르세요"}</span>
-      )}
-      <div className="flex flex-wrap gap-1">
-        {pointOptions(item).map((o) => (
-          <Button
-            key={o.label}
-            size="xs"
-            variant={cell.final_points === o.points ? "default" : "outline"}
-            disabled={busy || blocked}
-            onClick={() => set({ action: "set", points: o.points })}
-          >
-            {o.label}
-          </Button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/** Per-item final points, the total, and the per-student bulk actions. */
-function ScoreSummary({
-  assignmentId,
-  submission,
-  items,
-  byItem,
-  locked,
+  footer,
 }: {
   assignmentId: number;
   submission: SubmissionOut;
   items: RubricItemOut[];
   byItem: CellsByItem;
+  focused: number | null;
+  onFocus: (itemId: number | null) => void;
   locked: boolean; // grades are finalized
+  footer: React.ReactNode; // moving on to another student
 }) {
   const acceptConfident = useAcceptConfident(assignmentId);
   const clearDecisions = useClearDecisions(assignmentId);
-  const rows = items.map((item) => ({ item, cell: byItem.get(item.id) })).filter((r) => r.cell);
-  const finals = rows.map((r) => r.cell!.final_points);
-  const open = finals.filter((p) => p === null).length;
-  // mirrors app/scoring.py total(): floored at 0, only once every cell is decided
-  const total = open === 0 ? Math.max(0, finals.reduce<number>((sum, p) => sum + (p ?? 0), 0)) : null;
-  const maxPoints = rows.reduce((sum, { item }) => {
-    if (item.kind !== "credit") return sum;
-    return sum + (item.points ?? Math.max(0, ...Object.values(item.points_map ?? {})));
-  }, 0);
+  const rows = items.filter((i) => i.kind !== "gate" && byItem.has(i.id)).map((item) => ({ item, cell: byItem.get(item.id)! }));
+  // rows the grader opened or closed; the rest open only while they need a look
+  const [opened, setOpened] = useState<Record<number, boolean>>({});
+  const isOpen = (item: RubricItemOut, cell: CellOut) =>
+    opened[item.id] ?? (cell.final_points === null && checkReason(cell) !== null);
+  const allOpen = rows.every(({ item, cell }) => isOpen(item, cell));
+  const score = scoreOf(items, [...byItem.values()], submission.id);
+  const open = score.open;
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center gap-2">
-        <CardTitle>점수</CardTitle>
-        <span className="ml-2 text-base">
-          {total === null ? (
-            <span className="text-muted-foreground">{open}칸 미확정</span>
-          ) : (
-            <strong>
-              총점 {total} / {maxPoints}점
-            </strong>
-          )}
-        </span>
+      <CardHeader className="flex flex-row flex-wrap items-center gap-2">
+        {/* what the grader keeps an eye on: how many points this student has */}
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-sm text-muted-foreground">{score.total === null ? "지금까지" : "총점"}</span>
+          <span
+            className={cn(
+              "text-3xl font-bold tabular-nums",
+              score.total !== null && "text-emerald-700 dark:text-emerald-400",
+            )}
+          >
+            {score.total ?? formatPoints(score.sum)}
+          </span>
+          <span className="text-lg text-muted-foreground tabular-nums">/ {score.max}점</span>
+          <span className={cn("ml-2 text-sm", open > 0 ? "text-amber-700 dark:text-amber-400" : "text-emerald-700 dark:text-emerald-400")}>
+            {open > 0 ? `${open}칸 미확정` : "✓ 채점 완료"}
+          </span>
+        </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="ml-auto"
+          onClick={() => setOpened(Object.fromEntries(rows.map(({ item }) => [item.id, !allOpen])))}
+        >
+          {allOpen ? "모두 접기" : "모두 펼치기"}
+        </Button>
         <Button
           size="sm"
           variant="outline"
-          className="ml-auto"
           disabled={acceptConfident.isPending || locked}
           onClick={() => acceptConfident.mutate({ submission_id: submission.id })}
-          title="자동 판단 중 확신 높은 칸만 수용합니다. LLM 확인·직접 판단·샘플 검토 칸은 제외됩니다."
+          title="확인이 필요 없는 칸만 추천대로 확정합니다. 확인 필요로 표시된 칸은 그대로 둡니다."
         >
-          고확신 항목 일괄 수용
+          추천대로 확정 (확인 필요 칸 제외)
         </Button>
         <Button
           size="sm"
           variant="ghost"
           disabled={clearDecisions.isPending || open === rows.length || locked}
           onClick={() =>
-            confirm(`${submission.label}의 확정 ${rows.length - open}칸을 모두 취소할까요? 직접 입력한 점수도 지워집니다.`) &&
+            confirm(`${submission.label}의 확정 ${rows.length - open}칸을 모두 취소할까요? 직접 고른 점수도 지워집니다.`) &&
             clearDecisions.mutate({ submission_id: submission.id })
           }
         >
-          일괄 취소
+          모두 취소
         </Button>
       </CardHeader>
-      <CardContent className="flex flex-wrap gap-x-5 gap-y-1">
+      <CardContent className="flex flex-col divide-y px-0">
         {rows.map(({ item, cell }) => (
-          <span key={item.id} className="flex items-center gap-1.5" title={KIND_LABEL[item.kind]}>
-            <span className={cn("size-2 shrink-0 rounded-full", itemColor(items, item.id)?.dot)} />
-            {itemName(item)}
-            <strong className={cn(cell!.final_points === null && "font-normal text-muted-foreground")}>
-              {cell!.final_points === null ? "—" : `${cell!.final_points}점`}
-            </strong>
-          </span>
+          <ItemRow
+            key={item.id}
+            assignmentId={assignmentId}
+            item={item}
+            cell={cell}
+            color={itemColor(items, item.id)}
+            expanded={isOpen(item, cell)}
+            onToggle={() => {
+              const next = !isOpen(item, cell);
+              setOpened({ ...opened, [item.id]: next });
+              onFocus(next ? item.id : null);
+            }}
+            focused={focused === item.id}
+            locked={locked}
+          />
         ))}
       </CardContent>
+      <div className="flex items-center gap-2 border-t px-4 pt-3">{footer}</div>
     </Card>
+  );
+}
+
+/**
+ * One item in the grader's words. Cells that need a look open with the reason and evidence;
+ * cells whose recommendation can stand stay one line until opened.
+ */
+function ItemRow({
+  assignmentId,
+  item,
+  cell,
+  color,
+  expanded,
+  onToggle,
+  focused,
+  locked,
+}: {
+  assignmentId: number;
+  item: RubricItemOut;
+  cell: CellOut;
+  color: ReturnType<typeof itemColor>;
+  expanded: boolean;
+  onToggle: () => void; // also marks the item's evidence in the answer
+  focused: boolean;
+  locked: boolean;
+}) {
+  const decide = useDecide(assignmentId);
+  const decided = cell.final_points !== null;
+  const reason = decided ? null : checkReason(cell);
+  const busy = decide.isPending || locked;
+  const set = (body: { action: "accept" | "clear" } | { action: "set"; points: number }) =>
+    decide.mutate({ gradeId: cell.grade_id, body });
+
+  const llm = llmView(cell);
+  const judge = cell.secondary && cell.route !== "auto" ? cell.secondary : cell.primary;
+  // an on-demand lookup that disagrees with a confident first judgment: worth a mention
+  const otherView = cell.route === "auto" && llm?.pred != null && llm.pred !== cell.primary?.pred ? llm : null;
+  const why = cell.route === "skip" ? "답안이 문제와 관련 없어 판단하지 않았습니다." : (llm?.reasoning ?? describePred(item, judge?.pred));
+  const confidence = cell.primary?.conf != null ? `첫 판단 확신도 ${Math.round(cell.primary.conf * 100)}%` : undefined;
+
+  return (
+    <div className={cn("flex flex-col gap-2 px-4 py-2.5", reason && cn("border-l-4", CHECK_TONE[reason].edge), focused && "bg-muted/50")}>
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+          <span className="w-3 shrink-0 text-xs text-muted-foreground">{expanded ? "▾" : "▸"}</span>
+          <span className={cn("size-2.5 shrink-0 rounded-full", color?.dot)} />
+          <span className="truncate font-medium" title={plain(item.instructions)}>
+            {itemName(item)}
+          </span>
+          {item.kind === "deduction" && (
+            <Badge variant="outline" title={KIND_HINT.deduction}>
+              감점
+            </Badge>
+          )}
+          {reason && (
+            <span
+              className={cn("shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium", CHECK_TONE[reason].chip)}
+              title={CHECK_HINT[reason]}
+            >
+              {reason}
+            </span>
+          )}
+        </button>
+        {decided ? (
+          <>
+            <span className="whitespace-nowrap text-sm">
+              <span className="text-emerald-700 dark:text-emerald-400">✓</span> {outcomeName(item, cell.final_points!)}
+            </span>
+            <span className="whitespace-nowrap text-xs text-muted-foreground">{cell.decision && DECISION_LABEL[cell.decision]}</span>
+            {!locked && (
+              <Button size="xs" variant="ghost" disabled={busy} onClick={() => set({ action: "clear" })}>
+                취소
+              </Button>
+            )}
+          </>
+        ) : cell.recommended_points !== null ? (
+          <>
+            <span className="whitespace-nowrap text-sm" title={confidence}>
+              추천 <strong>{outcome(item, cell.recommended_points)}</strong>
+            </span>
+            <Button
+              size="sm"
+              // a cell nobody needs to check is quiet: bulk confirm handles it
+              variant={reason ? "default" : "secondary"}
+              disabled={busy}
+              onClick={() => set({ action: "accept" })}
+            >
+              확정
+            </Button>
+          </>
+        ) : (
+          <span className="whitespace-nowrap text-sm text-muted-foreground">
+            {cell.route === "pending" ? "추천을 기다리는 중" : "추천 없음 · 직접 고르세요"}
+          </span>
+        )}
+        <span className="w-16 shrink-0 text-right tabular-nums" title={decided ? undefined : "아직 확정하지 않았습니다"}>
+          {decided ? (
+            <>
+              <strong className={cn("text-xl", cell.final_points! < 0 && "text-rose-600 dark:text-rose-400")}>
+                {formatPoints(cell.final_points!)}
+              </strong>
+              {item.kind === "credit" && <span className="text-sm text-muted-foreground">/{itemMax(item)}</span>}
+            </>
+          ) : (
+            <span className="text-xl text-muted-foreground/50">–</span>
+          )}
+        </span>
+      </div>
+
+      {expanded && (
+        <div className="flex flex-col gap-2 pb-1 pl-5 text-sm">
+          {cell.route === "human" ? (
+            <SplitOpinion item={item} cell={cell} disabled={busy} onPick={(points) => set({ action: "set", points })} />
+          ) : (
+            why && <p className="text-muted-foreground">{why}</p>
+          )}
+          {otherView && (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              참고: 근거를 찾던 AI는 &lsquo;{outcome(item, predPoints(item, otherView.pred))}&rsquo;로 봤습니다. {otherView.reasoning}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-1">
+            {cell.route === "human" && otherOptions(item, cell).length > 0 && (
+              <span className="mr-1 text-xs text-muted-foreground">다른 점수</span>
+            )}
+            {otherOptions(item, cell).map((o) => {
+              const recommended = o.points === cell.recommended_points;
+              return (
+                <Button
+                  key={o.label}
+                  size="xs"
+                  variant={cell.final_points === o.points ? "default" : "outline"}
+                  className={cn(recommended && cell.final_points === null && "ring-2 ring-primary/40")}
+                  disabled={busy || cell.route === "pending"}
+                  onClick={() => set({ action: "set", points: o.points })}
+                  title={recommended ? "추천" : undefined}
+                >
+                  {o.label}
+                  {recommended && <span className="ml-1 text-[0.65rem] opacity-70">추천</span>}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

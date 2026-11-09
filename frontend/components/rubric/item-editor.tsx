@@ -1,11 +1,10 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { RubricItemIn } from "@/lib/api";
-import { KIND_HINT } from "@/lib/rubric";
+import { fromPlain, KIND_HINT, plain } from "@/lib/rubric";
 
 type Noul = { true: string; false: string };
 
@@ -37,7 +36,6 @@ export default function ItemEditor({
   onChange: (item: RubricItemIn) => void;
   onRemove?: () => void;
 }) {
-  const gate = item.kind === "gate";
   const set = (change: Partial<RubricItemIn>) => onChange(reshape(item, change));
   const levels = item.type === "score" && Array.isArray(item.criteria) ? (item.criteria as string[]) : [];
   const levelPoints = item.points_map ?? {};
@@ -49,52 +47,41 @@ export default function ItemEditor({
     });
   const pointsArray = levels.map((_, i) => levelPoints[String(i)] ?? i);
   const noul = isNoulCriteria(item.criteria) ? item.criteria : { true: "", false: "" };
+  const deduction = item.kind === "deduction";
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border p-3">
+    <div className="flex flex-col gap-2 rounded-lg border bg-card p-3">
       <div className="flex flex-wrap items-center gap-2">
         <span className="w-6 text-sm text-muted-foreground">{index + 1}</span>
-        {gate ? (
-          <Badge variant="outline" title={KIND_HINT.gate}>
-            게이트
-          </Badge>
-        ) : (
-          <select
-            className="h-8 rounded-md border bg-background px-2 text-sm"
-            value={item.kind}
-            onChange={(e) => set({ kind: e.target.value as RubricItemIn["kind"] })}
-            title={KIND_HINT[item.kind]}
-          >
-            <option value="credit">가점</option>
-            <option value="deduction">감점</option>
-          </select>
-        )}
-        {!gate && item.kind !== "deduction" && item.type !== "choice" && (
-          <select
-            className="h-8 rounded-md border bg-background px-2 text-sm"
-            value={item.type}
-            onChange={(e) => set({ type: e.target.value as RubricItemIn["type"] })}
-          >
-            <option value="noul">예/아니오</option>
-            <option value="score">수준</option>
-          </select>
-        )}
         <Input
-          className="h-8 max-w-56"
-          placeholder="표시 이름 (예: 연쇄법칙 언급)"
+          className="h-8 min-w-48 flex-1 font-medium"
+          placeholder="항목 이름 (예: 공격 예시 제시)"
           value={item.label ?? ""}
           onChange={(e) => onChange({ ...item, label: e.target.value || null })}
         />
-        <Input
-          className="h-8 max-w-56 font-mono text-xs"
-          placeholder="key (영문 snake_case)"
-          value={item.key}
-          disabled={gate}
-          onChange={(e) => onChange({ ...item, key: e.target.value })}
-        />
-        {item.type === "noul" && !gate && (
+        <select
+          className="h-8 rounded-md border bg-card px-2 text-sm"
+          value={item.kind}
+          onChange={(e) => set({ kind: e.target.value as RubricItemIn["kind"] })}
+          title={KIND_HINT[item.kind]}
+        >
+          <option value="credit">가점</option>
+          <option value="deduction">감점</option>
+        </select>
+        {!deduction && item.type !== "choice" && (
+          <select
+            className="h-8 rounded-md border bg-card px-2 text-sm"
+            value={item.type}
+            onChange={(e) => set({ type: e.target.value as RubricItemIn["type"] })}
+            title="충족 여부: 했는지 안 했는지만 봅니다. 수준별: 정도에 따라 점수를 나눕니다."
+          >
+            <option value="noul">충족 여부</option>
+            <option value="score">수준별</option>
+          </select>
+        )}
+        {item.type === "noul" && (
           <label className="flex items-center gap-1 text-sm">
-            {item.kind === "deduction" ? "감점" : "배점"}
+            {deduction ? "감점" : "배점"}
             <Input
               type="number"
               min={0}
@@ -106,18 +93,21 @@ export default function ItemEditor({
           </label>
         )}
         {onRemove && (
-          <Button size="xs" variant="ghost" className="ml-auto" onClick={onRemove}>
+          <Button size="xs" variant="ghost" onClick={onRemove}>
             삭제
           </Button>
         )}
       </div>
 
-      <Textarea
-        rows={2}
-        placeholder={item.type === "score" ? "`answer`의 …은(는) 얼마나 …한가?" : "`answer`가 …한다."}
-        value={item.instructions}
-        onChange={(e) => onChange({ ...item, instructions: e.target.value })}
-      />
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-muted-foreground">AI가 확인할 내용</span>
+        <Textarea
+          rows={2}
+          placeholder={item.type === "score" ? "답안의 …은(는) 얼마나 …한가?" : deduction ? "답안이 …라고 잘못 설명한다." : "답안이 …을 설명한다."}
+          value={plain(item.instructions)}
+          onChange={(e) => onChange({ ...item, instructions: fromPlain(e.target.value) })}
+        />
+      </label>
 
       {item.type === "noul" && (
         <div className="grid gap-2 sm:grid-cols-2">
@@ -125,10 +115,18 @@ export default function ItemEditor({
             <Input
               key={side}
               className="h-8 text-sm"
-              placeholder={side === "true" ? "'예'로 볼 기준 (선택)" : "'아니오'로 볼 기준 (선택)"}
-              value={noul[side]}
+              placeholder={
+                side === "true"
+                  ? deduction
+                    ? "감점할 경우 (선택)"
+                    : "충족으로 볼 경우 (선택)"
+                  : deduction
+                    ? "감점하지 않을 경우 (선택)"
+                    : "미충족으로 볼 경우 (선택)"
+              }
+              value={plain(noul[side])}
               onChange={(e) => {
-                const next = { ...noul, [side]: e.target.value };
+                const next = { ...noul, [side]: fromPlain(e.target.value) };
                 onChange({ ...item, criteria: next.true || next.false ? next : null });
               }}
             />
@@ -143,9 +141,9 @@ export default function ItemEditor({
               <span className="w-14 text-xs text-muted-foreground">수준 {i}</span>
               <Input
                 className="h-8 text-sm"
-                placeholder="이 수준의 설명"
-                value={desc}
-                onChange={(e) => setLevels(levels.map((l, j) => (j === i ? e.target.value : l)), pointsArray)}
+                placeholder="이 수준에 해당하는 답안"
+                value={plain(desc)}
+                onChange={(e) => setLevels(levels.map((l, j) => (j === i ? fromPlain(e.target.value) : l)), pointsArray)}
               />
               <Input
                 type="number"
@@ -180,7 +178,7 @@ export default function ItemEditor({
       )}
 
       {item.type === "choice" && (
-        <p className="text-xs text-muted-foreground">선택형 항목은 아래 &lsquo;JSON으로 편집&rsquo;에서 수정하세요.</p>
+        <p className="text-xs text-muted-foreground">선택형 항목은 아래 &lsquo;고급: JSON으로 편집&rsquo;에서 수정하세요.</p>
       )}
 
       {problems.map((p) => (

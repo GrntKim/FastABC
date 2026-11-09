@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CellOut, GradeDecisionIn, RubricItemOut } from "@/lib/api";
 import { highlight } from "@/lib/highlight";
-import { confLabel, describePred, formatPred, pointOptions, ROUTE_LABEL, ROUTE_TONE, SAMPLED_HINT } from "@/lib/rubric";
+import { CHECK_HINT, CHECK_TONE, checkReason, DECISION_LABEL, describePred, outcome } from "@/lib/rubric";
 import { useDecide } from "@/lib/use-decide";
 import { cn } from "@/lib/utils";
+import SplitOpinion, { otherOptions } from "../split-opinion";
 
 export default function CellCard({
   assignmentId,
@@ -22,38 +23,27 @@ export default function CellCard({
   const mutation = useDecide(assignmentId);
   const decide = { isPending: mutation.isPending || locked, mutate: (body: GradeDecisionIn) => mutation.mutate({ gradeId: cell.grade_id, body }) };
 
-  const evidence = (cell.secondary ?? cell.evidence)?.evidence ?? [];
+  const llm = cell.secondary ?? cell.evidence;
+  const evidence = llm?.evidence ?? [];
   const decided = cell.final_points !== null;
   const pending = cell.route === "pending";
-
-  // undecided cells the grader must look at get an accent edge, as in the student view
-  const accent =
-    !decided &&
-    (cell.route === "human"
-      ? "border-l-4 border-l-rose-400"
-      : cell.route === "llm"
-        ? "border-l-4 border-l-violet-400"
-        : cell.sampled && "border-l-4 border-l-amber-400");
+  const reason = decided ? null : checkReason(cell);
+  const judge = cell.secondary && cell.route !== "auto" ? cell.secondary : cell.primary;
+  const why = cell.route === "skip" ? "답안이 문제와 관련 없어 판단하지 않았습니다." : (llm?.reasoning ?? describePred(item, judge?.pred));
 
   return (
-    <Card className={cn(accent, decided && "opacity-70")}>
+    <Card className={cn(reason && cn("border-l-4", CHECK_TONE[reason].edge), decided && "opacity-70")}>
       <CardHeader className="flex flex-row items-center gap-2">
         <CardTitle className="font-mono">{cell.label}</CardTitle>
-        <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", ROUTE_TONE[cell.route])}>
-          {ROUTE_LABEL[cell.route] ?? cell.route}
-        </span>
-        {cell.sampled && (
-          <span
-            className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
-            title={SAMPLED_HINT}
-          >
-            샘플 검토
+        {reason && (
+          <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", CHECK_TONE[reason].chip)} title={CHECK_HINT[reason]}>
+            {reason}
           </span>
         )}
         {decided && (
           <span className="ml-auto text-sm">
-            확정 <strong>{cell.final_points}점</strong>
-            <span className="text-muted-foreground"> · {decisionLabel(cell.decision)}</span>
+            <span className="text-emerald-700 dark:text-emerald-400">✓</span> <strong>{outcome(item, cell.final_points)}</strong>
+            <span className="text-muted-foreground"> · {cell.decision && DECISION_LABEL[cell.decision]}</span>
           </span>
         )}
       </CardHeader>
@@ -74,50 +64,61 @@ export default function CellCard({
         </p>
 
         <div className="flex flex-col gap-3 text-sm">
-          <JudgeLine
-            title="판단 모델"
-            pred={cell.primary ? formatPred(item, cell.primary.pred) : "—"}
-            detail={describePred(item, cell.primary?.pred)}
-            extra={cell.primary?.conf != null ? confLabel(cell.primary.conf) : undefined}
-          />
-          {cell.secondary && (
-            <JudgeLine
-              title={cell.route === "human" ? "LLM (참고)" : "LLM"}
-              pred={formatPred(item, cell.secondary.pred)}
-              detail={cell.secondary.reasoning ?? undefined}
+          {cell.route === "human" ? (
+            <SplitOpinion
+              item={item}
+              cell={cell}
+              disabled={decide.isPending}
+              stacked
+              onPick={(points) => decide.mutate({ action: "set", points })}
             />
+          ) : (
+            <div>
+              {cell.recommended_points !== null && (
+                <p title={cell.primary?.conf != null ? `첫 판단 확신도 ${Math.round(cell.primary.conf * 100)}%` : undefined}>
+                  추천 <strong>{outcome(item, cell.recommended_points)}</strong>
+                </p>
+              )}
+              {why && <p className="text-muted-foreground">{why}</p>}
+            </div>
           )}
 
           {pending ? (
-            <p className="text-muted-foreground">LLM 재판단이 끝나면 입력할 수 있습니다.</p>
+            <p className="text-muted-foreground">AI가 다시 보는 중입니다. 끝나면 고를 수 있습니다.</p>
           ) : (
             <div className="flex flex-col gap-2">
-              {cell.recommended_points !== null ? (
-                <Button
-                  // confident auto cells can go through bulk accept: keep their button quiet
-                  variant={cell.route === "auto" && !cell.sampled ? "secondary" : "default"}
-                  disabled={decide.isPending}
-                  onClick={() => decide.mutate({ action: "accept" })}
-                >
-                  추천 수용 ({cell.recommended_points}점)
-                </Button>
-              ) : (
-                <p className="text-muted-foreground">추천 없음: 직접 판단하세요.</p>
-              )}
-              <div className="flex flex-wrap gap-1">
-                {pointOptions(item).map((o) => (
+              {!decided &&
+                (cell.recommended_points !== null ? (
                   <Button
-                    key={o.label}
-                    size="sm"
-                    variant={cell.final_points === o.points ? "secondary" : "outline"}
+                    // a cell nobody needs to check is quiet: bulk confirm handles it
+                    variant={reason ? "default" : "secondary"}
                     disabled={decide.isPending}
-                    onClick={() => decide.mutate({ action: "set", points: o.points })}
+                    onClick={() => decide.mutate({ action: "accept" })}
                   >
-                    {o.label}
+                    추천대로 확정
                   </Button>
+                ) : (
+                  cell.route !== "human" && <p className="text-muted-foreground">추천 없음: 직접 고르세요.</p>
                 ))}
+              <div className="flex flex-wrap gap-1">
+                {otherOptions(item, cell).map((o) => {
+                  const recommended = o.points === cell.recommended_points;
+                  return (
+                    <Button
+                      key={o.label}
+                      size="sm"
+                      variant={cell.final_points === o.points ? "default" : "outline"}
+                      className={cn(recommended && !decided && "ring-2 ring-primary/40")}
+                      disabled={decide.isPending}
+                      onClick={() => decide.mutate({ action: "set", points: o.points })}
+                    >
+                      {o.label}
+                      {recommended && <span className="ml-1 text-[0.65rem] opacity-70">추천</span>}
+                    </Button>
+                  );
+                })}
               </div>
-              {decided && (
+              {decided && !locked && (
                 <Button size="sm" variant="ghost" disabled={decide.isPending} onClick={() => decide.mutate({ action: "clear" })}>
                   확정 취소
                 </Button>
@@ -128,21 +129,4 @@ export default function CellCard({
       </CardContent>
     </Card>
   );
-}
-
-function JudgeLine({ title, pred, detail, extra }: { title: string; pred: string; detail?: string; extra?: string }) {
-  return (
-    <div>
-      <div className="flex items-baseline gap-2">
-        <span className="text-muted-foreground">{title}</span>
-        <strong>{pred}</strong>
-        {extra && <span className="text-muted-foreground">{extra}</span>}
-      </div>
-      {detail && <p className="text-muted-foreground">{detail}</p>}
-    </div>
-  );
-}
-
-function decisionLabel(decision: string | null): string {
-  return { accepted: "추천 수용", modified: "수정", manual: "직접 입력" }[decision ?? ""] ?? "";
 }

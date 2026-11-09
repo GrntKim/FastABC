@@ -33,7 +33,7 @@ const GATE_ITEM: RubricItemIn = {
 };
 
 const NEW_ITEM: Record<string, RubricItemIn> = {
-  credit: { key: "", label: "", type: "noul", kind: "credit", instructions: "`answer`가 ", points: 1, criteria: null },
+  credit: { key: "", label: "", type: "noul", kind: "credit", instructions: "`answer`이 ", points: 1, criteria: null },
   score: {
     key: "",
     label: "",
@@ -43,8 +43,11 @@ const NEW_ITEM: Record<string, RubricItemIn> = {
     criteria: ["", "", ""],
     points_map: { "0": 0, "1": 1, "2": 2 },
   },
-  deduction: { key: "", label: "오개념: ", type: "noul", kind: "deduction", instructions: "`answer`가 ", points: 1, criteria: null },
+  deduction: { key: "", label: "", type: "noul", kind: "deduction", instructions: "`answer`이 ", points: 1, criteria: null },
 };
+
+/** The topic check is not the grader's to write: it is always there, first. */
+const withGate = (items: RubricItemIn[]) => (items.some((i) => i.kind === "gate") ? items : [GATE_ITEM, ...items]);
 
 /** Graders name items by label; a missing key (the judge question id) is generated. */
 function withKeys(items: RubricItemIn[]): RubricItemIn[] {
@@ -101,7 +104,7 @@ export default function AssignmentForm({
       api<AssignmentOut>(
         assignmentId ? `/assignments/${assignmentId}` : "/assignments",
         json(
-          { course_id: courseId, assessment: assessment || null, title, problem, items: withKeys(items ?? []) },
+          { course_id: courseId, assessment: assessment || null, title, problem, items: withKeys(withGate(items ?? [])) },
           assignmentId ? "PUT" : "POST",
         ),
       ),
@@ -135,7 +138,8 @@ export default function AssignmentForm({
     if (i.kind !== "credit") return sum;
     return sum + (i.type === "noul" ? (i.points ?? 0) : Math.max(0, ...Object.values(i.points_map ?? {})));
   }, 0);
-  const ready = title.trim() && problem.trim() && items && items.length >= 2;
+  const scored = (items ?? []).filter((i) => i.kind !== "gate").length;
+  const ready = title.trim() && problem.trim() && scored >= 1;
 
   return (
     <div className="flex flex-col gap-5">
@@ -175,8 +179,8 @@ export default function AssignmentForm({
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
-            평소 쓰는 채점 기준을 그대로 적으세요. 판단 질문으로 바꿔 드리고, 아래에서 고친 뒤 저장합니다.
-            {initial && " 지금 판단 질문을 그대로 고치려면 이 칸은 비워 두세요. 다시 만들면 아래 항목이 바뀝니다."}
+            평소 쓰는 채점 기준을 그대로 적으세요. AI가 항목별로 나눠 드리고, 아래에서 고친 뒤 저장합니다.
+            {initial && " 지금 항목을 그대로 고치려면 이 칸은 비워 두세요. 다시 나누면 아래 항목이 바뀝니다."}
           </p>
           <Textarea
             rows={4}
@@ -186,7 +190,7 @@ export default function AssignmentForm({
           />
           <div className="flex flex-wrap items-center gap-2">
             <Button disabled={!problem.trim() || !rubricText.trim() || draft.isPending} onClick={() => draft.mutate()}>
-              {draft.isPending ? "판단 질문 만드는 중… (10~20초)" : items ? "다시 만들기" : "판단 질문 만들기"}
+              {draft.isPending ? "항목으로 나누는 중… (10~20초)" : items ? "다시 나누기" : "항목으로 나누기"}
             </Button>
             {!items && (
               <Button variant="ghost" onClick={() => setItems([GATE_ITEM, { ...NEW_ITEM.credit }])}>
@@ -200,7 +204,7 @@ export default function AssignmentForm({
       {items && (
         <Card>
           <CardHeader className="flex flex-row items-center gap-2">
-            <CardTitle>3. 판단 질문 확인</CardTitle>
+            <CardTitle>3. 채점 항목 확인</CardTitle>
             <span className="ml-auto text-sm text-muted-foreground">만점 {maxPoints}점</span>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
@@ -209,25 +213,30 @@ export default function AssignmentForm({
                 {w}
               </p>
             ))}
-            {items.map((item, i) => (
-              <ItemEditor
-                key={i}
-                index={i}
-                item={item}
-                problems={itemProblems[i] ?? []}
-                onChange={(next) => setItems(items.map((it, j) => (j === i ? next : it)))}
-                onRemove={item.kind === "gate" ? undefined : () => setItems(items.filter((_, j) => j !== i))}
-              />
-            ))}
+            {items.map((item, i) =>
+              item.kind === "gate" ? null : (
+                <ItemEditor
+                  key={i}
+                  index={items.slice(0, i).filter((it) => it.kind !== "gate").length}
+                  item={item}
+                  problems={itemProblems[i] ?? []}
+                  onChange={(next) => setItems(items.map((it, j) => (j === i ? next : it)))}
+                  onRemove={() => setItems(items.filter((_, j) => j !== i))}
+                />
+              ),
+            )}
+            <p className="text-xs text-muted-foreground">
+              빈 답안이나 문제와 관련 없는 답안은 AI가 알아보고 모든 항목에 0점을 추천합니다.
+            </p>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="outline" onClick={() => setItems([...items, { ...NEW_ITEM.credit }])}>
-                + 예/아니오 항목
+                + 충족 여부 항목
               </Button>
               <Button size="sm" variant="outline" onClick={() => setItems([...items, { ...NEW_ITEM.score }])}>
-                + 수준 항목
+                + 수준별 항목
               </Button>
               <Button size="sm" variant="outline" onClick={() => setItems([...items, { ...NEW_ITEM.deduction }])}>
-                + 오개념(감점) 항목
+                + 감점 항목
               </Button>
               <Button
                 size="sm"
@@ -235,7 +244,7 @@ export default function AssignmentForm({
                 className="ml-auto"
                 onClick={() => setJsonText(jsonText === null ? JSON.stringify(items, null, 2) : null)}
               >
-                {jsonText === null ? "JSON으로 편집" : "JSON 닫기"}
+                {jsonText === null ? "고급: JSON으로 편집" : "JSON 닫기"}
               </Button>
             </div>
             {jsonText !== null && (

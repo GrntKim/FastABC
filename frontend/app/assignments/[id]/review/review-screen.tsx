@@ -15,16 +15,14 @@ import {
   type RubricItemOut,
 } from "@/lib/api";
 import { termLabel } from "@/lib/progress";
-import { itemName, KIND_HINT, KIND_LABEL, plain } from "@/lib/rubric";
+import { checkReason, itemName, KIND_HINT, KIND_LABEL, plain } from "@/lib/rubric";
 import { useAcceptConfident, useClearDecisions } from "@/lib/use-decide";
 import CellCard from "./cell-card";
 
 const FILTERS = {
-  all: { label: "전체", match: () => true },
+  check: { label: "확인 필요", match: (c: CellOut) => c.final_points === null && checkReason(c) !== null },
   open: { label: "미확정", match: (c: CellOut) => c.final_points === null },
-  llm: { label: "LLM 확인", match: (c: CellOut) => c.route === "llm" },
-  human: { label: "직접 판단", match: (c: CellOut) => c.route === "human" },
-  sampled: { label: "샘플 검토", match: (c: CellOut) => c.sampled },
+  all: { label: "전체", match: () => true },
 } satisfies Record<string, { label: string; match: (c: CellOut) => boolean }>;
 type Filter = keyof typeof FILTERS;
 
@@ -51,7 +49,7 @@ export default function ReviewScreen({ assignmentId }: { assignmentId: number })
   }, [done, assignmentId, queryClient]);
 
   const [tab, setTab] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("open");
+  const [filter, setFilter] = useState<Filter>("check");
 
   if (assignment.error || cells.error) {
     const e = assignment.error ?? cells.error;
@@ -88,7 +86,7 @@ export default function ReviewScreen({ assignmentId }: { assignmentId: number })
         <p className="text-sm">
           확정 {decided} / {cells.data.length}칸
           {status.data && !status.data.done && (
-            <span className="text-muted-foreground"> · LLM 재판단 {status.data.pending}칸 진행 중</span>
+            <span className="text-muted-foreground"> · AI가 {status.data.pending}칸을 다시 보는 중</span>
           )}
           {locked && <span className="text-muted-foreground"> · 성적이 확정되어 잠겼습니다 (개정은 문항 화면의 결과 탭)</span>}
         </p>
@@ -166,25 +164,27 @@ function ItemPanel({
           className="ml-auto"
           disabled={acceptConfident.isPending || locked}
           onClick={() => acceptConfident.mutate({ item_id: item.id })}
-          title="자동 판단 중 확신 높은 칸만 수용합니다. LLM 확인·직접 판단·샘플 검토 칸은 제외됩니다."
+          title="확인이 필요 없는 칸만 추천대로 확정합니다. 확인 필요로 표시된 칸은 그대로 둡니다."
         >
-          고확신 일괄 수용
+          추천대로 확정 (확인 필요 칸 제외)
         </Button>
         <Button
           size="sm"
           variant="ghost"
           disabled={clearDecisions.isPending || locked}
           onClick={() =>
-            confirm(`'${itemName(item)}' 항목의 확정을 모든 답안에서 취소할까요? 직접 입력한 점수도 지워집니다.`) &&
+            confirm(`'${itemName(item)}' 항목의 확정을 모든 답안에서 취소할까요? 직접 고른 점수도 지워집니다.`) &&
             clearDecisions.mutate({ item_id: item.id })
           }
         >
-          일괄 취소
+          모두 취소
         </Button>
       </div>
 
       {cells.length === 0 ? (
-        <p className="text-muted-foreground py-6 text-center">해당하는 칸이 없습니다.</p>
+        <p className="text-muted-foreground py-6 text-center">
+          {filter === "check" ? "이 항목에는 확인이 필요한 칸이 없습니다. 남은 칸은 추천대로 확정하면 됩니다." : "해당하는 칸이 없습니다."}
+        </p>
       ) : (
         cells.map((cell) => <CellCard key={cell.grade_id} assignmentId={assignmentId} cell={cell} item={item} locked={locked} />)
       )}
