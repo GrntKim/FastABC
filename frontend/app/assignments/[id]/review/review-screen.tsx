@@ -84,9 +84,9 @@ export default function ReviewScreen({ assignmentId }: { assignmentId: number })
         <h1 className="text-2xl font-bold">{a.title} · 항목별 보기</h1>
         <p className="text-muted-foreground whitespace-pre-wrap">{a.problem}</p>
         <p className="text-sm">
-          확정 {decided} / {cells.data.length}칸
+          확정 {decided} / {cells.data.length}개 항목
           {status.data && !status.data.done && (
-            <span className="text-muted-foreground"> · AI가 {status.data.pending}칸을 다시 보는 중</span>
+            <span className="text-muted-foreground"> · AI가 {status.data.pending}개 항목을 다시 보는 중</span>
           )}
           {locked && <span className="text-muted-foreground"> · 성적이 확정되어 잠겼습니다 (개정은 문항 화면의 결과 탭)</span>}
         </p>
@@ -164,9 +164,9 @@ function ItemPanel({
           className="ml-auto"
           disabled={acceptConfident.isPending || locked}
           onClick={() => acceptConfident.mutate({ item_id: item.id })}
-          title="확인이 필요 없는 칸만 추천대로 확정합니다. 확인 필요로 표시된 칸은 그대로 둡니다."
+          title="확인이 필요 없는 답안만 추천대로 확정합니다. 확인 필요로 표시된 답안은 그대로 둡니다."
         >
-          추천대로 확정 (확인 필요 칸 제외)
+          추천대로 확정 (확인 필요 답안 제외)
         </Button>
         <Button
           size="sm"
@@ -183,7 +183,7 @@ function ItemPanel({
 
       {cells.length === 0 ? (
         <p className="text-muted-foreground py-6 text-center">
-          {filter === "check" ? "이 항목에는 확인이 필요한 칸이 없습니다. 남은 칸은 추천대로 확정하면 됩니다." : "해당하는 칸이 없습니다."}
+          {filter === "check" ? "이 항목에는 확인이 필요한 답안이 없습니다. 남은 답안은 추천대로 확정하면 됩니다." : "해당하는 답안이 없습니다."}
         </p>
       ) : (
         cells.map((cell) => <CellCard key={cell.grade_id} assignmentId={assignmentId} cell={cell} item={item} locked={locked} />)

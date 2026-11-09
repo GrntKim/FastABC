@@ -157,21 +157,21 @@ export default function StudentView({ assignment, onGoResults }: { assignment: A
     </div>
   ) : totalOpen === 0 ? (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm dark:border-emerald-800 dark:bg-emerald-950/40">
-      <span>모든 칸을 확정했습니다. 이제 성적을 확정하세요.</span>
+      <span>모든 항목을 확정했습니다. 이제 성적을 확정하세요.</span>
       <Button size="sm" className="ml-auto" onClick={onGoResults}>
         결과로 가기 →
       </Button>
     </div>
   ) : totalAttention === 0 ? (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm dark:border-sky-800 dark:bg-sky-950/40">
-      <span>확인이 필요한 칸은 모두 끝났습니다. 남은 {totalOpen}칸은 추천대로 확정하면 됩니다.</span>
+      <span>확인이 필요한 항목은 모두 봤습니다. 남은 {totalOpen}개 항목은 추천대로 확정하면 됩니다.</span>
       <Button
         size="sm"
         className="ml-auto"
         disabled={acceptRest.isPending}
-        onClick={() => confirm(`남은 ${totalOpen}칸을 모두 추천대로 확정할까요?`) && acceptRest.mutate({})}
+        onClick={() => confirm(`남은 ${totalOpen}개 항목을 모두 추천대로 확정할까요?`) && acceptRest.mutate({})}
       >
-        남은 칸 추천대로 확정
+        남은 항목 추천대로 확정
       </Button>
     </div>
   ) : null;
@@ -281,7 +281,7 @@ function StudentList({
       </div>
       {totalAttention > 0 && (
         <p className="text-xs text-amber-800 dark:text-amber-300">
-          확인 필요 <strong>{totalAttention}칸</strong>
+          확인 필요 항목 <strong>{totalAttention}개</strong>
         </p>
       )}
       <ul className="flex flex-row flex-wrap gap-1 lg:max-h-[70vh] lg:flex-col lg:flex-nowrap lg:overflow-y-auto">
@@ -508,7 +508,7 @@ function ItemList({
             </span>
             <span className="text-lg text-muted-foreground tabular-nums">/ {score.max}점</span>
             <span className={cn("ml-2 text-sm", open > 0 ? "text-amber-700 dark:text-amber-400" : "text-emerald-700 dark:text-emerald-400")}>
-              {open > 0 ? `${open}칸 미확정` : "✓ 채점 완료"}
+              {open > 0 ? `${open}개 항목 미확정` : "✓ 채점 완료"}
             </span>
           </div>
           {paperGone && (
@@ -529,16 +529,16 @@ function ItemList({
             variant="outline"
             disabled={acceptConfident.isPending || locked}
             onClick={() => acceptConfident.mutate({ submission_id: submission.id })}
-            title="확인이 필요 없는 칸만 추천대로 확정합니다. 확인 필요로 표시된 칸은 그대로 둡니다."
+            title="확인이 필요 없는 항목만 추천대로 확정합니다. 확인 필요로 표시된 항목은 그대로 둡니다."
           >
-            추천대로 확정 (확인 필요 칸 제외)
+            추천대로 확정 (확인 필요 항목 제외)
           </Button>
           <Button
             size="sm"
             variant="ghost"
             disabled={clearDecisions.isPending || open === rows.length || locked}
             onClick={() =>
-              confirm(`${submission.label}의 확정 ${rows.length - open}칸을 모두 취소할까요? 직접 고른 점수도 지워집니다.`) &&
+              confirm(`${submission.label}의 확정한 항목 ${rows.length - open}개를 모두 취소할까요? 직접 고른 점수도 지워집니다.`) &&
               clearDecisions.mutate({ submission_id: submission.id })
             }
           >

@@ -147,7 +147,7 @@ function GradingCard({
   const s = status.data;
   const graded = !!s && s.total > 0;
   const start = () => {
-    if (graded && !confirm("기존 판단과 추천을 지우고 다시 채점할까요? 확정한 칸이 있으면 재채점할 수 없습니다.")) return;
+    if (graded && !confirm("기존 판단과 추천을 지우고 다시 채점할까요? 확정한 항목이 있으면 다시 채점할 수 없습니다.")) return;
     grade.mutate();
   };
 
@@ -174,8 +174,8 @@ function GradingCard({
             <Progress value={((s.total - s.pending) / s.total) * 100} />
             <p className="text-sm">
               {s.done
-                ? `${s.total}칸 모두 추천을 만들었습니다. 채점 탭에서 확인이 필요한 칸부터 보세요.`
-                : `${s.total}칸 중 ${s.pending}칸은 AI가 다시 보는 중입니다. 기다리는 동안 채점을 시작해도 됩니다.`}
+                ? "모든 답안의 항목에 추천을 만들었습니다. 채점 탭에서 확인이 필요한 항목부터 보세요."
+                : `AI가 ${s.pending}개 항목을 다시 보는 중입니다 (전체 ${s.total}개). 기다리는 동안 채점을 시작해도 됩니다.`}
             </p>
           </>
         )}

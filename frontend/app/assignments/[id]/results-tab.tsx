@@ -55,7 +55,7 @@ export default function ResultsTab({ assignment }: { assignment: AssignmentOut }
           <div className="flex flex-wrap gap-x-6 gap-y-1">
             <span>학생 {assignment.progress.submissions}명</span>
             <span>
-              확정 {cells.data.length - open} / {cells.data.length}칸
+              확정 {cells.data.length - open} / {cells.data.length}개 항목
             </span>
             {Object.entries(DECISION_LABEL).map(([key, label]) => (
               <span key={key}>
@@ -72,8 +72,8 @@ export default function ResultsTab({ assignment }: { assignment: AssignmentOut }
           ) : (
             <p className="text-muted-foreground">
               {open > 0
-                ? `확정하지 않은 칸이 ${open}칸 남았습니다. 모든 칸을 확정하면 성적을 확정할 수 있습니다.`
-                : "모든 칸을 확정했습니다. 성적을 확정하면 확정자와 시각이 기록되고 점수가 잠깁니다."}
+                ? `확정하지 않은 항목이 ${open}개 남았습니다. 모든 항목을 확정하면 성적을 확정할 수 있습니다.`
+                : "모든 항목을 확정했습니다. 성적을 확정하면 확정자와 시각이 기록되고 점수가 잠깁니다."}
             </p>
           )}
           {history.data.length > 0 && (
@@ -141,7 +141,7 @@ function FinalizeDialog({
         <DialogHeader>
           <DialogTitle>성적 확정</DialogTitle>
           <DialogDescription>
-            추천 수용 {counts.accepted}칸, 수정 {counts.modified}칸, 직접 입력 {counts.manual}칸입니다. 확정하면 점수가
+            추천 수용 {counts.accepted}개, 수정 {counts.modified}개, 직접 입력 {counts.manual}개 항목입니다. 확정하면 점수가
             잠기고, 이후 변경은 개정판으로 남습니다.
           </DialogDescription>
         </DialogHeader>
@@ -158,7 +158,7 @@ function FinalizeDialog({
           </label>
           <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" className="mt-1" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
-            모든 칸을 확인했고, 이 점수에 대한 책임은 채점자에게 있습니다.
+            모든 항목을 확인했고, 이 점수에 대한 책임은 채점자에게 있습니다.
           </label>
           <DialogFooter>
             <Button type="submit" disabled={!valid || save.isPending}>

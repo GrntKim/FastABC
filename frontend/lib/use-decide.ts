@@ -30,11 +30,11 @@ export function useAcceptConfident(assignmentId: number) {
       return api<{ accepted: number }>(`/assignments/${assignmentId}/accept-confident?${params}`, { method: "POST" });
     },
     onSuccess: ({ accepted }) => {
-      toast.success(`${accepted}칸을 수용했습니다`);
+      toast.success(`${accepted}개를 추천대로 확정했습니다`);
       queryClient.invalidateQueries({ queryKey: ["cells", assignmentId] });
       queryClient.invalidateQueries({ queryKey: ["results", assignmentId] });
     },
-    onError: (e) => toast.error(e instanceof ApiError ? String(e.detail) : "일괄 수용에 실패했습니다"),
+    onError: (e) => toast.error(e instanceof ApiError ? String(e.detail) : "추천대로 확정하지 못했습니다"),
   });
 }
 
@@ -47,11 +47,11 @@ export function useClearDecisions(assignmentId: number) {
       return api<{ cleared: number }>(`/assignments/${assignmentId}/clear-decisions?${params}`, { method: "POST" });
     },
     onSuccess: ({ cleared }) => {
-      toast.success(`${cleared}칸의 확정을 취소했습니다`);
+      toast.success(`${cleared}개의 확정을 취소했습니다`);
       queryClient.invalidateQueries({ queryKey: ["cells", assignmentId] });
       queryClient.invalidateQueries({ queryKey: ["results", assignmentId] });
     },
-    onError: (e) => toast.error(e instanceof ApiError ? String(e.detail) : "일괄 취소에 실패했습니다"),
+    onError: (e) => toast.error(e instanceof ApiError ? String(e.detail) : "확정을 취소하지 못했습니다"),
   });
 }
 

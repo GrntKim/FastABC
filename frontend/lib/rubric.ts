@@ -98,10 +98,10 @@ export function checkReason(cell: { route: string; sampled: boolean }): string |
 }
 
 export const CHECK_HINT: Record<string, string> = {
-  "AI가 다시 보는 중": "더 꼼꼼한 AI가 이 칸을 다시 판단하고 있습니다. 끝나면 추천이 나옵니다.",
+  "AI가 다시 보는 중": "더 꼼꼼한 AI가 이 항목을 다시 판단하고 있습니다. 끝나면 추천이 나옵니다.",
   "AI 의견이 갈림": "두 AI의 판단이 달라 추천을 내지 않았습니다. 직접 점수를 고르세요.",
   "AI가 확신하지 못함": "처음 판단이 확실하지 않아 다시 판단했습니다. 추천이 있지만 확인해 주세요.",
-  "무작위 점검": "확신이 높은 칸 중 무작위로 뽑았습니다. 일괄 확정에서 빠지니 직접 확인하세요.",
+  "무작위 점검": "확신이 높은 항목 중 무작위로 뽑았습니다. 일괄 확정에서 빠지니 직접 확인하세요.",
 };
 
 // Accent for a cell that needs a look: left edge on cards, chip color for the reason

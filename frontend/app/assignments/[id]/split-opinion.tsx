@@ -36,13 +36,13 @@ export default function SplitOpinion({
   const sides = [
     {
       title: "1차 판단",
-      hint: "모든 칸을 빠르게 판단하는 AI의 결과입니다.",
+      hint: "모든 항목을 빠르게 판단하는 AI의 결과입니다.",
       points: predPoints(item, cell.primary?.pred),
       why: describePred(item, cell.primary?.pred),
     },
     {
       title: "재확인",
-      hint: "1차 판단이 확신하지 못한 칸만 다시 읽은 AI의 결과입니다.",
+      hint: "1차 판단이 확신하지 못한 항목만 다시 읽은 AI의 결과입니다.",
       points: predPoints(item, cell.secondary.pred),
       why: cell.secondary.reasoning ?? describePred(item, cell.secondary.pred),
     },
