@@ -136,6 +136,11 @@ export default function ItemEditor({
 
       {item.type === "score" && (
         <div className="flex flex-col gap-1">
+          {/* measured: level items were the least accurate kind in the evaluation set */}
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            수준별 항목은 AI가 판단하기 더 어렵습니다. 수준을 가르는 기준을 &lsquo;충족 여부&rsquo; 항목 여러 개로 나누면 추천이 더
+            정확해집니다.
+          </p>
           {levels.map((desc, i) => (
             <div key={i} className="flex items-center gap-2">
               <span className="w-14 text-xs text-muted-foreground">수준 {i}</span>

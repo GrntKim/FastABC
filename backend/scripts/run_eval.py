@@ -12,6 +12,7 @@ question (the LLM-only baseline), and the on-demand evidence lookup the app make
 import argparse
 import csv
 import json
+import random
 import statistics
 import subprocess
 import threading
@@ -269,6 +270,36 @@ def metrics(cells: list[dict]) -> dict:
     }
 
 
+def bootstrap(cells: list[dict], rounds: int = 2000, seed: int = 0) -> dict[str, tuple[float, float]]:
+    """95% intervals by resampling whole answers: cells of one answer are not independent."""
+    groups: dict[tuple, list[dict]] = {}
+    for c in cells:
+        if c["label"] is not None:
+            groups.setdefault((c["question"], c["answer_id"]), []).append(c)
+    keys = list(groups)
+    rng = random.Random(seed)
+    samples: dict[str, list[float]] = {}
+    for _ in range(rounds):
+        drawn = [c for k in rng.choices(keys, k=len(keys)) for c in groups[k]]
+        m = metrics(drawn)
+        values = {
+            "LLM only": m["llm_only_acc"],
+            "hybrid acc (covered)": m["hybrid_acc_covered"],
+            "hybrid auto route": m["routes"].get("auto", {}).get("acc"),
+            "hybrid coverage": m["hybrid_coverage"],
+            "hybrid acc (covered) - LLM only": None if m["hybrid_acc_covered"] is None or m["llm_only_acc"] is None
+            else m["hybrid_acc_covered"] - m["llm_only_acc"],
+        }
+        for k, v in values.items():
+            if v is not None:
+                samples.setdefault(k, []).append(v)
+    out = {}
+    for k, v in samples.items():
+        v.sort()
+        out[k] = (v[int(0.025 * (len(v) - 1))], v[int(0.975 * (len(v) - 1))])
+    return out
+
+
 def sweep(cells: list[dict]) -> list[dict]:
     labeled = [c for c in cells if c["label"] is not None]
     rows = []
@@ -315,6 +346,14 @@ def analyze(args) -> None:
     overall = metrics(cells)
     per_q = {q["id"]: metrics([c for c in cells if c["question"] == q["id"]]) for q in questions}
     curve, calib = sweep(cells), calibration(cells)
+    ci = bootstrap(cells)
+    point = {
+        "LLM only": overall["llm_only_acc"],
+        "hybrid acc (covered)": overall["hybrid_acc_covered"],
+        "hybrid auto route": overall["routes"].get("auto", {}).get("acc"),
+        "hybrid coverage": overall["hybrid_coverage"],
+        "hybrid acc (covered) - LLM only": overall["hybrid_acc_covered"] - overall["llm_only_acc"],
+    }
 
     def mean(key):
         return statistics.mean(a[key] for a in answers)
@@ -350,6 +389,11 @@ def analyze(args) -> None:
               "", "Hybrid by route (human: no recommendation, the grader decides):", "",
               "| route | cells | acc |", "|---|---|---|"]
     lines += [f"| {r} | {v['cells']} | {_fmt(v['acc'], True)} |" for r, v in overall["routes"].items()]
+    lines += ["", f"## Uncertainty (95% bootstrap interval, {len({(c['question'], c['answer_id']) for c in cells})} answers "
+              "resampled 2000 times)", "", "| | estimate | 95% interval |", "|---|---|---|"]
+    lines += [f"| {k} | {point[k] * 100:+.1f}%p | {lo * 100:+.1f}%p ~ {hi * 100:+.1f}%p |" if k.endswith("LLM only") and "-" in k
+              else f"| {k} | {_fmt(point[k], True)} | {_fmt(lo, True)} ~ {_fmt(hi, True)} |"
+              for k, (lo, hi) in ci.items()]
     lines += ["", "## Cost (USD, whole set)", "", "| | total | per answer |", "|---|---|---|"]
     lines += [f"| {k} | {v:.4f} | {v / len(answers):.5f} |" for k, v in cost.items()]
     lines += [

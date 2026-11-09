@@ -20,6 +20,16 @@ Hybrid by route (human: no recommendation, the grader decides):
 | human | 10 | - |
 | llm | 10 | 60.0% |
 
+## Uncertainty (95% bootstrap interval, 24 answers resampled 2000 times)
+
+| | estimate | 95% interval |
+|---|---|---|
+| LLM only | 90.0% | 85.6% ~ 94.2% |
+| hybrid acc (covered) | 92.1% | 87.9% ~ 95.7% |
+| hybrid auto route | 94.6% | 90.4% ~ 98.3% |
+| hybrid coverage | 93.3% | 89.1% ~ 97.2% |
+| hybrid acc (covered) - LLM only | +2.1%p | -0.7%p ~ +5.1%p |
+
 ## Cost (USD, whole set)
 
 | | total | per answer |
