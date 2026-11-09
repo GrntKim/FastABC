@@ -16,7 +16,13 @@ import { itemName, KIND_HINT, KIND_LABEL, plain, ROUTE_LABEL, TYPE_LABEL } from 
 const errorMessage = (e: unknown, fallback: string) => (e instanceof ApiError ? String(e.detail) : fallback);
 
 /** Setup work: rubric, answer upload, grading run, deletion. */
-export default function AdminPanel({ assignment }: { assignment: AssignmentOut }) {
+export default function AdminPanel({
+  assignment,
+  onGradingStarted,
+}: {
+  assignment: AssignmentOut;
+  onGradingStarted: () => void;
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const remove = useMutation({
@@ -31,7 +37,7 @@ export default function AdminPanel({ assignment }: { assignment: AssignmentOut }
 
   return (
     <div className="flex flex-col gap-6 pt-2">
-      <GradingCard assignmentId={assignment.id} submissionCount={assignment.submission_count} />
+      <GradingCard assignmentId={assignment.id} submissionCount={assignment.submission_count} onStarted={onGradingStarted} />
       <SubmissionsCard assignmentId={assignment.id} />
       <RubricCard assignment={assignment} />
       <div className="flex justify-end">
@@ -107,7 +113,15 @@ function pointsLabel(item: RubricItemOut): string {
   return Object.values(item.points_map ?? {}).join(" / ");
 }
 
-function GradingCard({ assignmentId, submissionCount }: { assignmentId: number; submissionCount: number }) {
+function GradingCard({
+  assignmentId,
+  submissionCount,
+  onStarted,
+}: {
+  assignmentId: number;
+  submissionCount: number;
+  onStarted: () => void;
+}) {
   const queryClient = useQueryClient();
   const status = useQuery({
     queryKey: ["grading", assignmentId],
@@ -120,6 +134,8 @@ function GradingCard({ assignmentId, submissionCount }: { assignmentId: number; 
       queryClient.setQueryData(["grading", assignmentId], data);
       queryClient.invalidateQueries({ queryKey: ["cells", assignmentId] });
       queryClient.invalidateQueries({ queryKey: ["results", assignmentId] });
+      // first judgments are in: go grade while the LLM re-judges the rest in the background
+      onStarted();
     },
     onError: (e) => toast.error(errorMessage(e, "채점을 시작하지 못했습니다")),
   });

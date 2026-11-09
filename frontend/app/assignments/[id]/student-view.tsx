@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api, type AssignmentOut, type CellOut, type RubricItemOut, type SubmissionOut } from "@/lib/api";
 import { annotate } from "@/lib/highlight";
 import {
@@ -19,6 +18,7 @@ import {
   plain,
   pointOptions,
   ROUTE_LABEL,
+  ROUTE_TONE,
   SAMPLED_HINT,
 } from "@/lib/rubric";
 import { cn } from "@/lib/utils";
@@ -115,7 +115,18 @@ export default function StudentView({ assignment }: { assignment: AssignmentOut 
 
   return (
     <div className="flex flex-col gap-4 pt-2" onClickCapture={pin}>
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+      <div
+        className={cn(
+          "flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-sm",
+          locked
+            ? "bg-muted"
+            : totalAttention > 0
+              ? "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40"
+              : totalOpen > 0
+                ? "border-sky-200 bg-sky-50 dark:border-sky-800 dark:bg-sky-950/40"
+                : "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/40",
+        )}
+      >
         {locked ? (
           <span>성적이 확정되어 잠겼습니다. 고치려면 &lsquo;결과&rsquo; 탭에서 개정하세요.</span>
         ) : totalAttention > 0 ? (
@@ -185,21 +196,24 @@ export default function StudentView({ assignment }: { assignment: AssignmentOut 
         </Button>
       </nav>
 
-      <div className="grid items-start gap-4 lg:grid-cols-[1fr_22rem]">
-        <AnswerCard
-          assignmentId={assignment.id}
-          submission={submission}
-          items={assignment.items}
-          byItem={byItem}
-          focused={focused}
-          onFocus={setFocused}
-        />
-        <div className="lg:sticky lg:top-4">
-          <JudgmentNotes items={assignment.items} byItem={byItem} focused={focused} onFocus={setFocused} />
-        </div>
-      </div>
+      <AnswerCard
+        assignmentId={assignment.id}
+        submission={submission}
+        items={assignment.items}
+        byItem={byItem}
+        focused={focused}
+        onFocus={setFocused}
+      />
+      <JudgmentNotes
+        assignmentId={assignment.id}
+        items={assignment.items}
+        byItem={byItem}
+        focused={focused}
+        onFocus={setFocused}
+        locked={locked}
+      />
 
-      <ScoreTable
+      <ScoreSummary
         assignmentId={assignment.id}
         submission={submission}
         items={assignment.items}
@@ -251,9 +265,11 @@ function AnswerCard({
   }, [missing, submission.id, submission.clean_text, mutate]);
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center gap-2">
+    // the answer reads like a memo on the desk: the one thing on screen the grader must read
+    <Card className="bg-yellow-50 shadow-sm ring-yellow-300/70 dark:bg-yellow-950/30 dark:ring-yellow-800/50">
+      <CardHeader className="flex flex-row items-baseline gap-2">
         <CardTitle className="font-mono text-lg">{submission.label}</CardTitle>
+        <span className="text-xs text-muted-foreground">학생 답안</span>
         {offTopic && <Badge variant="destructive">주제에서 벗어난 답안</Badge>}
         <span className="ml-auto text-xs text-muted-foreground">
           {findEvidence.isPending && "답안에서 근거 찾는 중…"}
@@ -291,19 +307,24 @@ function AnswerCard({
   );
 }
 
+
 function JudgmentNotes({
+  assignmentId,
   items,
   byItem,
   focused,
   onFocus,
+  locked,
 }: {
+  assignmentId: number;
   items: RubricItemOut[];
   byItem: CellsByItem;
   focused: number | null;
   onFocus: (itemId: number | null) => void;
+  locked: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="grid items-start gap-2 sm:grid-cols-2 xl:grid-cols-3">
       {items
         .filter((i) => i.kind !== "gate")
         .map((item) => {
@@ -314,55 +335,147 @@ function JudgmentNotes({
           const llm = llmView(cell);
           // an on-demand lookup that disagrees with a confident decision-model judgment: worth a second look
           const disagrees = cell.route === "auto" && llm?.pred != null && llm.pred !== cell.primary?.pred;
+          // undecided cells the grader must look at get an accent edge
+          const accent =
+            cell.decision === null &&
+            (cell.route === "human"
+              ? "border-l-4 border-l-rose-400"
+              : cell.route === "llm"
+                ? "border-l-4 border-l-violet-400"
+                : cell.sampled && "border-l-4 border-l-amber-400");
           return (
-            <button
+            <div
               key={item.id}
-              type="button"
-              onClick={() => onFocus(focused === item.id ? null : item.id)}
               className={cn(
-                "flex flex-col gap-1 rounded-lg border p-3 text-left text-sm transition-colors hover:bg-muted/50",
+                "flex flex-col rounded-lg border bg-card text-sm shadow-xs",
+                accent,
+                cell.decision !== null && "bg-muted/40",
                 focused === item.id && cn("ring-2", color?.ring),
               )}
             >
-              <div className="flex items-center gap-2">
-                <span className={cn("size-2.5 shrink-0 rounded-full", color?.dot)} />
-                <span className="font-medium" title={item.key}>
-                  {itemName(item)}
-                </span>
-                {item.kind === "deduction" && (
-                  <Badge variant="outline" title={KIND_HINT.deduction}>
-                    감점
-                  </Badge>
-                )}
-                <span className="ml-auto shrink-0 whitespace-nowrap text-xs text-muted-foreground">{ROUTE_LABEL[cell.route]}</span>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <strong>{cell.route === "skip" ? "판단 생략" : formatPred(item, judge?.pred)}</strong>
-                {cell.primary?.conf != null && cell.route !== "skip" && (
-                  <span className="text-xs text-muted-foreground" title={`확신도 ${Math.round(cell.primary.conf * 100)}%`}>
-                    {confLabel(cell.primary.conf)}
+              {/* the judgment: clicking it marks its evidence in the answer */}
+              <button
+                type="button"
+                onClick={() => onFocus(focused === item.id ? null : item.id)}
+                className="flex flex-col gap-1 rounded-t-lg p-3 text-left transition-colors hover:bg-muted/50"
+              >
+                <div className="flex items-center gap-2">
+                  <span className={cn("size-2.5 shrink-0 rounded-full", color?.dot)} />
+                  <span className="font-medium" title={plain(item.instructions)}>
+                    {itemName(item)}
                   </span>
+                  {item.kind === "deduction" && (
+                    <Badge variant="outline" title={KIND_HINT.deduction}>
+                      감점
+                    </Badge>
+                  )}
+                  <span className="ml-auto flex shrink-0 gap-1">
+                    {cell.sampled && cell.decision === null && (
+                      <span
+                        className="whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                        title={SAMPLED_HINT}
+                      >
+                        샘플 검토
+                      </span>
+                    )}
+                    <span className={cn("whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium", ROUTE_TONE[cell.route])}>
+                      {ROUTE_LABEL[cell.route]}
+                    </span>
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <strong>{cell.route === "skip" ? "판단 생략" : formatPred(item, judge?.pred)}</strong>
+                  {cell.primary?.conf != null && cell.route !== "skip" && (
+                    <span className="text-xs text-muted-foreground" title={`확신도 ${Math.round(cell.primary.conf * 100)}%`}>
+                      {confLabel(cell.primary.conf)}
+                    </span>
+                  )}
+                </div>
+                {cell.route !== "skip" && (
+                  <p className="text-muted-foreground">
+                    {disagrees ? describePred(item, judge?.pred) : (llm?.reasoning ?? describePred(item, judge?.pred))}
+                  </p>
                 )}
-              </div>
-              {cell.route !== "skip" && (
-                <p className="text-muted-foreground">
-                  {disagrees ? describePred(item, judge?.pred) : (llm?.reasoning ?? describePred(item, judge?.pred))}
-                </p>
-              )}
-              {cell.route === "human" && <p className="text-destructive text-xs">두 판단이 달라 직접 판단이 필요합니다.</p>}
-              {disagrees && (
-                <p className="text-xs text-amber-700 dark:text-amber-400">
-                  참고: LLM은 &lsquo;{formatPred(item, llm.pred)}&rsquo;로 봤습니다. {llm.reasoning}
-                </p>
-              )}
-            </button>
+                {cell.route === "human" && <p className="text-destructive text-xs">두 판단이 달라 직접 판단이 필요합니다.</p>}
+                {disagrees && (
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    참고: LLM은 &lsquo;{formatPred(item, llm.pred)}&rsquo;로 봤습니다. {llm.reasoning}
+                  </p>
+                )}
+              </button>
+              <CellDecision assignmentId={assignmentId} item={item} cell={cell} locked={locked} />
+            </div>
           );
         })}
     </div>
   );
 }
 
-function ScoreTable({
+const DECISION_LABEL: Record<string, string> = { accepted: "추천 수용", modified: "수정", manual: "직접 입력" };
+
+/** The grader's decision for one cell: accept the recommendation, or pick the points. */
+function CellDecision({
+  assignmentId,
+  item,
+  cell,
+  locked,
+}: {
+  assignmentId: number;
+  item: RubricItemOut;
+  cell: CellOut;
+  locked: boolean; // grades are finalized
+}) {
+  const decide = useDecide(assignmentId);
+  const blocked = cell.route === "pending";
+  const busy = decide.isPending || locked;
+  const set = (body: { action: "accept" | "clear" } | { action: "set"; points: number }) =>
+    decide.mutate({ gradeId: cell.grade_id, body });
+
+  return (
+    <div className="flex flex-col gap-2 border-t px-3 py-2">
+      {cell.final_points !== null ? (
+        <div className="flex items-center gap-2">
+          <span className="text-emerald-700 dark:text-emerald-400">✓</span>
+          <strong>{cell.final_points}점</strong>
+          <span className="text-xs text-muted-foreground">{cell.decision && DECISION_LABEL[cell.decision]}</span>
+          {!locked && (
+            <Button size="xs" variant="ghost" className="ml-auto" disabled={busy} onClick={() => set({ action: "clear" })}>
+              취소
+            </Button>
+          )}
+        </div>
+      ) : cell.recommended_points !== null ? (
+        // confident auto cells can go through bulk accept: keep their button quiet so the ones to check stand out
+        <Button
+          size="sm"
+          variant={cell.route === "auto" && !cell.sampled ? "secondary" : "default"}
+          disabled={busy}
+          onClick={() => set({ action: "accept" })}
+        >
+          추천 {cell.recommended_points}점 수용
+        </Button>
+      ) : (
+        <span className="text-xs text-muted-foreground">{blocked ? "LLM 재판단 중…" : "추천 없음: 아래에서 점수를 고르세요"}</span>
+      )}
+      <div className="flex flex-wrap gap-1">
+        {pointOptions(item).map((o) => (
+          <Button
+            key={o.label}
+            size="xs"
+            variant={cell.final_points === o.points ? "default" : "outline"}
+            disabled={busy || blocked}
+            onClick={() => set({ action: "set", points: o.points })}
+          >
+            {o.label}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Per-item final points, the total, and the per-student bulk actions. */
+function ScoreSummary({
   assignmentId,
   submission,
   items,
@@ -375,7 +488,6 @@ function ScoreTable({
   byItem: CellsByItem;
   locked: boolean; // grades are finalized
 }) {
-  const decide = useDecide(assignmentId);
   const acceptConfident = useAcceptConfident(assignmentId);
   const clearDecisions = useClearDecisions(assignmentId);
   const rows = items.map((item) => ({ item, cell: byItem.get(item.id) })).filter((r) => r.cell);
@@ -392,6 +504,15 @@ function ScoreTable({
     <Card>
       <CardHeader className="flex flex-row items-center gap-2">
         <CardTitle>점수</CardTitle>
+        <span className="ml-2 text-base">
+          {total === null ? (
+            <span className="text-muted-foreground">{open}칸 미확정</span>
+          ) : (
+            <strong>
+              총점 {total} / {maxPoints}점
+            </strong>
+          )}
+        </span>
         <Button
           size="sm"
           variant="outline"
@@ -414,97 +535,16 @@ function ScoreTable({
           일괄 취소
         </Button>
       </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>항목</TableHead>
-              <TableHead>추천</TableHead>
-              <TableHead>점수 입력</TableHead>
-              <TableHead className="text-right">확정</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map(({ item, cell }) => {
-              const c = cell!;
-              const color = itemColor(items, item.id);
-              const blocked = c.route === "pending";
-              return (
-                <TableRow key={item.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className={cn("size-2.5 shrink-0 rounded-full", color?.dot ?? "bg-muted-foreground")} />
-                      <span title={plain(item.instructions)}>{itemName(item)}</span>
-                      <span className="text-xs text-muted-foreground" title={KIND_HINT[item.kind]}>
-                        {KIND_LABEL[item.kind]}
-                      </span>
-                      {c.sampled && (
-                        <Badge variant="outline" title={SAMPLED_HINT}>
-                          샘플 검토
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {c.recommended_points === null ? (
-                      <span className="text-muted-foreground">{blocked ? "재판단 중" : "없음"}</span>
-                    ) : (
-                      <Button
-                        size="xs"
-                        variant="secondary"
-                        disabled={decide.isPending || locked}
-                        onClick={() => decide.mutate({ gradeId: c.grade_id, body: { action: "accept" } })}
-                      >
-                        {c.recommended_points}점 수용
-                      </Button>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {pointOptions(item).map((o) => (
-                        <Button
-                          key={o.label}
-                          size="xs"
-                          variant={c.final_points === o.points ? "default" : "outline"}
-                          disabled={decide.isPending || blocked || locked}
-                          onClick={() => decide.mutate({ gradeId: c.grade_id, body: { action: "set", points: o.points } })}
-                        >
-                          {o.label}
-                        </Button>
-                      ))}
-                      {c.final_points !== null && !locked && (
-                        <Button
-                          size="xs"
-                          variant="ghost"
-                          onClick={() => decide.mutate({ gradeId: c.grade_id, body: { action: "clear" } })}
-                        >
-                          취소
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right font-medium">
-                    {c.final_points === null ? <span className="text-muted-foreground">—</span> : `${c.final_points}점`}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-          <TableFooter>
-            <TableRow>
-              <TableCell colSpan={3}>총점</TableCell>
-              <TableCell className="text-right text-base">
-                {total === null ? (
-                  <span className="text-muted-foreground">{open}칸 미확정</span>
-                ) : (
-                  <strong>
-                    {total} / {maxPoints}점
-                  </strong>
-                )}
-              </TableCell>
-            </TableRow>
-          </TableFooter>
-        </Table>
+      <CardContent className="flex flex-wrap gap-x-5 gap-y-1">
+        {rows.map(({ item, cell }) => (
+          <span key={item.id} className="flex items-center gap-1.5" title={KIND_LABEL[item.kind]}>
+            <span className={cn("size-2 shrink-0 rounded-full", itemColor(items, item.id)?.dot)} />
+            {itemName(item)}
+            <strong className={cn(cell!.final_points === null && "font-normal text-muted-foreground")}>
+              {cell!.final_points === null ? "—" : `${cell!.final_points}점`}
+            </strong>
+          </span>
+        ))}
       </CardContent>
     </Card>
   );
