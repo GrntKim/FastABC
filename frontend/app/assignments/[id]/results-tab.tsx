@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
+import { progressSegments, SegmentBar } from "@/components/segment-bar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -15,8 +16,8 @@ import ResultsPanel from "./results-panel";
 const when = (iso: string) =>
   new Date(iso).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
-/** Decision summary, sign-off and revisions, then every student's total. */
-export default function ResultsTab({ assignment }: { assignment: AssignmentOut }) {
+/** Decision summary, sign-off and revisions, then every student's total once every item is confirmed. */
+export default function ResultsTab({ assignment, onGoGrade }: { assignment: AssignmentOut; onGoGrade: () => void }) {
   const cells = useQuery({
     queryKey: ["cells", assignment.id],
     queryFn: () => api<CellOut[]>(`/assignments/${assignment.id}/cells`),
@@ -33,6 +34,8 @@ export default function ResultsTab({ assignment }: { assignment: AssignmentOut }
   const open = cells.data.filter((c) => c.decision === null).length;
   const locked = assignment.progress.stage === "finalized";
   const current = locked ? history.data[0] : undefined;
+  const past = current ? history.data.slice(1) : history.data; // the current version is shown above
+  const quick = cells.data.filter((c) => c.decision === null && (c.route === "auto" || c.route === "skip") && !c.sampled).length;
 
   return (
     <div className="flex flex-col gap-4 pt-2">
@@ -52,17 +55,29 @@ export default function ResultsTab({ assignment }: { assignment: AssignmentOut }
           </span>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 text-sm">
-          <div className="flex flex-wrap gap-x-6 gap-y-1">
-            <span>학생 {assignment.progress.submissions}명</span>
-            <span>
-              확정 {cells.data.length - open} / {cells.data.length}개 항목
-            </span>
-            {Object.entries(DECISION_LABEL).map(([key, label]) => (
-              <span key={key}>
-                {label} <strong>{counts[key]}</strong>
-              </span>
-            ))}
-          </div>
+          {open > 0 && !locked ? (
+            // not ready to sign off: where grading stands, and the way back to it
+            <div className="flex flex-col gap-2">
+              <SegmentBar segments={progressSegments(cells.data.length - open, quick, open - quick)} />
+              <div className="flex flex-wrap items-center gap-2">
+                <span>
+                  학생 <strong>{assignment.progress.students_done}</strong> / {assignment.progress.submissions}명 채점 끝
+                </span>
+                <Button size="sm" className="ml-auto" onClick={onGoGrade}>
+                  채점하러 가기
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-x-6 gap-y-1">
+              <span>학생 {assignment.progress.submissions}명</span>
+              {Object.entries(DECISION_LABEL).map(([key, label]) => (
+                <span key={key}>
+                  {label} <strong>{counts[key]}</strong>
+                </span>
+              ))}
+            </div>
+          )}
           {current ? (
             <p className="rounded-md border bg-muted/30 px-3 py-2">
               <strong title={`결과 해시 ${current.snapshot_hash}`}>v{current.version} 확정</strong> · {current.finalized_by} ·{" "}
@@ -72,13 +87,14 @@ export default function ResultsTab({ assignment }: { assignment: AssignmentOut }
           ) : (
             <p className="text-muted-foreground">
               {open > 0
-                ? `확정하지 않은 항목이 ${open}개 남았습니다. 모든 항목을 확정하면 성적을 확정할 수 있습니다.`
+                ? "모든 학생의 채점이 끝나면 성적을 확정할 수 있습니다."
                 : "모든 항목을 확정했습니다. 성적을 확정하면 확정자와 시각이 기록되고 점수가 잠깁니다."}
             </p>
           )}
-          {history.data.length > 0 && (
+          {past.length > 0 && (
             <ul className="flex flex-col gap-1 text-muted-foreground">
-              {history.data.map((f) => (
+              <li className="text-xs">이전 버전</li>
+              {past.map((f) => (
                 <li key={f.id}>
                   <span title={`결과 해시 ${f.snapshot_hash}`}>v{f.version}</span> · {f.finalized_by} · {when(f.finalized_at)}
                   {f.reopened_at && ` · ${when(f.reopened_at)} 개정: ${f.reopen_reason}`}
@@ -89,7 +105,7 @@ export default function ResultsTab({ assignment }: { assignment: AssignmentOut }
         </CardContent>
       </Card>
 
-      <ResultsPanel assignmentId={assignment.id} />
+      {(open === 0 || locked) && <ResultsPanel assignmentId={assignment.id} />}
 
       <FinalizeDialog
         assignmentId={assignment.id}

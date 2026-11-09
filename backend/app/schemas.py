@@ -73,6 +73,7 @@ class ProgressOut(BaseModel):
     decided: int
     pending: int
     attention: int  # undecided cells a person must look at
+    students_done: int  # submissions with every cell confirmed
 
 
 class AssignmentIn(BaseModel):

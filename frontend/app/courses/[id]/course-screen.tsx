@@ -7,7 +7,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import { progressSegments, SegmentBar } from "@/components/segment-bar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api, ApiError, type CourseOut } from "@/lib/api";
 import { nextAction, STAGE_LABEL, STAGE_VARIANT, termLabel } from "@/lib/progress";
@@ -83,7 +83,7 @@ export default function CourseScreen({ courseId }: { courseId: number }) {
               <TableRow>
                 <TableHead>문항</TableHead>
                 <TableHead>상태</TableHead>
-                <TableHead className="w-48">확정 진행</TableHead>
+                <TableHead className="w-56">진행</TableHead>
                 <TableHead className="text-right">답안</TableHead>
                 <TableHead />
               </TableRow>
@@ -104,10 +104,16 @@ export default function CourseScreen({ courseId }: { courseId: number }) {
                     </TableCell>
                     <TableCell>
                       {p.cells > 0 && (
-                        <div className="flex items-center gap-2">
-                          <Progress value={(p.decided / p.cells) * 100} className="flex-1" />
+                        <div className="flex flex-col gap-1">
+                          <SegmentBar
+                            segments={progressSegments(
+                              p.decided,
+                              p.cells - p.decided - p.attention - p.pending,
+                              p.attention + p.pending,
+                            )}
+                          />
                           <span className="text-xs text-muted-foreground">
-                            {p.decided}/{p.cells}
+                            학생 {p.students_done} / {p.submissions}명 완료
                           </span>
                         </div>
                       )}

@@ -101,7 +101,7 @@ export default function CoursesHome() {
                         {STAGE_LABEL[stage] ?? stage} {count}
                       </Badge>
                     ))}
-                    {c.attention > 0 && <Badge>확인 필요 {c.attention}</Badge>}
+                    {c.attention > 0 && <Badge>확인할 곳 있음</Badge>}
                   </div>
                 </CardContent>
               </Card>

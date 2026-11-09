@@ -24,6 +24,7 @@ class Progress:
     decided: int = 0
     pending: int = 0
     attention: int = 0  # undecided cells a person must look at: human, llm, or sampled
+    students_done: int = 0  # submissions with every cell confirmed
     finalized: bool = False
 
     @property
@@ -69,6 +70,17 @@ def progress(db: Session, assignment_ids: list[int]) -> dict[int, Progress]:
     for aid, cells, decided, pending, attention in rows:
         p = result[aid]
         p.cells, p.decided, p.pending, p.attention = cells, decided, pending or 0, attention or 0
+
+    finished = (
+        select(Submission.assignment_id)
+        .join(Grade, Grade.submission_id == Submission.id)
+        .where(Submission.assignment_id.in_(assignment_ids))
+        .group_by(Submission.assignment_id, Submission.id)
+        .having(func.count(Grade.id) == func.count(Grade.decision))
+        .subquery()
+    )
+    for aid, count in db.execute(select(finished.c.assignment_id, func.count()).group_by(finished.c.assignment_id)):
+        result[aid].students_done = count
 
     # only the latest version can be open: a new one needs the previous one reopened
     for aid in db.scalars(

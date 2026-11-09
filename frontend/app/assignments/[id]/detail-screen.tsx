@@ -78,7 +78,7 @@ export default function DetailScreen({ assignmentId }: { assignmentId: number })
           )}
         </div>
         <TabsContent value="grade">{graded && <StudentView assignment={a} onGoResults={() => setTab("results")} />}</TabsContent>
-        <TabsContent value="results">{graded && <ResultsTab assignment={a} />}</TabsContent>
+        <TabsContent value="results">{graded && <ResultsTab assignment={a} onGoGrade={() => setTab("grade")} />}</TabsContent>
         <TabsContent value="admin">
           <AdminPanel assignment={a} onGradingStarted={() => setTab("grade")} />
         </TabsContent>

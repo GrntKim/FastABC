@@ -698,6 +698,8 @@ export interface components {
             pending: number;
             /** Attention */
             attention: number;
+            /** Students Done */
+            students_done: number;
         };
         /** ReopenIn */
         ReopenIn: {

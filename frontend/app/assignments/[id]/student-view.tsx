@@ -4,6 +4,7 @@ import { useIsMutating, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { progressSegments, SegmentBar, SegmentLegend } from "@/components/segment-bar";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { api, type AssignmentOut, type CellOut, type RubricItemOut, type SubmissionOut } from "@/lib/api";
 import { annotate, excerpts } from "@/lib/highlight";
@@ -270,11 +271,7 @@ function ProgressStrip({
     </>
   );
 
-  const segments = [
-    { n: done, label: "확정", className: "bg-emerald-500" },
-    { n: quick, label: "AI가 확신 · 한 번에 확정 가능", className: "bg-sky-300 dark:bg-sky-700" },
-    { n: look, label: "확인 필요", className: "bg-amber-400" },
-  ];
+  const segments = progressSegments(done, quick, look);
 
   return (
     <section className="flex flex-col gap-2 rounded-lg border bg-card px-4 py-3 text-sm shadow-xs">
@@ -284,23 +281,9 @@ function ProgressStrip({
         </span>
         <div className="ml-auto flex flex-wrap items-center gap-2">{status}</div>
       </div>
-      <div className="flex h-2.5 overflow-hidden rounded-full bg-muted" role="img" aria-label={segments.map((g) => `${g.label} ${g.n}`).join(", ")}>
-        {segments.map((g) => (
-          <div
-            key={g.label}
-            className={cn("h-full transition-[width] duration-500", g.className)}
-            style={{ width: `${(g.n / total) * 100}%` }}
-            title={`${g.label} ${g.n}개`}
-          />
-        ))}
-      </div>
+      <SegmentBar segments={segments} />
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        {segments.map((g) => (
-          <span key={g.label} className="flex items-center gap-1.5">
-            <span className={cn("size-2 rounded-full", g.className)} />
-            {g.label}
-          </span>
-        ))}
+        <SegmentLegend segments={segments} />
         <button type="button" className="ml-auto underline-offset-2 hover:underline" onClick={() => setExplain(!explain)} aria-expanded={explain}>
           어떻게 고르나요? {explain ? "▴" : "▾"}
         </button>

@@ -38,6 +38,7 @@ def summary(assignment: Assignment, p: Progress) -> AssignmentSummary:
             decided=p.decided,
             pending=p.pending,
             attention=p.attention,
+            students_done=p.students_done,
         ),
     )
 
