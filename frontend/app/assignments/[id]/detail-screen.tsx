@@ -47,11 +47,13 @@ export default function DetailScreen({ assignmentId }: { assignmentId: number })
           <h1 className="text-2xl font-bold">{a.title}</h1>
           {a.assessment && <span className="text-sm text-muted-foreground">{a.assessment}</span>}
         </div>
-        {/* the question is what every answer is read against: as prominent as the answer itself */}
-        <section className="rounded-xl border-l-4 border-l-primary bg-card px-4 py-3 shadow-xs ring-1 ring-foreground/10">
-          <p className="text-xs font-medium text-primary">문제</p>
-          <p className="whitespace-pre-wrap text-[1.05rem] leading-7">{a.problem}</p>
-        </section>
+        {/* the question is what every answer is read against; the grading tab prints it on the exam paper */}
+        {(tab ?? defaultTab) !== "grade" && (
+          <section className="rounded-xl border-l-4 border-l-primary bg-card px-4 py-3 shadow-xs ring-1 ring-foreground/10">
+            <p className="text-xs font-medium text-primary">문제</p>
+            <p className="whitespace-pre-wrap text-[1.05rem] leading-7">{a.problem}</p>
+          </section>
+        )}
       </header>
 
       {/* setup until graded, grading while cells are open, results once every cell is decided */}

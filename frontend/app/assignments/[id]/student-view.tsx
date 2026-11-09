@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { api, type AssignmentOut, type CellOut, type RubricItemOut, type SubmissionOut } from "@/lib/api";
 import { annotate } from "@/lib/highlight";
 import {
@@ -171,7 +171,7 @@ export default function StudentView({ assignment, onGoResults }: { assignment: A
         />
         <div className="flex min-w-0 flex-col gap-4">
           <AnswerCard
-            assignmentId={assignment.id}
+            assignment={assignment}
             submission={submission}
             items={assignment.items}
             byItem={byItem}
@@ -308,14 +308,14 @@ type CellsByItem = Map<number, CellOut>;
 const llmView = (cell: CellOut | undefined) => cell?.secondary ?? cell?.evidence ?? null;
 
 function AnswerCard({
-  assignmentId,
+  assignment,
   submission,
   items,
   byItem,
   focused,
   onFocus,
 }: {
-  assignmentId: number;
+  assignment: AssignmentOut;
   submission: SubmissionOut;
   items: RubricItemOut[];
   byItem: CellsByItem;
@@ -329,7 +329,7 @@ function AnswerCard({
   const segments = annotate(submission.clean_text, groups);
 
   // Evidence is fetched once per submission the first time a grader opens it (design option A)
-  const findEvidence = useFindEvidence(assignmentId);
+  const findEvidence = useFindEvidence(assignment.id);
   const attempted = useRef(new Set<number>());
   const missing = scored.some((i) => {
     const cell = byItem.get(i.id);
@@ -343,24 +343,35 @@ function AnswerCard({
   }, [missing, submission.id, submission.clean_text, mutate]);
 
   return (
-    // the answer reads like a memo on the desk: the one thing on screen the grader must read
-    <Card className="bg-yellow-50 shadow-sm ring-yellow-300/70 dark:bg-yellow-950/30 dark:ring-yellow-800/50">
-      <CardHeader className="flex flex-row items-baseline gap-2">
-        <CardTitle className="font-mono text-lg">{submission.label}</CardTitle>
-        <span className="text-xs text-muted-foreground">학생 답안</span>
-        {offTopic && <Badge variant="destructive">주제에서 벗어난 답안</Badge>}
-        <span className="ml-auto text-xs text-muted-foreground">
-          {findEvidence.isPending && "답안에서 근거 찾는 중…"}
+    // an exam paper: the question in bold, the student's answer written on ruled lines below it
+    <article className="flex flex-col gap-4 rounded-sm bg-[oklch(0.995_0.008_90)] px-6 py-5 shadow-md ring-1 ring-stone-300 dark:bg-[oklch(0.2_0.005_90)] dark:ring-stone-700">
+      <header className="flex items-center gap-3 border-b-2 border-foreground/80 pb-2 text-sm">
+        <span className="font-medium">{assignment.assessment ?? assignment.title}</span>
+        {assignment.assessment && <span className="text-muted-foreground">{assignment.title}</span>}
+        <span className="ml-auto flex items-center gap-2">
+          {findEvidence.isPending && <span className="text-xs text-muted-foreground">답안에서 근거 찾는 중…</span>}
           {findEvidence.isError && (
             <Button size="xs" variant="ghost" onClick={() => findEvidence.mutate(submission.id)}>
               근거 찾기 실패: 다시 시도
             </Button>
           )}
+          <span className="text-xs text-muted-foreground">학생</span>
+          <span className="border border-foreground/60 px-2 py-0.5 font-mono text-base font-semibold">{submission.label}</span>
         </span>
-      </CardHeader>
-      <CardContent>
+      </header>
+
+      <p className="whitespace-pre-wrap text-lg font-bold leading-8">
+        <span className="mr-1.5">문제.</span>
+        {assignment.problem}
+      </p>
+
+      <section className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold">답안</span>
+          {offTopic && <Badge variant="destructive">문제와 관련 없는 답안</Badge>}
+        </div>
         {submission.clean_text ? (
-          <p className="whitespace-pre-wrap text-[1.05rem] leading-8">
+          <p className="answer-sheet whitespace-pre-wrap px-1 text-[1.05rem]">
             {segments.map((s, i) => {
               if (s.ids.length === 0) return <span key={i}>{s.text}</span>;
               const color = itemColor(items, s.ids[0]);
@@ -378,10 +389,10 @@ function AnswerCard({
             })}
           </p>
         ) : (
-          <p className="text-muted-foreground">(빈 답안)</p>
+          <p className="answer-sheet px-1 text-muted-foreground">(빈 답안)</p>
         )}
-      </CardContent>
-    </Card>
+      </section>
+    </article>
   );
 }
 

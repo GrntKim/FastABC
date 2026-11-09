@@ -49,7 +49,7 @@ export default function CellCard({
       </CardHeader>
 
       <CardContent className="grid gap-4 md:grid-cols-[1fr_18rem]">
-        <p className="self-start whitespace-pre-wrap rounded-md bg-yellow-50 p-3 leading-relaxed ring-1 ring-yellow-300/60 dark:bg-yellow-950/30 dark:ring-yellow-800/50">
+        <p className="answer-sheet self-start whitespace-pre-wrap rounded-sm px-3 ring-1 ring-stone-300 dark:ring-stone-700">
           {cell.answer
             ? highlight(cell.answer, evidence).map((s, i) =>
                 s.marked ? (

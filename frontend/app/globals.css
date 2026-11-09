@@ -128,3 +128,22 @@
     @apply font-sans;
   }
 }
+
+/* Answer written on ruled exam paper: text sits on the lines, one line per --line */
+@utility answer-sheet {
+  --line: 2.25rem;
+  --rule: oklch(0.86 0.03 240 / 0.7);
+  line-height: var(--line);
+  background-color: oklch(0.995 0.008 90);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(var(--line) - 1px),
+    var(--rule) calc(var(--line) - 1px),
+    var(--rule) var(--line)
+  );
+  @variant dark {
+    --rule: oklch(1 0 0 / 0.12);
+    background-color: oklch(0.2 0.005 90);
+  }
+}
