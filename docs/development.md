@@ -204,13 +204,24 @@ class Judge(Protocol):
 |---|---|
 | `/` | 과목 목록 (학기 탭, 학과 필터) |
 | `/courses/[id]` | 과목: 문항 목록, 진행 단계, 다음 행동 버튼 |
-| `/courses/[id]/assignments/new` | 문항 만들기: 문제, 기준 문장 → 판단 질문 변환, 편집 |
-| `/assignments/[id]` | 문항: 채점(학생별) / 결과(성적 확정, 내보내기) / 관리(답안, 채점 실행, 기준) 탭 |
+| `/courses/[id]/assignments/new` | 문항 만들기: 문제, 기준 문장 → 채점 항목 변환, 편집 |
+| `/assignments/[id]` | 문항: 준비(기준, 답안, 채점 실행) / 채점(학생별, 시험지 모양) / 결과(성적 확정, 내보내기) 탭 |
 | `/assignments/[id]/edit` | 문항 수정 (채점 전만) |
 | `/assignments/[id]/review` | 항목별 보기 |
 
 - API 타입은 백엔드를 띄운 상태에서 `pnpm --dir frontend gen:api`로 `lib/api-types.ts`를 다시 만듭니다.
-- 화면 용어(판단 경로, 확신도 구간, 항목 구분)는 `lib/rubric.ts`, 진행 단계는 `lib/progress.ts`에 모여 있습니다.
+- 화면 용어는 `lib/rubric.ts`, 진행 단계는 `lib/progress.ts`에 모여 있습니다. 채점자 화면은 내부 경로 이름을 쓰지 않고 아래처럼 바꿔 보여 줍니다.
+
+  | 내부 (`grades.route`, `sampled`) | 채점자 화면 |
+  |---|---|
+  | `human` | AI 의견이 갈림: 1차 판단과 재확인을 나란히 보여 주고 채점자가 고름 |
+  | `llm` | AI가 확신하지 못함: 추천은 있지만 확인 필요 |
+  | `auto` + `sampled` | 무작위 점검 |
+  | `auto` | 표시 없음: 한 줄로 접히고 "추천대로 확정 (확인 필요 칸 제외)" 대상 |
+  | `skip` | 문제와 관련 없는 답안: 모든 항목 0점 추천 |
+  | `pending` | AI가 다시 보는 중 |
+
+- 채점 기준 편집기는 판단 질문의 `` `answer` `` 표기를 "답안"으로 보여 주고(`plain`), 채점자가 쓴 "답안"은 저장할 때 되돌립니다(`fromPlain`). 주제 확인 항목(`kind = gate`)은 편집기와 기준 표에서 숨기고 저장할 때 자동으로 넣습니다.
 - Next.js 16에서 동적 `params`는 Promise이고 `cacheComponents`가 켜져 있어, 런타임 데이터는 `<Suspense>` 안에서 읽습니다.
 
 ## 평가 도구
