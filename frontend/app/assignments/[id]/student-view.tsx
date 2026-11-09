@@ -95,14 +95,13 @@ export default function StudentView({ assignment, onGoResults }: { assignment: A
   const [frozen, setFrozen] = useState<{ mode: SortMode; ids: number[] } | null>(null);
   const acceptRest = useAcceptConfident(assignment.id);
   const locked = assignment.progress.stage === "finalized";
-  // once the exam paper scrolls away, a slim bar keeps the student, the score, and the answer one click away
+  // once the exam paper scrolls away, the score header (stuck to the top) shows the student and offers the answer
   const [paper, setPaper] = useState<HTMLElement | null>(null);
   const [paperGone, setPaperGone] = useState(false);
   useEffect(() => {
     if (!paper) return;
     const observer = new IntersectionObserver(
       ([entry]) => setPaperGone(!entry.isIntersecting && entry.boundingClientRect.top < 0),
-      { rootMargin: "-96px 0px 0px 0px" },
     );
     observer.observe(paper);
     return () => observer.disconnect();
@@ -193,14 +192,6 @@ export default function StudentView({ assignment, onGoResults }: { assignment: A
           onSort={resort}
         />
         <div className="flex min-w-0 flex-col gap-4">
-          {/* zero-height sticky anchor: the bar floats over the items without pushing them down */}
-          <div className="sticky top-2 z-20 -mb-4 h-0">
-            {paperGone && (
-              <AnswerBar key={submission.id} submission={submission} score={scoreOf(assignment.items, cellList, submission.id)}>
-                <AnswerText text={submission.clean_text} items={assignment.items} byItem={byItem} focused={focused} onFocus={setFocused} />
-              </AnswerBar>
-            )}
-          </div>
           <AnswerCard
             paperRef={setPaper}
             assignment={assignment}
@@ -219,6 +210,8 @@ export default function StudentView({ assignment, onGoResults }: { assignment: A
             focused={focused}
             onFocus={setFocused}
             onShowInAnswer={showInAnswer}
+            paperGone={paperGone}
+            answer={<AnswerText text={submission.clean_text} items={assignment.items} byItem={byItem} focused={focused} onFocus={setFocused} />}
             locked={locked}
             footer={
               <>
@@ -386,28 +379,6 @@ function AnswerText({
   );
 }
 
-/** Shown while the exam paper is scrolled away: who, how many points so far, and the answer on demand. */
-function AnswerBar({ submission, score, children }: { submission: SubmissionOut; score: Score; children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="absolute inset-x-0 top-0 rounded-lg border bg-card/95 shadow-md backdrop-blur">
-      <div className="flex items-center gap-3 px-4 py-1.5 text-sm">
-        <span className="border border-foreground/60 px-1.5 font-mono font-semibold">{submission.label}</span>
-        <span className="flex items-baseline gap-1 tabular-nums">
-          <span className="text-muted-foreground">{score.total === null ? "지금까지" : "총점"}</span>
-          <strong className="text-lg">{score.total ?? formatPoints(score.sum)}</strong>
-          <span className="text-muted-foreground">/ {score.max}점</span>
-        </span>
-        {score.open > 0 && <span className="text-amber-700 dark:text-amber-400">{score.open}칸 미확정</span>}
-        <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setOpen(!open)} aria-expanded={open}>
-          {open ? "답안 닫기 ▴" : "답안 보기 ▾"}
-        </Button>
-      </div>
-      {open && <div className="max-h-[50vh] overflow-y-auto border-t px-4 py-2">{children}</div>}
-    </div>
-  );
-}
-
 function AnswerCard({
   paperRef,
   assignment,
@@ -486,6 +457,8 @@ function ItemList({
   focused,
   onFocus,
   onShowInAnswer,
+  paperGone,
+  answer,
   locked,
   footer,
 }: {
@@ -496,6 +469,8 @@ function ItemList({
   focused: number | null;
   onFocus: (itemId: number | null) => void;
   onShowInAnswer: (itemId: number, at: number) => void;
+  paperGone: boolean; // the exam paper is scrolled out of view, so this header is stuck to the top
+  answer: React.ReactNode; // the answer text, to drop down from the stuck header
   locked: boolean; // grades are finalized
   footer: React.ReactNode; // moving on to another student
 }) {
@@ -510,55 +485,68 @@ function ItemList({
   const allOpen = rows.every(({ item, cell }) => isOpen(item, cell));
   const score = scoreOf(items, [...byItem.values()], submission.id);
   const open = score.open;
+  const [showAnswer, setShowAnswer] = useState(false);
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row flex-wrap items-center gap-2">
-        {/* what the grader keeps an eye on: how many points this student has */}
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-sm text-muted-foreground">{score.total === null ? "지금까지" : "총점"}</span>
-          <span
-            className={cn(
-              "text-3xl font-bold tabular-nums",
-              score.total !== null && "text-emerald-700 dark:text-emerald-400",
+    // overflow-visible: the header sticks to the top of the page while the items scroll under it
+    <Card className="overflow-visible pt-0">
+      <div className={cn("sticky top-0 z-20 bg-card", paperGone ? "border-b shadow-md" : "rounded-t-xl")}>
+        <CardHeader className="flex flex-row flex-wrap items-center gap-2 py-3">
+          {/* what the grader keeps an eye on: how many points this student has */}
+          <div className="flex items-baseline gap-1.5">
+            {paperGone && (
+              <span className="mr-1.5 self-center border border-foreground/60 px-1.5 font-mono text-sm font-semibold">{submission.label}</span>
             )}
+            <span className="text-sm text-muted-foreground">{score.total === null ? "지금까지" : "총점"}</span>
+            <span
+              className={cn(
+                "text-3xl font-bold tabular-nums",
+                score.total !== null && "text-emerald-700 dark:text-emerald-400",
+              )}
+            >
+              {score.total ?? formatPoints(score.sum)}
+            </span>
+            <span className="text-lg text-muted-foreground tabular-nums">/ {score.max}점</span>
+            <span className={cn("ml-2 text-sm", open > 0 ? "text-amber-700 dark:text-amber-400" : "text-emerald-700 dark:text-emerald-400")}>
+              {open > 0 ? `${open}칸 미확정` : "✓ 채점 완료"}
+            </span>
+          </div>
+          {paperGone && (
+            <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setShowAnswer(!showAnswer)} aria-expanded={showAnswer}>
+              {showAnswer ? "답안 닫기 ▴" : "답안 보기 ▾"}
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            className={cn(!paperGone && "ml-auto")}
+            onClick={() => setOpened(Object.fromEntries(rows.map(({ item }) => [item.id, !allOpen])))}
           >
-            {score.total ?? formatPoints(score.sum)}
-          </span>
-          <span className="text-lg text-muted-foreground tabular-nums">/ {score.max}점</span>
-          <span className={cn("ml-2 text-sm", open > 0 ? "text-amber-700 dark:text-amber-400" : "text-emerald-700 dark:text-emerald-400")}>
-            {open > 0 ? `${open}칸 미확정` : "✓ 채점 완료"}
-          </span>
-        </div>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="ml-auto"
-          onClick={() => setOpened(Object.fromEntries(rows.map(({ item }) => [item.id, !allOpen])))}
-        >
-          {allOpen ? "모두 접기" : "모두 펼치기"}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={acceptConfident.isPending || locked}
-          onClick={() => acceptConfident.mutate({ submission_id: submission.id })}
-          title="확인이 필요 없는 칸만 추천대로 확정합니다. 확인 필요로 표시된 칸은 그대로 둡니다."
-        >
-          추천대로 확정 (확인 필요 칸 제외)
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={clearDecisions.isPending || open === rows.length || locked}
-          onClick={() =>
-            confirm(`${submission.label}의 확정 ${rows.length - open}칸을 모두 취소할까요? 직접 고른 점수도 지워집니다.`) &&
-            clearDecisions.mutate({ submission_id: submission.id })
-          }
-        >
-          모두 취소
-        </Button>
-      </CardHeader>
+            {allOpen ? "모두 접기" : "모두 펼치기"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={acceptConfident.isPending || locked}
+            onClick={() => acceptConfident.mutate({ submission_id: submission.id })}
+            title="확인이 필요 없는 칸만 추천대로 확정합니다. 확인 필요로 표시된 칸은 그대로 둡니다."
+          >
+            추천대로 확정 (확인 필요 칸 제외)
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={clearDecisions.isPending || open === rows.length || locked}
+            onClick={() =>
+              confirm(`${submission.label}의 확정 ${rows.length - open}칸을 모두 취소할까요? 직접 고른 점수도 지워집니다.`) &&
+              clearDecisions.mutate({ submission_id: submission.id })
+            }
+          >
+            모두 취소
+          </Button>
+        </CardHeader>
+        {paperGone && showAnswer && <div className="max-h-[50vh] overflow-y-auto border-t px-4 py-2">{answer}</div>}
+      </div>
       <CardContent className="flex flex-col divide-y px-0">
         {rows.map(({ item, cell }) => (
           <ItemRow
