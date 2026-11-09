@@ -4,21 +4,15 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
+from app.auth import current_user, own_assignment, own_course
 from app.db import get_db
 from app.grading import PRIMARY_MODEL
-from app.models import Assignment, Course, Grade, RubricItem, Submission
+from app.models import Assignment, Course, Grade, RubricItem, Submission, User
 from app.progress import Progress, progress
 from app.schemas import AssignmentIn, AssignmentOut, AssignmentSummary, CourseRef, ProgressOut, RubricItemOut
 from app.scoring import max_total
 
 router = APIRouter(prefix="/assignments", tags=["assignments"])
-
-
-def _get(db: Session, assignment_id: int) -> Assignment:
-    assignment = db.get(Assignment, assignment_id)
-    if assignment is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "assignment not found")
-    return assignment
 
 
 def summary(assignment: Assignment, p: Progress) -> AssignmentSummary:
@@ -53,9 +47,11 @@ def _out(db: Session, assignment: Assignment) -> AssignmentOut:
     )
 
 
-def _check_course(db: Session, course_id: int) -> None:
-    if db.get(Course, course_id) is None:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "course not found")
+def _check_course(db: Session, user: User, course_id: int) -> None:
+    try:
+        own_course(db, user, course_id)
+    except HTTPException as e:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "course not found") from e
 
 
 def _items(body: AssignmentIn) -> list[RubricItem]:
@@ -63,8 +59,8 @@ def _items(body: AssignmentIn) -> list[RubricItem]:
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-def create_assignment(body: AssignmentIn, db: Session = Depends(get_db)) -> AssignmentOut:
-    _check_course(db, body.course_id)
+def create_assignment(body: AssignmentIn, db: Session = Depends(get_db), user: User = Depends(current_user)) -> AssignmentOut:
+    _check_course(db, user, body.course_id)
     assignment = Assignment(
         course_id=body.course_id,
         assessment=body.assessment,
@@ -79,8 +75,15 @@ def create_assignment(body: AssignmentIn, db: Session = Depends(get_db)) -> Assi
 
 
 @router.get("")
-def list_assignments(course_id: int | None = None, db: Session = Depends(get_db)) -> list[AssignmentSummary]:
-    query = select(Assignment).order_by(Assignment.created_at.desc())
+def list_assignments(
+    course_id: int | None = None, db: Session = Depends(get_db), user: User = Depends(current_user)
+) -> list[AssignmentSummary]:
+    query = (
+        select(Assignment)
+        .join(Course, Assignment.course_id == Course.id)
+        .where(Course.owner_id == user.id)
+        .order_by(Assignment.created_at.desc())
+    )
     if course_id is not None:
         query = query.where(Assignment.course_id == course_id)
     assignments = db.scalars(query).all()
@@ -89,21 +92,23 @@ def list_assignments(course_id: int | None = None, db: Session = Depends(get_db)
 
 
 @router.get("/{assignment_id}")
-def get_assignment(assignment_id: int, db: Session = Depends(get_db)) -> AssignmentOut:
-    return _out(db, _get(db, assignment_id))
+def get_assignment(assignment_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)) -> AssignmentOut:
+    return _out(db, own_assignment(db, user, assignment_id))
 
 
 @router.put("/{assignment_id}")
-def replace_assignment(assignment_id: int, body: AssignmentIn, db: Session = Depends(get_db)) -> AssignmentOut:
+def replace_assignment(
+    assignment_id: int, body: AssignmentIn, db: Session = Depends(get_db), user: User = Depends(current_user)
+) -> AssignmentOut:
     """Replace the problem and the whole rubric. Refused once grading has started."""
-    assignment = _get(db, assignment_id)
+    assignment = own_assignment(db, user, assignment_id)
     graded = db.scalar(
         select(exists().where(Grade.submission_id == Submission.id, Submission.assignment_id == assignment_id))
     )
     if graded:
         raise HTTPException(status.HTTP_409_CONFLICT, "rubric cannot change after grading has started")
 
-    _check_course(db, body.course_id)
+    _check_course(db, user, body.course_id)
     assignment.course_id = body.course_id
     assignment.assessment = body.assessment
     assignment.title = body.title
@@ -116,6 +121,6 @@ def replace_assignment(assignment_id: int, body: AssignmentIn, db: Session = Dep
 
 
 @router.delete("/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_assignment(assignment_id: int, db: Session = Depends(get_db)) -> None:
-    db.delete(_get(db, assignment_id))
+def delete_assignment(assignment_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)) -> None:
+    db.delete(own_assignment(db, user, assignment_id))
     db.commit()

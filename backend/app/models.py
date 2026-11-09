@@ -53,13 +53,39 @@ class Decision(StrEnum):
     MANUAL = "manual"  # no recommendation was shown (human route)
 
 
-class Course(Base):
-    """A course section in one term: the grader's top-level grouping."""
+class User(Base):
+    """A grader account. Everything a grader makes hangs off their courses."""
 
-    __tablename__ = "courses"
-    __table_args__ = (UniqueConstraint("department", "term", "name", "section"),)
+    __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(254), unique=True)  # stored lowercased: the login id
+    name: Mapped[str] = mapped_column(String(100))  # shown on screen and recorded on sign-offs
+    password_hash: Mapped[str] = mapped_column(String(200))  # argon2id
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class AuthSession(Base):
+    """A login. The cookie holds a random token; only its sha256 is stored, so a leaked table cannot log anyone in."""
+
+    __tablename__ = "sessions"
+
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    user: Mapped[User] = relationship()
+
+
+class Course(Base):
+    """A course section in one term: the grader's top-level grouping. Only its owner sees it."""
+
+    __tablename__ = "courses"
+    __table_args__ = (UniqueConstraint("owner_id", "department", "term", "name", "section"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     department: Mapped[str] = mapped_column(String(100))  # e.g. "컴퓨터공학과"
     term: Mapped[str] = mapped_column(String(20))  # e.g. "2026-2"
     name: Mapped[str] = mapped_column(String(200))
@@ -179,7 +205,8 @@ class Finalization(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     assignment_id: Mapped[int] = mapped_column(ForeignKey("assignments.id", ondelete="CASCADE"))
     version: Mapped[int]
-    finalized_by: Mapped[str] = mapped_column(String(100))  # typed name: there is no login
+    finalized_by: Mapped[str] = mapped_column(String(100))  # the signer's name as it was then
+    finalized_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     finalized_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     counts: Mapped[dict[str, int]] = mapped_column(JSONB)  # decision -> cells
     snapshot: Mapped[Any] = mapped_column(JSONB)  # final points and decisions per student

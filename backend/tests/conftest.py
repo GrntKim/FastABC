@@ -41,11 +41,30 @@ def db():
         trans.rollback()
 
 
+def signed_up(email: str, name: str) -> TestClient:
+    """A client logged in as a new user: the session cookie stays on the client."""
+    client = TestClient(fastapi_app)
+    r = client.post("/auth/signup", json={"email": email, "name": name, "password": "correct horse"})
+    assert r.status_code == 201, r.text
+    return client
+
+
 @pytest.fixture
-def client(db):
+def anon(db):
     fastapi_app.dependency_overrides[get_db] = lambda: db
     yield TestClient(fastapi_app)
     fastapi_app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def client(anon):
+    return signed_up("grader@example.com", "김조교")
+
+
+@pytest.fixture
+def stranger(anon):
+    """Another grader, to check that nobody sees someone else's data."""
+    return signed_up("other@example.com", "이조교")
 
 
 @pytest.fixture(autouse=True)

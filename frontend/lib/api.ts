@@ -18,6 +18,7 @@ export type ProgressOut = Schemas["ProgressOut"];
 export type RubricItemIn = Schemas["RubricItemIn"];
 export type RubricDraftOut = Schemas["RubricDraftOut"];
 export type FinalizationOut = Schemas["FinalizationOut"];
+export type UserOut = Schemas["UserOut"];
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -33,7 +34,12 @@ export class ApiError extends Error {
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   // JSON bodies only: a Content-Type on GET would trigger a CORS preflight for every request
   const headers = typeof init?.body === "string" ? { "Content-Type": "application/json" } : undefined;
-  const res = await fetch(`${API_URL}${path}`, { ...init, headers: { ...headers, ...init?.headers } });
+  // the session cookie rides along: the API answers 401 without it
+  const res = await fetch(`${API_URL}${path}`, {
+    ...init,
+    credentials: "include",
+    headers: { ...headers, ...init?.headers },
+  });
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new ApiError(res.status, body?.detail ?? res.statusText);
@@ -42,3 +48,12 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const json = (body: unknown, method = "POST"): RequestInit => ({ method, body: JSON.stringify(body) });
+
+export const isUnauthorized = (e: unknown) => e instanceof ApiError && e.status === 401;
+
+/** Back to the login page, returning here afterwards. */
+export function toLogin() {
+  if (window.location.pathname === "/login") return;
+  const next = window.location.pathname + window.location.search;
+  window.location.assign(next === "/" ? "/login" : `/login?next=${encodeURIComponent(next)}`);
+}

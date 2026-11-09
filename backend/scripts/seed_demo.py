@@ -7,6 +7,7 @@ Course 정보보호개론 (2026-2, 01) with two questions:
   data/eval, then signed off, so the course shows a finished question
 - 중간고사 2번 SQL 인젝션: the 40 answers in data/demo/sql_injection.csv, graded and left for review
 
+Everything belongs to the demo grader 김조교 (demo@fastabc.kr / demo1234), created on the first run.
 Synthetic answers only (fine for a free-tier LLM key). Each run creates both questions again.
 """
 
@@ -21,7 +22,14 @@ from app.main import app
 
 DATA = Path(__file__).resolve().parents[2] / "data"
 COURSE = {"department": "컴퓨터공학과", "term": "2026-2", "name": "정보보호개론", "section": "01"}
-GRADER = "김조교"
+GRADER = {"email": "demo@fastabc.kr", "name": "김조교", "password": "demo1234"}
+
+
+def log_in(client: TestClient) -> None:
+    r = client.post("/auth/signup", json=GRADER)
+    if r.status_code == 409:  # the account exists: from an earlier run or the users migration
+        r = client.post("/auth/login", json={k: GRADER[k] for k in ("email", "password")})
+    r.raise_for_status()
 
 
 def get_course(client: TestClient) -> int:
@@ -80,7 +88,7 @@ def finished_question(client: TestClient, course_id: int) -> int:
         label = ids[refs[cell["submission_id"]]][cell["item_key"]]
         points = label_points(items[cell["item_key"]], label)
         client.patch(f"/grades/{cell['grade_id']}", json={"action": "set", "points": points}).raise_for_status()
-    r = client.post(f"/assignments/{aid}/finalizations", json={"finalized_by": GRADER, "confirmed": True})
+    r = client.post(f"/assignments/{aid}/finalizations", json={"confirmed": True})
     r.raise_for_status()
     print(f"assignment {aid}: finalized {r.json()['counts']}")
     return aid
@@ -95,6 +103,7 @@ def review_question(client: TestClient, course_id: int) -> int:
 
 def main() -> None:
     client = TestClient(app)
+    log_in(client)
     course_id = get_course(client)
     finished_question(client, course_id)
     aid = review_question(client, course_id)

@@ -6,7 +6,7 @@ from tests.test_grading import grading  # noqa: F401  (fixture)
 from tests.test_review import graded  # noqa: F401  (fixture)
 from tests.test_submissions import upload
 
-SIGN = {"finalized_by": "김조교", "confirmed": True}
+SIGN = {"confirmed": True}  # the signer is the logged-in grader
 
 
 @pytest.fixture
@@ -23,14 +23,14 @@ def test_needs_every_cell_decided(client, graded):  # noqa: F811
     assert client.post(f"/assignments/{graded['aid']}/finalizations", json=SIGN).status_code == 409
 
 
-@pytest.mark.parametrize("body", [SIGN | {"finalized_by": "  "}, SIGN | {"confirmed": False}, {"finalized_by": "김조교"}])
-def test_needs_name_and_confirmation(client, decided, body):
+@pytest.mark.parametrize("body", [{"confirmed": False}, {}])
+def test_needs_confirmation(client, decided, body):
     assert client.post(f"/assignments/{decided['aid']}/finalizations", json=body).status_code == 422
 
 
 def test_finalize_locks(client, decided):
     aid, cells = decided["aid"], decided["cells"]
-    r = client.post(f"/assignments/{aid}/finalizations", json=SIGN | {"finalized_by": " 김조교 "})
+    r = client.post(f"/assignments/{aid}/finalizations", json=SIGN)
     assert r.status_code == 201
     f = r.json()
     assert (f["version"], f["finalized_by"], f["reopened_at"]) == (1, "김조교", None)

@@ -7,10 +7,10 @@ import { progressSegments, SegmentBar } from "@/components/segment-bar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { api, ApiError, json, type AssignmentOut, type CellOut, type FinalizationOut } from "@/lib/api";
 import { DECISION_LABEL } from "@/lib/rubric";
+import { useMe } from "@/lib/use-me";
 import ResultsPanel from "./results-panel";
 
 const when = (iso: string) =>
@@ -142,14 +142,13 @@ function FinalizeDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const [name, setName] = useState("");
+  const me = useMe();
   const [confirmed, setConfirmed] = useState(false);
-  const save = useSignOff<{ finalized_by: string; confirmed: true }>(
+  const save = useSignOff<{ confirmed: true }>(
     `/assignments/${assignmentId}/finalizations`,
     "성적을 확정했습니다",
     () => onOpenChange(false),
   );
-  const valid = name.trim() !== "" && confirmed;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -165,19 +164,19 @@ function FinalizeDialog({
           className="flex flex-col gap-3"
           onSubmit={(e) => {
             e.preventDefault();
-            if (valid) save.mutate({ finalized_by: name.trim(), confirmed: true });
+            if (confirmed) save.mutate({ confirmed: true });
           }}
         >
-          <label className="flex flex-col gap-1 text-sm">
-            확정자
-            <Input value={name} placeholder="이름" onChange={(e) => setName(e.target.value)} />
-          </label>
+          <p className="text-sm">
+            확정자 <strong>{me.data?.name}</strong>
+            <span className="text-muted-foreground"> (로그인한 계정)</span>
+          </p>
           <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" className="mt-1" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
             모든 항목을 확인했고, 이 점수에 대한 책임은 채점자에게 있습니다.
           </label>
           <DialogFooter>
-            <Button type="submit" disabled={!valid || save.isPending}>
+            <Button type="submit" disabled={!confirmed || save.isPending}>
               확정
             </Button>
           </DialogFooter>

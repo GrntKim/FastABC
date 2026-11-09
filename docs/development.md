@@ -8,7 +8,7 @@ FastABC의 구조와 주요 규칙을 설명합니다. 실행 방법은 [README]
 2. **판단 단위는 채점 기준 항목.** 답안 전체를 상태로 두고 항목마다 판단 질문을 던집니다. 항목들은 한 요청에서 함께 평가됩니다.
 3. **판단은 판단 모델, 생성은 LLM, 규칙은 코드.** 점수 계산, 분기, 라우팅은 모델 출력이 아니라 코드가 정합니다.
 4. **업체 중립.** 공통 코드, API, DB, 화면은 역할 이름(primary/secondary, "판단 모델"/"LLM")만 씁니다. 업체 이름은 어댑터(`app/judges/jev.py`, `gemini.py`)와 조립 지점(`app/grading.py`의 `make_judges`, `get_drafter`)에만 나옵니다.
-5. **학생 정보는 밖으로 나가지 않는다.** 외부 API에는 식별 정보를 지운 `clean_text`만 보냅니다.
+5. **학생 정보는 밖으로 나가지 않는다.** 외부 API에는 식별 정보를 지운 `clean_text`만 보냅니다. 채점자는 자기 과목만 봅니다.
 6. **자동화 편향 방지.** 일괄 수용은 확신 높은 칸만 됩니다. 자동 칸의 일부는 샘플 검토로 빼 두며, 모든 확정은 수용, 수정, 직접 입력으로 기록됩니다.
 
 ## 디렉터리
@@ -17,6 +17,7 @@ FastABC의 구조와 주요 규칙을 설명합니다. 실행 방법은 [README]
 backend/
   app/
     main.py            FastAPI 앱, 라우터 등록
+    auth.py            비밀번호 해시, 세션 쿠키, 로그인 사용자와 소유권 확인(own_*)
     models.py          SQLAlchemy 모델 (아래 데이터 모델)
     schemas.py         요청·응답 Pydantic 스키마
     grading.py         채점 실행: 판단 모델 동기, LLM 재판단 백그라운드. 판단기 조립(make_judges, get_drafter)
@@ -30,7 +31,7 @@ backend/
     redact.py          식별 정보 제거
     progress.py        문항 진행 단계와 진행 수치 (채점 끝난 학생 수 포함)
     finalization.py    성적 확정: 스냅샷, 해시, 잠금
-    routers/           courses, assignments, drafts, submissions, grading, review, finalizations
+    routers/           auth, courses, assignments, drafts, submissions, grading, review, finalizations
   alembic/             마이그레이션
   scripts/             seed_demo.py, export_rubric.py, run_eval.py
   tests/               pytest (실제 API 호출 없음)
@@ -49,6 +50,9 @@ docs/                  사용 시나리오, 개발 문서
 
 ```mermaid
 erDiagram
+    users ||--o{ sessions : "logged in as"
+    users ||--o{ courses : owns
+    users ||--o{ finalizations : signs
     courses ||--o{ assignments : has
     assignments ||--o{ rubric_items : has
     assignments ||--o{ submissions : has
@@ -58,8 +62,20 @@ erDiagram
     rubric_items ||--o{ judgments : ""
     rubric_items ||--o{ grades : ""
 
+    users {
+        int id PK
+        string email "unique, lowercased"
+        string name
+        string password_hash "argon2id"
+    }
+    sessions {
+        string token_hash PK "sha256"
+        int user_id FK
+        datetime expires_at
+    }
     courses {
         int id PK
+        int owner_id FK
         string department
         string term
         string name
@@ -121,6 +137,7 @@ erDiagram
         int assignment_id FK
         int version
         string finalized_by
+        int finalized_by_id FK
         datetime finalized_at
         jsonb counts
         jsonb snapshot
@@ -133,6 +150,7 @@ erDiagram
 - **칸**은 답안 × 채점 기준 항목입니다. `grades`가 칸 하나의 추천과 채점자 확정을 담고, `judgments`는 판단기의 원본 출력을 모두 남깁니다.
 - 주제 확인 항목(`kind = gate`, key `is_on_topic`)은 점수가 없어 `grades`를 만들지 않고 `judgments`에만 남습니다.
 - 학생 이름은 저장하지 않습니다. 업로드할 때 식별 정보 제거에만 쓰고 버립니다.
+- 과목 이름(학과·학기·과목·분반)은 채점자마다 따로 겹치지 않으면 됩니다.
 
 ## 채점 흐름
 
@@ -163,20 +181,32 @@ class Judge(Protocol):
 - 새 판단기는 `app/grading.py`의 `make_judges()`에서만 조립합니다. 채점 기준 변환은 `drafting.RubricDrafter`를 구현해 `get_drafter()`에서 바꿉니다.
 - 테스트는 FastAPI 의존성(`get_judges`, `get_drafter`)을 가짜 판단기로 덮어써 외부 API를 부르지 않습니다.
 
+## 계정과 로그인
+
+- 외부 인증 서비스 없이 직접 구현했습니다. 누구나 이메일, 이름, 비밀번호(8자 이상)로 가입합니다. 이메일 인증, 비밀번호 재설정, 역할 구분, 과목 공유는 하지 않습니다.
+- 비밀번호는 argon2id(`argon2-cffi`)로 해시합니다. 없는 이메일로 로그인해도 더미 해시를 검증해 응답 시간으로 가입 여부가 드러나지 않게 합니다.
+- 로그인하면 임의 토큰을 httpOnly, SameSite=Lax 쿠키(`fastabc_session`, 14일)로 줍니다. DB에는 토큰의 sha256만 저장하고, 로그아웃하면 세션 행을 지웁니다. https 뒤에서는 `COOKIE_SECURE=1`로 Secure를 켭니다.
+- 웹(:3000)과 API(:8000)는 같은 사이트(localhost)라 SameSite=Lax 쿠키가 오갑니다. 프론트엔드는 `credentials: "include"`로 요청하고, CORS는 `allow_credentials=True`에 허용 출처를 명시합니다.
+- 모든 라우터는 `current_user` 의존성으로 로그인한 사용자를 받고, 과목·문항·답안·칸을 `auth.own_*`로 불러옵니다. 다른 사람의 것은 403이 아니라 404로 답해 id로 존재 여부를 알 수 없게 합니다. 채점 기준 변환도 유료 LLM 호출이라 로그인이 필요합니다.
+- 프론트엔드의 `proxy.ts`는 세션 쿠키가 없으면 `/login?next=…`으로 보냅니다. 쿠키가 만료됐으면 API의 401을 받은 쪽(`providers.tsx`의 전역 오류 처리)이 로그인 화면으로 보냅니다.
+- 계정을 도입하기 전의 과목은 마이그레이션이 데모 계정(`demo@fastabc.kr`, 김조교)에 넘깁니다. 그 전에 확정한 기록은 입력했던 이름만 남고 `finalized_by_id`는 비어 있습니다.
+
 ## 성적 확정
 
-- `POST /assignments/{id}/finalizations`는 확정자 이름(공백 불가)과 `confirmed: true`를 받습니다. 확정하지 않은 칸이 있으면 409입니다.
+- `POST /assignments/{id}/finalizations`는 `confirmed: true`(책임 확인)만 받고, 확정자는 로그인한 사용자로 기록합니다(`finalized_by`에 그때의 이름, `finalized_by_id`에 계정). 확정하지 않은 칸이 있으면 409입니다.
 - 학생별 항목 점수, 확정 종류, 총점을 담은 스냅샷을 정렬된 JSON으로 직렬화해 sha256 해시를 만들고, 칸 수와 함께 새 버전으로 저장합니다. 점수가 같으면 해시도 같습니다.
 - 최신 버전이 개정되지 않은 동안 문항은 잠깁니다. 칸 확정, 일괄 수용·취소, 답안 업로드, 재확정은 409를 받습니다(`finalization.ensure_unlocked`).
 - `POST /assignments/{id}/reopen`은 사유를 필수로 받아 최신 버전에 개정 시각과 사유를 남기고 잠금을 풉니다. 다시 확정하면 다음 버전이 됩니다.
 - 잠긴 동안 `export.csv`의 파일 이름은 `assignment_{id}_v{버전}_{해시 앞 8자}.csv`입니다.
-- 로그인이 없어 확정자는 입력한 이름으로만 기록됩니다. 인증과 서명은 후속 과제입니다.
+- 전자 서명(확정자 개인 키로 스냅샷 서명)은 후속 과제입니다.
 
 ## API
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| GET, POST | `/courses` | 과목 목록, 생성 |
+| POST | `/auth/signup`, `/auth/login`, `/auth/logout` | 가입(바로 로그인), 로그인, 로그아웃 |
+| GET | `/auth/me` | 로그인한 사용자 (아니면 401) |
+| GET, POST | `/courses` | 내 과목 목록, 생성 |
 | GET, PUT, DELETE | `/courses/{id}` | 과목 조회(문항과 진행 단계 포함), 수정, 삭제 |
 | GET, POST | `/assignments` | 문항 목록, 생성 (채점 기준 포함) |
 | GET, PUT, DELETE | `/assignments/{id}` | 문항 조회, 수정(채점 전만), 삭제 |
@@ -202,6 +232,7 @@ class Judge(Protocol):
 
 | 경로 | 화면 |
 |---|---|
+| `/login` | 로그인, 가입 |
 | `/` | 과목 목록 (학기 탭, 학과 필터) |
 | `/courses/[id]` | 과목: 문항 목록, 진행 단계, 다음 행동 버튼 |
 | `/courses/[id]/assignments/new` | 문항 만들기: 문제, 기준 문장 → 채점 항목 변환, 편집 |
@@ -243,7 +274,7 @@ uv run python scripts/run_eval.py analyze --run ../data/eval/runs/<시각>      
 
 ## 테스트와 규칙
 
-- `cd backend && uv run pytest`: 별도 DB `fastabc_test`에 테이블을 만들고 테스트마다 롤백합니다. 판단기는 가짜로 바꿔 외부 API를 부르지 않습니다.
+- `cd backend && uv run pytest`: 별도 DB `fastabc_test`에 테이블을 만들고 테스트마다 롤백합니다. 판단기는 가짜로 바꿔 외부 API를 부르지 않습니다. `client` 픽스처는 가입해 로그인한 채점자이고, `stranger`는 다른 채점자, `anon`은 로그인하지 않은 클라이언트입니다.
 - 프론트엔드는 `pnpm exec tsc --noEmit`, `pnpm lint`로 확인합니다.
 - 스키마를 바꾸면 `uv run alembic revision --autogenerate -m "..."`로 마이그레이션을 만들고 `uv run alembic upgrade head`로 적용합니다.
 - API 키는 루트 `.env`에만 둡니다. 무료 LLM 키는 합성 데이터에만 쓰고, 실제 학생 답안은 입력이 학습에 쓰이지 않는 유료 계정으로만 보냅니다.

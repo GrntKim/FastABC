@@ -4,6 +4,77 @@
  */
 
 export interface paths {
+    "/auth/signup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Signup
+         * @description Creates the account and logs it in.
+         */
+        post: operations["signup_auth_signup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Login */
+        post: operations["login_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Logout */
+        post: operations["logout_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Me */
+        get: operations["me_auth_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/courses": {
         parameters: {
             query?: never;
@@ -13,7 +84,7 @@ export interface paths {
         };
         /**
          * List Courses
-         * @description Newest term first, then department, name, section.
+         * @description The user's courses: newest term first, then department, name, section.
          */
         get: operations["list_courses_courses_get"];
         put?: never;
@@ -349,7 +420,10 @@ export interface paths {
          */
         get: operations["list_finalizations_assignments__assignment_id__finalizations_get"];
         put?: never;
-        /** Finalize */
+        /**
+         * Finalize
+         * @description Signed off by the logged-in grader; `body.confirmed` is their statement of responsibility.
+         */
         post: operations["finalize_assignments__assignment_id__finalizations_post"];
         delete?: never;
         options?: never;
@@ -625,8 +699,6 @@ export interface components {
         };
         /** FinalizeIn */
         FinalizeIn: {
-            /** Finalized By */
-            finalized_by: string;
             /**
              * Confirmed
              * @constant
@@ -683,6 +755,13 @@ export interface components {
             evidence: string[];
             /** Reasoning */
             reasoning: string | null;
+        };
+        /** LoginIn */
+        LoginIn: {
+            /** Email */
+            email: string;
+            /** Password */
+            password: string;
         };
         /** ProgressOut */
         ProgressOut: {
@@ -766,6 +845,15 @@ export interface components {
             /** Position */
             position: number;
         };
+        /** SignupIn */
+        SignupIn: {
+            /** Email */
+            email: string;
+            /** Name */
+            name: string;
+            /** Password */
+            password: string;
+        };
         /** SubmissionOut */
         SubmissionOut: {
             /** Id */
@@ -803,6 +891,15 @@ export interface components {
             /** Max Points */
             max_points: number;
         };
+        /** UserOut */
+        UserOut: {
+            /** Id */
+            id: number;
+            /** Email */
+            email: string;
+            /** Name */
+            name: string;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -825,6 +922,132 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    signup_auth_signup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignupIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_auth_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    logout_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    me_auth_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_courses_courses_get: {
         parameters: {
             query?: {
@@ -832,7 +1055,9 @@ export interface operations {
             };
             header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -861,7 +1086,9 @@ export interface operations {
             query?: never;
             header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -896,7 +1123,9 @@ export interface operations {
             path: {
                 course_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -927,7 +1156,9 @@ export interface operations {
             path: {
                 course_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -962,7 +1193,9 @@ export interface operations {
             path: {
                 course_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -991,7 +1224,9 @@ export interface operations {
             };
             header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -1020,7 +1255,9 @@ export interface operations {
             query?: never;
             header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -1055,7 +1292,9 @@ export interface operations {
             path: {
                 assignment_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -1086,7 +1325,9 @@ export interface operations {
             path: {
                 assignment_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -1121,7 +1362,9 @@ export interface operations {
             path: {
                 assignment_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -1148,7 +1391,9 @@ export interface operations {
             query?: never;
             header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -1183,7 +1428,9 @@ export interface operations {
             path: {
                 assignment_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -1218,7 +1465,9 @@ export interface operations {
             path: {
                 assignment_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -1249,7 +1498,9 @@ export interface operations {
             path: {
                 submission_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -1278,7 +1529,9 @@ export interface operations {
             path: {
                 assignment_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -1309,7 +1562,9 @@ export interface operations {
             path: {
                 assignment_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -1343,7 +1598,9 @@ export interface operations {
             path: {
                 assignment_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -1374,7 +1631,9 @@ export interface operations {
             path: {
                 grade_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -1412,7 +1671,9 @@ export interface operations {
             path: {
                 assignment_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -1446,7 +1707,9 @@ export interface operations {
             path: {
                 assignment_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -1477,7 +1740,9 @@ export interface operations {
             path: {
                 submission_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -1508,7 +1773,9 @@ export interface operations {
             path: {
                 assignment_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -1539,7 +1806,9 @@ export interface operations {
             path: {
                 assignment_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -1570,7 +1839,9 @@ export interface operations {
             path: {
                 assignment_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -1601,7 +1872,9 @@ export interface operations {
             path: {
                 assignment_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -1636,7 +1909,9 @@ export interface operations {
             path: {
                 assignment_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                fastabc_session?: string | null;
+            };
         };
         requestBody: {
             content: {

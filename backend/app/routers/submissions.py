@@ -7,9 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
+from app.auth import current_user, own_assignment, own_submission
 from app.db import get_db
 from app.finalization import ensure_unlocked
-from app.models import Assignment, ExtractionStatus, Grade, Submission
+from app.models import ExtractionStatus, Grade, Submission, User
 from app.redact import redact
 from app.schemas import SubmissionOut
 
@@ -61,10 +62,11 @@ def _next_label_number(db: Session, assignment_id: int) -> int:
 
 
 @router.post("/assignments/{assignment_id}/submissions/csv", status_code=status.HTTP_201_CREATED)
-def upload_csv(assignment_id: int, file: UploadFile, db: Session = Depends(get_db)) -> list[SubmissionOut]:
+def upload_csv(
+    assignment_id: int, file: UploadFile, db: Session = Depends(get_db), user: User = Depends(current_user)
+) -> list[SubmissionOut]:
     """Columns: student_id, answer, optional name (used only for redaction, not stored)."""
-    if db.get(Assignment, assignment_id) is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "assignment not found")
+    own_assignment(db, user, assignment_id)
     ensure_unlocked(db, assignment_id)  # a new answer would change finalized results
     data = file.file.read(MAX_UPLOAD_BYTES + 1)  # sync route: runs in the threadpool like the DB calls
     if len(data) > MAX_UPLOAD_BYTES:
@@ -98,9 +100,10 @@ def upload_csv(assignment_id: int, file: UploadFile, db: Session = Depends(get_d
 
 
 @router.get("/assignments/{assignment_id}/submissions")
-def list_submissions(assignment_id: int, db: Session = Depends(get_db)) -> list[SubmissionOut]:
-    if db.get(Assignment, assignment_id) is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "assignment not found")
+def list_submissions(
+    assignment_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)
+) -> list[SubmissionOut]:
+    own_assignment(db, user, assignment_id)
     submissions = db.scalars(
         select(Submission).where(Submission.assignment_id == assignment_id).order_by(Submission.label)
     )
@@ -108,10 +111,8 @@ def list_submissions(assignment_id: int, db: Session = Depends(get_db)) -> list[
 
 
 @router.delete("/submissions/{submission_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_submission(submission_id: int, db: Session = Depends(get_db)) -> None:
-    submission = db.get(Submission, submission_id)
-    if submission is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "submission not found")
+def delete_submission(submission_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)) -> None:
+    submission = own_submission(db, user, submission_id)
     if db.scalar(select(exists().where(Grade.submission_id == submission_id, Grade.decision.is_not(None)))):
         raise HTTPException(status.HTTP_409_CONFLICT, "submission has confirmed grades")
     db.delete(submission)

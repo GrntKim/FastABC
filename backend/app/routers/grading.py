@@ -8,21 +8,15 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.auth import current_user, own_assignment
 from app.db import get_db, get_session_factory
 from app.grading import Judges, escalate, get_judges, has_confirmed_grades, run_primary
-from app.models import Assignment, Grade, GradeRoute, Submission
+from app.models import Grade, GradeRoute, Submission, User
 from app.schemas import GradingStatus
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/assignments/{assignment_id}", tags=["grading"])
-
-
-def _get(db: Session, assignment_id: int) -> Assignment:
-    assignment = db.get(Assignment, assignment_id)
-    if assignment is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "assignment not found")
-    return assignment
 
 
 def _status(db: Session, assignment_id: int) -> GradingStatus:
@@ -43,9 +37,10 @@ def start_grading(
     db: Session = Depends(get_db),
     judges: Judges = Depends(get_judges),
     session_factory: Callable[[], Session] = Depends(get_session_factory),
+    user: User = Depends(current_user),
 ) -> GradingStatus:
     """(Re-)grade every submission. Primary judgments return now; escalations finish in the background."""
-    assignment = _get(db, assignment_id)
+    assignment = own_assignment(db, user, assignment_id)
     if not assignment.submissions:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "no submissions to grade")
     if has_confirmed_grades(db, assignment_id):
@@ -63,6 +58,6 @@ def start_grading(
 
 
 @router.get("/grading")
-def grading_status(assignment_id: int, db: Session = Depends(get_db)) -> GradingStatus:
-    _get(db, assignment_id)
+def grading_status(assignment_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)) -> GradingStatus:
+    own_assignment(db, user, assignment_id)
     return _status(db, assignment_id)

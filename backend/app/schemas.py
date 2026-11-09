@@ -51,6 +51,33 @@ class RubricItemIn(BaseModel):
         return self
 
 
+class SignupIn(BaseModel):
+    email: str = Field(max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    name: str = Field(min_length=1, max_length=100)
+    password: str = Field(min_length=8, max_length=200)
+
+    @model_validator(mode="after")
+    def normalize(self) -> Self:
+        self.email = self.email.strip().lower()
+        self.name = self.name.strip()
+        if not self.name:
+            raise ValueError("name must not be blank")
+        return self
+
+
+class LoginIn(BaseModel):
+    email: str = Field(max_length=254)
+    password: str = Field(max_length=200)
+
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: str
+    name: str
+
+
 class CourseIn(BaseModel):
     department: str = Field(min_length=1, max_length=100)
     term: str = Field(min_length=1, max_length=20)  # e.g. "2026-2"
@@ -202,15 +229,8 @@ class BulkClearOut(BaseModel):
 
 
 class FinalizeIn(BaseModel):
-    finalized_by: str = Field(min_length=1, max_length=100)
+    # the signer is the logged-in grader
     confirmed: Literal[True]  # "I checked every cell and take responsibility for these grades"
-
-    @model_validator(mode="after")
-    def strip_name(self) -> Self:
-        self.finalized_by = self.finalized_by.strip()
-        if not self.finalized_by:
-            raise ValueError("finalized_by must not be blank")
-        return self
 
 
 class ReopenIn(BaseModel):

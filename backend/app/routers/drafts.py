@@ -5,13 +5,15 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import ValidationError
 
+from app.auth import current_user
 from app.drafting import RubricDrafter, to_items
 from app.grading import get_drafter
 from app.schemas import RubricDraftIn, RubricDraftOut, RubricItemIn
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["drafts"])
+# login only: each draft is a paid LLM call
+router = APIRouter(tags=["drafts"], dependencies=[Depends(current_user)])
 
 
 @router.post("/rubric-drafts")

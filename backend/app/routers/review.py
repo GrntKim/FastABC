@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth import current_user, own_assignment, own_grade, own_submission
 from app.db import get_db
 from app.finalization import ensure_unlocked, latest
 from app.grading import Judges, get_judges, judgment_record, questions_for
@@ -26,6 +27,7 @@ from app.models import (
     JudgmentRecord,
     RubricItem,
     Submission,
+    User,
 )
 from app.schemas import BulkAcceptOut, BulkClearOut, CellOut, EvidenceOut, GradeDecisionIn, JudgeView, SubmissionResult
 from app.scoring import max_total, point_range, total
@@ -35,13 +37,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["review"])
 
 CONFIDENT_ROUTES = (GradeRoute.AUTO, GradeRoute.SKIP)
-
-
-def _get_assignment(db: Session, assignment_id: int) -> Assignment:
-    assignment = db.get(Assignment, assignment_id)
-    if assignment is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "assignment not found")
-    return assignment
 
 
 def _grades_query(assignment_id: int):
@@ -59,9 +54,10 @@ def list_cells(
     item_id: int | None = None,
     submission_id: int | None = None,
     db: Session = Depends(get_db),
+    user: User = Depends(current_user),
 ) -> list[CellOut]:
     """Cells ordered by rubric item, then submission label. Filter by item (column view) or submission (row view)."""
-    _get_assignment(db, assignment_id)
+    own_assignment(db, user, assignment_id)
     query = _grades_query(assignment_id).order_by(RubricItem.position, Submission.label)
     if item_id is not None:
         query = query.where(Grade.rubric_item_id == item_id)
@@ -102,10 +98,10 @@ def list_cells(
 
 
 @router.patch("/grades/{grade_id}")
-def decide(grade_id: int, body: GradeDecisionIn, db: Session = Depends(get_db)) -> CellOut:
-    grade = db.get(Grade, grade_id)
-    if grade is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "grade not found")
+def decide(
+    grade_id: int, body: GradeDecisionIn, db: Session = Depends(get_db), user: User = Depends(current_user)
+) -> CellOut:
+    grade = own_grade(db, user, grade_id)
     if grade.route == GradeRoute.PENDING:
         raise HTTPException(status.HTTP_409_CONFLICT, "LLM re-judgment is still running")
     item = db.get(RubricItem, grade.rubric_item_id)
@@ -132,7 +128,7 @@ def decide(grade_id: int, body: GradeDecisionIn, db: Session = Depends(get_db)) 
         grade.final_points, grade.decision, grade.decided_at = points, decision, datetime.now(UTC)
     db.commit()
 
-    (cell,) = list_cells(item.assignment_id, submission_id=grade.submission_id, item_id=item.id, db=db)
+    (cell,) = list_cells(item.assignment_id, submission_id=grade.submission_id, item_id=item.id, db=db, user=user)
     return cell
 
 
@@ -142,12 +138,13 @@ def accept_confident(
     item_id: int | None = None,
     submission_id: int | None = None,
     db: Session = Depends(get_db),
+    user: User = Depends(current_user),
 ) -> BulkAcceptOut:
     """Accept every undecided auto/skip cell, optionally for one rubric item or one submission.
 
     Skips llm/human and sampled cells.
     """
-    _get_assignment(db, assignment_id)
+    own_assignment(db, user, assignment_id)
     ensure_unlocked(db, assignment_id)
     query = _grades_query(assignment_id).where(
         Grade.route.in_(CONFIDENT_ROUTES),
@@ -173,9 +170,10 @@ def clear_decisions(
     item_id: int | None = None,
     submission_id: int | None = None,
     db: Session = Depends(get_db),
+    user: User = Depends(current_user),
 ) -> BulkClearOut:
     """Undo every confirmed cell (accepted, modified, or manual), optionally for one rubric item or one submission."""
-    _get_assignment(db, assignment_id)
+    own_assignment(db, user, assignment_id)
     ensure_unlocked(db, assignment_id)
     query = _grades_query(assignment_id).where(Grade.decision.is_not(None))
     if item_id is not None:
@@ -194,14 +192,13 @@ def find_evidence(
     submission_id: int,
     db: Session = Depends(get_db),
     judges: Judges = Depends(get_judges),
+    user: User = Depends(current_user),
 ) -> EvidenceOut:
     """Ask the LLM where the answer supports each judgment, for cells that have no LLM output yet.
 
     Display only: routes and recommendations stay as they are. One call per submission; later calls are no-ops.
     """
-    submission = db.get(Submission, submission_id)
-    if submission is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "submission not found")
+    submission = own_submission(db, user, submission_id)
     assignment = submission.assignment
     with_llm = select(JudgmentRecord.rubric_item_id).where(
         JudgmentRecord.submission_id == submission_id,
@@ -252,14 +249,16 @@ def _results(db: Session, assignment: Assignment) -> list[SubmissionResult]:
 
 
 @router.get("/assignments/{assignment_id}/results")
-def results(assignment_id: int, db: Session = Depends(get_db)) -> list[SubmissionResult]:
-    return _results(db, _get_assignment(db, assignment_id))
+def results(
+    assignment_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)
+) -> list[SubmissionResult]:
+    return _results(db, own_assignment(db, user, assignment_id))
 
 
 @router.get("/assignments/{assignment_id}/export.csv")
-def export_csv(assignment_id: int, db: Session = Depends(get_db)) -> Response:
+def export_csv(assignment_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)) -> Response:
     """Final points per rubric item and total. Undecided cells are empty. A finalized file names its version and hash."""
-    assignment = _get_assignment(db, assignment_id)
+    assignment = own_assignment(db, user, assignment_id)
     finals = {(g.submission_id, g.rubric_item_id): g.final_points for g, _, _ in db.execute(_grades_query(assignment_id)).all()}
     items = [i for i in assignment.items if i.kind != ItemKind.GATE]
 
