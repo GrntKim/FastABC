@@ -6,13 +6,15 @@ const SESSION_COOKIE = "fastabc_session";
 
 export function proxy(request: NextRequest) {
   if (request.cookies.has(SESSION_COOKIE)) return NextResponse.next();
-  const login = new URL("/login", request.url);
   const next = request.nextUrl.pathname + request.nextUrl.search;
-  if (next !== "/") login.searchParams.set("next", next);
+  // a visitor opening the app itself meets the introduction; a link deeper in goes to log in and back
+  if (next === "/") return NextResponse.redirect(new URL("/welcome", request.url));
+  const login = new URL("/login", request.url);
+  login.searchParams.set("next", next);
   return NextResponse.redirect(login);
 }
 
 export const config = {
-  // every page except the login page and Next's own files
-  matcher: ["/((?!login|_next/static|_next/image|favicon.ico).*)"],
+  // every page except the public ones (PUBLIC_PATHS in lib/api.ts) and Next's own files
+  matcher: ["/((?!login|welcome|_next/static|_next/image|favicon.ico).*)"],
 };

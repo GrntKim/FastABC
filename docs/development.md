@@ -188,7 +188,7 @@ class Judge(Protocol):
 - 로그인하면 임의 토큰을 httpOnly, SameSite=Lax 쿠키(`fastabc_session`, 14일)로 줍니다. DB에는 토큰의 sha256만 저장하고, 로그아웃하면 세션 행을 지웁니다. https 뒤에서는 `COOKIE_SECURE=1`로 Secure를 켭니다.
 - 웹(:3000)과 API(:8000)는 같은 사이트(localhost)라 SameSite=Lax 쿠키가 오갑니다. 프론트엔드는 `credentials: "include"`로 요청하고, CORS는 `allow_credentials=True`에 허용 출처를 명시합니다.
 - 모든 라우터는 `current_user` 의존성으로 로그인한 사용자를 받고, 과목·문항·답안·칸을 `auth.own_*`로 불러옵니다. 다른 사람의 것은 403이 아니라 404로 답해 id로 존재 여부를 알 수 없게 합니다. 채점 기준 변환도 유료 LLM 호출이라 로그인이 필요합니다.
-- 프론트엔드의 `proxy.ts`는 세션 쿠키가 없으면 `/login?next=…`으로 보냅니다. 쿠키가 만료됐으면 API의 401을 받은 쪽(`providers.tsx`의 전역 오류 처리)이 로그인 화면으로 보냅니다.
+- 프론트엔드의 `proxy.ts`는 세션 쿠키가 없으면 첫 화면(`/`)은 소개 화면 `/welcome`으로, 그 밖의 주소는 `/login?next=…`으로 보냅니다. `/login`과 `/welcome`은 공개 화면이라 401을 받아도 로그인 화면으로 보내지 않습니다(`lib/api.ts`의 `PUBLIC_PATHS`). 쿠키가 만료됐으면 API의 401을 받은 쪽(`providers.tsx`의 전역 오류 처리)이 로그인 화면으로 보냅니다.
 - 계정을 도입하기 전의 과목은 마이그레이션이 데모 계정(`demo@fastabc.kr`, 김조교)에 넘깁니다. 그 전에 확정한 기록은 입력했던 이름만 남고 `finalized_by_id`는 비어 있습니다.
 
 ## 성적 확정
@@ -232,7 +232,8 @@ class Judge(Protocol):
 
 | 경로 | 화면 |
 |---|---|
-| `/login` | 로그인, 가입 |
+| `/welcome` | 소개 (로그인 전 첫 화면) |
+| `/login` | 로그인, 가입 (`?mode=signup`이면 가입부터) |
 | `/` | 과목 목록 (학기 탭, 학과 필터) |
 | `/courses/[id]` | 과목: 문항 목록, 진행 단계, 다음 행동 버튼 |
 | `/courses/[id]/assignments/new` | 문항 만들기: 문제, 기준 문장 → 채점 항목 변환, 편집 |

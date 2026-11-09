@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { api, ApiError, type CourseSummary } from "@/lib/api";
 import { STAGE_LABEL, termLabel } from "@/lib/progress";
 import { useMe } from "@/lib/use-me";
-import { StepList } from "@/components/step-list";
+import { GRADING_STEPS, StepList } from "@/components/step-list";
 import CourseForm from "./course-form";
 
 /** Home: the courses a grader manages, by term, then department. */
@@ -124,21 +124,6 @@ export default function CoursesHome() {
   );
 }
 
-const STEPS = [
-  {
-    title: "과목과 문항 만들기",
-    body: "문제와 채점 기준을 평소 쓰던 문장 그대로 붙여 넣으면 AI가 채점 항목으로 나눕니다. 저장하기 전에 고칠 수 있습니다.",
-  },
-  {
-    title: "답안 올리고 채점 시작",
-    body: "LMS에서 받은 답안 CSV를 올립니다. AI가 모든 답안의 항목을 판단해, 확신한 항목과 확인할 곳을 나눕니다.",
-  },
-  {
-    title: "확인할 곳만 보고 확정",
-    body: "확인이 필요한 항목부터 보여 줍니다. 나머지는 한 번에 확정하고, 다 끝나면 성적을 확정해 잠급니다.",
-  },
-];
-
 /** First visit: what the app does in three steps, and the one thing to do now. */
 function Welcome({ onStart }: { onStart: () => void }) {
   const me = useMe();
@@ -151,7 +136,7 @@ function Welcome({ onStart }: { onStart: () => void }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
-        <StepList steps={STEPS} />
+        <StepList steps={GRADING_STEPS} />
         <div className="flex flex-wrap items-center gap-3">
           <Button size="lg" onClick={onStart}>
             첫 과목 추가

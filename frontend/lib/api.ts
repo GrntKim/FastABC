@@ -51,9 +51,12 @@ export const json = (body: unknown, method = "POST"): RequestInit => ({ method, 
 
 export const isUnauthorized = (e: unknown) => e instanceof ApiError && e.status === 401;
 
+/** Pages anyone may open; a 401 there only means "logged out", not "go log in". Keep in step with proxy.ts. */
+export const PUBLIC_PATHS = ["/login", "/welcome"];
+
 /** Back to the login page, returning here afterwards. */
 export function toLogin() {
-  if (window.location.pathname === "/login") return;
+  if (PUBLIC_PATHS.includes(window.location.pathname)) return;
   const next = window.location.pathname + window.location.search;
   window.location.assign(next === "/" ? "/login" : `/login?next=${encodeURIComponent(next)}`);
 }

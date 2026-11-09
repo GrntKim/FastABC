@@ -1,5 +1,21 @@
 export type Step = { title: string; body: string };
 
+/** The whole flow, for the welcome page and a grader's first visit. */
+export const GRADING_STEPS: Step[] = [
+  {
+    title: "과목과 문항 만들기",
+    body: "문제와 채점 기준을 평소 쓰던 문장 그대로 붙여 넣으면 AI가 채점 항목으로 나눕니다. 저장하기 전에 고칠 수 있습니다.",
+  },
+  {
+    title: "답안 올리고 채점 시작",
+    body: "LMS에서 받은 답안 CSV를 올립니다. AI가 모든 답안의 항목을 판단해, 확신한 항목과 확인할 곳을 나눕니다.",
+  },
+  {
+    title: "확인할 곳만 보고 확정",
+    body: "확인이 필요한 항목부터 보여 줍니다. 나머지는 한 번에 확정하고, 다 끝나면 성적을 확정해 잠급니다.",
+  },
+];
+
 /** Numbered steps side by side: the empty states' "what happens next". */
 export function StepList({ steps }: { steps: Step[] }) {
   return (

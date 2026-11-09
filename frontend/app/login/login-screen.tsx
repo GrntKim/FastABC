@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { api, ApiError, json, type UserOut } from "@/lib/api";
 
@@ -21,8 +21,9 @@ function message(e: unknown, mode: Mode) {
 }
 
 export default function LoginScreen() {
-  const next = safeNext(useSearchParams().get("next"));
-  const [mode, setMode] = useState<Mode>("login");
+  const params = useSearchParams();
+  const next = safeNext(params.get("next"));
+  const [mode, setMode] = useState<Mode>(params.get("mode") === "signup" ? "signup" : "login");
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const submit = useMutation({
     mutationFn: () =>
@@ -42,7 +43,6 @@ export default function LoginScreen() {
     <Card>
       <CardHeader>
         <CardTitle className="text-xl">{signup ? "가입" : "로그인"}</CardTitle>
-        <CardDescription>AI는 채점하지 않습니다. 채점자가 봐야 할 곳만 보게 합니다.</CardDescription>
       </CardHeader>
       <CardContent>
         <form
