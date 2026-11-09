@@ -1,14 +1,29 @@
 # FastABC
 
-> 서술형 채점, 봐야 할 곳부터.
-> AI가 모든 답안을 채점 기준 항목별로 먼저 읽고, 애매한 곳만 골라 드립니다.
+**서술형 채점, 봐야 할 곳부터.**
 
-FastABC는 대학 서술형 답안 채점 보조 도구입니다. 판단 모델이 채점 기준 항목마다 1차 판단을 하고, 확신이 낮은 칸만 LLM이 다시 판단해 근거를 붙입니다. 시스템은 추천 점수와 확신도, 근거 문장만 보여 주고, 모든 점수는 채점자가 확정합니다.
+AI가 모든 답안을 채점 기준 항목별로 먼저 읽고, 애매한 곳만 골라 드립니다.<br/>
+추천 점수와 근거만 보여 주고, 모든 점수는 채점자가 확정합니다.
 
-- 시연 영상: _추가 예정_
-- 결과보고서·포스터: _추가 예정_
-- 사용 시나리오: [docs/scenario.md](docs/scenario.md)
-- 개발 문서: [docs/development.md](docs/development.md)
+![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
+![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-D71F00?style=flat-square&logo=sqlalchemy&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![uv](https://img.shields.io/badge/uv-DE5FE9?style=flat-square&logo=uv&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
+<br/>
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat-square&logo=nextdotjs&logoColor=white)
+![React](https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black)
+![TanStack Query](https://img.shields.io/badge/TanStack_Query-FF4154?style=flat-square&logo=reactquery&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
+![shadcn/ui](https://img.shields.io/badge/shadcn%2Fui-000000?style=flat-square&logo=shadcnui&logoColor=white)
+<br/>
+![TypeSafe Jev](https://img.shields.io/badge/TypeSafe_Jev-2E4FA3?style=flat-square)
+![Gemini](https://img.shields.io/badge/Gemini-8E75B2?style=flat-square&logo=googlegemini&logoColor=white)
+
+[사용 시나리오](docs/scenario.md) · [개발 문서](docs/development.md)<br/>
+시연 영상 · 결과보고서 · 포스터 _(추가 예정)_
 
 ## 왜 만들었나
 
@@ -29,22 +44,23 @@ FastABC는 대학 서술형 답안 채점 보조 도구입니다. 판단 모델�
 
 ## 동작 방식
 
-```
-채점 기준 문장 ──LLM──▶ 채점 항목 ──채점자 확인──▶ 저장
-                                                    │
-답안 CSV ──식별 정보 제거──▶ 판단 모델 1차 판단 (항목마다 확신도)
-                                │
-              ┌─────────────────┼──────────────────┐
-         주제 벗어남         확신 높음            확신 낮음
-              │                 │                  │
-           0점 추천         자동 추천        LLM 재판단 (백그라운드)
-                                                   │
-                                     ┌─────────────┴─────────────┐
-                                  두 판단 일치                두 판단 다름
-                                     │                           │
-                              추천 + LLM 근거              추천 없이 직접 판단
-                                │
-          ──────────────▶ 채점자: 추천 수용 / 수정 / 직접 입력 ──▶ 성적 확정 (잠금, 개정 이력)
+판단 모델이 채점 기준 항목마다 1차 판단을 하고, 확신이 낮은 칸만 LLM이 다시 판단해 근거를 붙입니다. 시스템은 추천 점수와 확신도, 근거 문장만 보여 주고, 모든 점수는 채점자가 확정합니다.
+
+```mermaid
+flowchart TD
+    RUBRIC["채점 기준 문장"] -->|LLM| ITEMS["채점 항목"]
+    ITEMS -->|채점자 확인| SAVED["저장"]
+    CSV["답안 CSV"] -->|식별 정보 제거| JUDGE
+    SAVED --> JUDGE["판단 모델 1차 판단<br/>(항목마다 확신도)"]
+
+    JUDGE -->|주제 벗어남| OFF["0점 추천"]
+    JUDGE -->|확신 높음| AUTO["자동 추천<br/>(일부는 무작위 점검)"]
+    JUDGE -->|확신 낮음| LLM["LLM 재판단<br/>(백그라운드)"]
+    LLM -->|두 판단 일치| AGREE["추천 + LLM 근거"]
+    LLM -->|두 판단 다름| SPLIT["추천 없이 직접 판단"]
+
+    OFF & AUTO & AGREE & SPLIT --> GRADER["채점자<br/>추천 수용 / 수정 / 직접 입력"]
+    GRADER --> FINAL["성적 확정<br/>(잠금, 개정 이력)"]
 ```
 
 ## 평가 결과
