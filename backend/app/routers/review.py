@@ -79,6 +79,8 @@ def list_cells(
             grade_id=g.id,
             submission_id=s.id,
             label=s.label,
+            student_ref=s.student_ref,
+            student_name=s.student_name,
             answer=s.clean_text,
             rubric_item_id=i.id,
             item_key=i.key,
@@ -239,6 +241,7 @@ def _results(db: Session, assignment: Assignment) -> list[SubmissionResult]:
             submission_id=s.id,
             label=s.label,
             student_ref=s.student_ref,
+            student_name=s.student_name,
             decided=sum(p is not None for p in points.get(s.id, [])),
             cells=len(points.get(s.id, [])),
             total=total(points[s.id]) if points.get(s.id) else None,
@@ -264,10 +267,10 @@ def export_csv(assignment_id: int, db: Session = Depends(get_db), user: User = D
 
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow(["student_id", "label", *(i.key for i in items), "total"])
+    writer.writerow(["student_id", "name", "label", *(i.key for i in items), "total"])
     for r in _results(db, assignment):
         cells = [finals.get((r.submission_id, i.id)) for i in items]
-        writer.writerow([r.student_ref, r.label, *("" if p is None else p for p in cells), "" if r.total is None else r.total])
+        writer.writerow([r.student_ref, r.student_name or "", r.label, *("" if p is None else p for p in cells), "" if r.total is None else r.total])
     name = f"assignment_{assignment_id}"
     if (f := latest(db, assignment_id)) is not None and f.reopened_at is None:
         name += f"_v{f.version}_{f.snapshot_hash[:8]}"

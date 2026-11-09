@@ -145,7 +145,8 @@ class Submission(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     assignment_id: Mapped[int] = mapped_column(ForeignKey("assignments.id", ondelete="CASCADE"))
     student_ref: Mapped[str] = mapped_column(String(100))  # identifying: never sent to external APIs
-    label: Mapped[str] = mapped_column(String(20))  # anonymous label shown in the UI, e.g. "S001"
+    student_name: Mapped[str | None] = mapped_column(String(100))  # identifying: shown to the grader only
+    label: Mapped[str] = mapped_column(String(20))  # anonymous label, shown when the grader hides names, e.g. "S001"
     source_filename: Mapped[str | None] = mapped_column(String(255))
     raw_text: Mapped[str] = mapped_column(Text)
     clean_text: Mapped[str] = mapped_column(Text)  # identifiers removed: the only text sent to judges

@@ -108,9 +108,9 @@ def test_results_and_export(client, graded):
     assert r.headers["content-type"].startswith("text/csv")
     assert r.text.startswith("﻿")
     rows = list(csv.reader(io.StringIO(r.text.lstrip("﻿"))))
-    assert rows[0] == ["student_id", "label", "mentions_chain_rule", "mentions_weight_update", "accuracy",
+    assert rows[0] == ["student_id", "name", "label", "mentions_chain_rule", "mentions_weight_update", "accuracy",
                        "misc_is_optimizer", "misc_error_copied", "misc_reverse_inference", "total"]
-    assert rows[2][1:] == ["S002", "2.0", "2.0", "4.0", "-1.0", "0.0", "0.0", "7.0"]
+    assert rows[2][2:] == ["S002", "2.0", "2.0", "4.0", "-1.0", "0.0", "0.0", "7.0"]
 
 
 def test_unknown_assignment(client):

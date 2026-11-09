@@ -23,6 +23,8 @@ from app.main import app
 DATA = Path(__file__).resolve().parents[2] / "data"
 COURSE = {"department": "컴퓨터공학과", "term": "2026-2", "name": "정보보호개론", "section": "01"}
 GRADER = {"email": "demo@fastabc.kr", "name": "김조교", "password": "demo1234"}
+# made-up names for the made-up answers of question 1
+NAMES = ["강민준", "윤서아", "장도윤", "임하은", "한지호", "오수빈", "서예준", "신지유", "권시우", "황채원", "안유준", "송하린"]
 
 
 def log_in(client: TestClient) -> None:
@@ -78,8 +80,8 @@ def finished_question(client: TestClient, course_id: int) -> int:
     ids = {f"2024{2101 + i * 7:04d}": row for i, row in enumerate(rows)}
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow(["학번", "답안"])
-    writer.writerows([sid, row["answer"]] for sid, row in ids.items())
+    writer.writerow(["학번", "이름", "답안"])
+    writer.writerows([sid, NAMES[i % len(NAMES)], row["answer"]] for i, (sid, row) in enumerate(ids.items()))
     upload_and_grade(client, aid, buf.getvalue().encode())
 
     items = {i["key"]: i for i in question["items"]}

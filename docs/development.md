@@ -105,6 +105,7 @@ erDiagram
         int id PK
         int assignment_id FK
         string student_ref "never sent out"
+        string student_name "shown to the grader only"
         string label "S001"
         text raw_text
         text clean_text "sent to judges"
@@ -149,7 +150,7 @@ erDiagram
 
 - **칸**은 답안 × 채점 기준 항목입니다. `grades`가 칸 하나의 추천과 채점자 확정을 담고, `judgments`는 판단기의 원본 출력을 모두 남깁니다.
 - 주제 확인 항목(`kind = gate`, key `is_on_topic`)은 점수가 없어 `grades`를 만들지 않고 `judgments`에만 남습니다.
-- 학생 이름은 저장하지 않습니다. 업로드할 때 식별 정보 제거에만 쓰고 버립니다.
+- 학생 이름과 학번은 채점자 화면에만 씁니다. 외부 API에는 `clean_text`만 보냅니다. 채점자가 "이름 가리고 채점"을 켜면 화면에도 라벨(`S001`)만 보입니다(브라우저 `localStorage`의 `fastabc.hideNames`, `lib/student.ts`).
 - 과목 이름(학과·학기·과목·분반)은 채점자마다 따로 겹치지 않으면 됩니다.
 
 ## 채점 흐름
@@ -222,7 +223,7 @@ class Judge(Protocol):
 | POST | `/assignments/{id}/clear-decisions` | 확정 일괄 취소 |
 | POST | `/submissions/{id}/evidence` | 근거 찾기 (답안당 한 번) |
 | GET | `/assignments/{id}/results` | 학생별 항목 점수와 총점 |
-| GET | `/assignments/{id}/export.csv` | 점수 CSV 내보내기 |
+| GET | `/assignments/{id}/export.csv` | 점수 CSV 내보내기 (학번, 이름, 라벨, 항목별 점수, 총점) |
 | GET, POST | `/assignments/{id}/finalizations` | 확정 이력, 성적 확정 |
 | POST | `/assignments/{id}/reopen` | 개정 (사유 필수) |
 

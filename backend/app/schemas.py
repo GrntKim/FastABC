@@ -165,6 +165,7 @@ class SubmissionOut(BaseModel):
     id: int
     label: str
     student_ref: str
+    student_name: str | None
     source_filename: str | None
     extraction_status: str
     clean_text: str
@@ -194,6 +195,8 @@ class CellOut(BaseModel):
     grade_id: int
     submission_id: int
     label: str
+    student_ref: str
+    student_name: str | None
     answer: str  # clean_text
     rubric_item_id: int
     item_key: str
@@ -265,6 +268,7 @@ class SubmissionResult(BaseModel):
     submission_id: int
     label: str
     student_ref: str
+    student_name: str | None
     decided: int
     cells: int
     total: float | None  # None until every cell is decided

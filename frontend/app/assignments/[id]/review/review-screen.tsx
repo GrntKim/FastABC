@@ -4,6 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { progressSegments, SegmentBar, SegmentLegend } from "@/components/segment-bar";
+import { HideNamesSwitch } from "@/components/student";
+import { useHideNames } from "@/lib/student";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -206,6 +208,7 @@ function ItemPanel({
             {FILTERS[f].label}
           </Button>
         ))}
+        <HideNamesToggle />
         <Button
           size="sm"
           variant="outline"
@@ -238,4 +241,9 @@ function ItemPanel({
       )}
     </div>
   );
+}
+
+function HideNamesToggle() {
+  const [hidden, setHidden] = useHideNames();
+  return <HideNamesSwitch hidden={hidden} onChange={setHidden} />;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { StudentTag } from "@/components/student";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CellOut, GradeDecisionIn, RubricItemOut } from "@/lib/api";
 import { highlight } from "@/lib/highlight";
@@ -34,7 +35,9 @@ export default function CellCard({
   return (
     <Card className={cn(reason && cn("border-l-4", CHECK_TONE[reason].edge), decided && "opacity-70")}>
       <CardHeader className="flex flex-row items-center gap-2">
-        <CardTitle className="font-mono">{cell.label}</CardTitle>
+        <CardTitle>
+          <StudentTag student={cell} />
+        </CardTitle>
         {reason && (
           <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", CHECK_TONE[reason].chip)} title={CHECK_HINT[reason]}>
             {reason}

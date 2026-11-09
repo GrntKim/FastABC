@@ -239,8 +239,8 @@ function SubmissionsCard({ assignmentId }: { assignmentId: number }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         <p className="text-sm text-muted-foreground">
-          열: 학번, 답안, 선택 이름 (영문 <code>student_id</code>, <code>answer</code>, <code>name</code>도 됨). 이름은 식별
-          정보 제거에만 쓰고 저장하지 않으며, 채점 화면에는 학번 대신 S001 같은 라벨만 보입니다. UTF-8 또는 CP949.{" "}
+          열: 학번, 답안, 선택 이름 (영문 <code>student_id</code>, <code>answer</code>, <code>name</code>도 됨). AI에는 이름·학번
+          등 식별 정보를 지운 답안만 보냅니다. 채점 화면에서 이름을 가리고 채점할 수도 있습니다. UTF-8 또는 CP949.{" "}
           <a href="/answers_template.csv" download className="underline underline-offset-2">
             예시 CSV
           </a>
@@ -249,22 +249,25 @@ function SubmissionsCard({ assignmentId }: { assignmentId: number }) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>라벨</TableHead>
-                <TableHead>답안 (식별 정보 제거됨)</TableHead>
+                <TableHead>학생</TableHead>
+                <TableHead>AI에 보내는 답안 (식별 정보 제거됨)</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
               {(showAll ? submissions.data : submissions.data.slice(0, PREVIEW_ROWS)).map((s) => (
                 <TableRow key={s.id}>
-                  <TableCell className="font-mono align-top">{s.label}</TableCell>
+                  <TableCell className="align-top whitespace-nowrap">
+                    {s.student_name ?? s.student_ref}
+                    {s.student_name && <span className="ml-1.5 text-xs text-muted-foreground tabular-nums">{s.student_ref}</span>}
+                  </TableCell>
                   <TableCell className="max-w-xl truncate">{s.clean_text || <span className="text-muted-foreground">(빈 답안)</span>}</TableCell>
                   <TableCell className="text-right">
                     <Button
                       size="xs"
                       variant="ghost"
                       disabled={remove.isPending}
-                      onClick={() => confirm(`${s.label} 답안을 삭제할까요?`) && remove.mutate(s.id)}
+                      onClick={() => confirm(`${s.student_name ?? s.student_ref} 답안을 삭제할까요?`) && remove.mutate(s.id)}
                     >
                       삭제
                     </Button>

@@ -24,12 +24,16 @@ import {
   plain,
   predPoints,
 } from "@/lib/rubric";
+import { HideNamesSwitch, StudentTag } from "@/components/student";
+import { studentFull, studentName, useHideNames } from "@/lib/student";
 import { cn } from "@/lib/utils";
 import { useAcceptConfident, useClearDecisions, useDecide, useFindEvidence } from "@/lib/use-decide";
 import SplitOpinion, { otherOptions } from "./split-opinion";
 
 type SortMode = "attention" | "label" | "student";
-const SORT_LABEL: Record<SortMode, string> = { attention: "확인 필요순", label: "라벨순", student: "학번순" };
+// "label" is by name while names show, by the anonymous label while they are hidden
+const sortLabel = (mode: SortMode, hidden: boolean) =>
+  ({ attention: "확인 필요순", label: hidden ? "라벨순" : "이름순", student: "학번순" })[mode];
 
 type Workload = { human: number; llm: number; sampled: number; open: number; decided: number; total: number };
 
@@ -61,10 +65,10 @@ function scoreOf(items: RubricItemOut[], cells: CellOut[], submissionId: number)
   return { sum, max, open, total: own.length > 0 && open === 0 ? Math.max(0, sum) : null };
 }
 
-function sortIds(list: SubmissionOut[], cells: CellOut[], mode: SortMode): number[] {
+function sortIds(list: SubmissionOut[], cells: CellOut[], mode: SortMode, hidden: boolean): number[] {
   const sorted = [...list];
   if (mode === "student") sorted.sort((a, b) => a.student_ref.localeCompare(b.student_ref, "ko", { numeric: true }));
-  else sorted.sort((a, b) => a.label.localeCompare(b.label));
+  else sorted.sort((a, b) => studentName(a, hidden).localeCompare(studentName(b, hidden), "ko", { numeric: true }));
   if (mode === "attention") {
     // direct-judgment cells first, then LLM-checked, then sampled, then other undecided; finished students last
     const key = (s: SubmissionOut) => {
@@ -95,6 +99,7 @@ export default function StudentView({ assignment, onGoResults }: { assignment: A
   // Order is live until the grader acts, then frozen so students do not jump around while being graded
   const [frozen, setFrozen] = useState<{ mode: SortMode; ids: number[] } | null>(null);
   const acceptRest = useAcceptConfident(assignment.id);
+  const [hidden] = useHideNames();
   const locked = assignment.progress.stage === "finalized";
   // once the exam paper scrolls away, the score header (stuck to the top) shows the student and offers the answer
   const [paper, setPaper] = useState<HTMLElement | null>(null);
@@ -116,7 +121,7 @@ export default function StudentView({ assignment, onGoResults }: { assignment: A
   const loads = new Map(all.map((s) => [s.id, workload(cellList, s.id)]));
   const totalOpen = all.reduce((sum, s) => sum + loads.get(s.id)!.open, 0);
   const mode: SortMode = frozen?.mode ?? (totalOpen === 0 ? "label" : "attention");
-  const liveIds = sortIds(all, cellList, mode);
+  const liveIds = sortIds(all, cellList, mode, hidden);
   const ids = frozen && frozen.ids.length === all.length ? frozen.ids : liveIds;
   const byId = new Map(all.map((s) => [s.id, s]));
   const list = ids.map((id) => byId.get(id)!).filter(Boolean);
@@ -134,7 +139,7 @@ export default function StudentView({ assignment, onGoResults }: { assignment: A
     if (!frozen) setFrozen({ mode, ids });
     if (selected === null) setSelected(submission.id);
   };
-  const resort = (next: SortMode) => setFrozen({ mode: next, ids: sortIds(all, cellList, next) });
+  const resort = (next: SortMode) => setFrozen({ mode: next, ids: sortIds(all, cellList, next, hidden) });
   // from a quote under an item to the same words on the exam paper
   const showInAnswer = (itemId: number, at: number) => {
     setFocused(itemId);
@@ -200,7 +205,7 @@ export default function StudentView({ assignment, onGoResults }: { assignment: A
                 </Button>
                 {nextAttention ? (
                   <Button size="sm" className="ml-auto" onClick={() => go(list.indexOf(nextAttention))}>
-                    다음 확인 필요 학생 ({nextAttention.label}) →
+                    다음 확인 필요 학생 ({studentName(nextAttention, hidden)}) →
                   </Button>
                 ) : (
                   <Button size="sm" variant="outline" className="ml-auto" onClick={() => go(index + 1)}>
@@ -320,6 +325,7 @@ function StudentList({
   onSelect: (index: number) => void;
   onSort: (mode: SortMode) => void;
 }) {
+  const [hidden, setHidden] = useHideNames();
   return (
     <nav className="flex flex-col gap-2 lg:sticky lg:top-4">
       <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -329,9 +335,9 @@ function StudentList({
           onChange={(e) => onSort(e.target.value as SortMode)}
           aria-label="정렬"
         >
-          {(Object.keys(SORT_LABEL) as SortMode[]).map((m) => (
+          {(["attention", "label", "student"] as SortMode[]).map((m) => (
             <option key={m} value={m}>
-              {SORT_LABEL[m]}
+              {sortLabel(m, hidden)}
             </option>
           ))}
         </select>
@@ -341,6 +347,7 @@ function StudentList({
           </Button>
         )}
       </div>
+      <HideNamesSwitch hidden={hidden} onChange={setHidden} />
       <ul className="flex flex-row flex-wrap gap-1 lg:max-h-[70vh] lg:flex-col lg:flex-nowrap lg:overflow-y-auto">
         {list.map((s, i) => {
           const w = loads.get(s.id)!;
@@ -351,13 +358,14 @@ function StudentList({
               <button
                 type="button"
                 onClick={() => onSelect(i)}
-                title={`확정 ${w.decided}/${w.total}` + (need ? ` · 확인 필요 ${need}` : "")}
+                title={`${studentFull(s, hidden)} · 확정 ${w.decided}/${w.total}` + (need ? ` · 확인 필요 ${need}` : "")}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded-md px-2 py-1 font-mono text-sm transition-colors",
+                  "flex w-full items-center gap-2 rounded-md px-2 py-1 text-sm transition-colors",
+                  hidden && "font-mono",
                   i === current ? "bg-primary text-primary-foreground" : "hover:bg-muted",
                 )}
               >
-                {s.label}
+                <span className="truncate">{studentName(s, hidden)}</span>
                 <span className="ml-auto text-xs">
                   {score.total !== null ? (
                     <span className={cn("font-sans tabular-nums", i !== current && "text-emerald-700 dark:text-emerald-400")}>
@@ -381,12 +389,6 @@ function StudentList({
           );
         })}
       </ul>
-      <p
-        className="hidden px-2 text-xs text-muted-foreground lg:block"
-        title="학번은 결과 탭의 학생 표와 내보낸 CSV에만 나옵니다. 이름은 저장하지 않습니다."
-      >
-        이름·학번 가림
-      </p>
     </nav>
   );
 }
@@ -490,8 +492,7 @@ function AnswerCard({
               근거 찾기 실패: 다시 시도
             </Button>
           )}
-          <span className="text-xs text-muted-foreground">학생</span>
-          <span className="border border-foreground/60 px-2 py-0.5 font-mono text-base font-semibold">{submission.label}</span>
+          <StudentTag student={submission} large />
         </span>
       </header>
 
@@ -539,6 +540,7 @@ function ItemList({
 }) {
   const acceptConfident = useAcceptConfident(assignmentId);
   const clearDecisions = useClearDecisions(assignmentId);
+  const [hidden] = useHideNames();
   const searching = useIsMutating({ mutationKey: ["evidence", assignmentId] }) > 0;
   const rows = items.filter((i) => i.kind !== "gate" && byItem.has(i.id)).map((item) => ({ item, cell: byItem.get(item.id)! }));
   // rows the grader opened or closed; the rest open only while they need a look
@@ -563,7 +565,9 @@ function ItemList({
           {/* what the grader keeps an eye on: how many points this student has */}
           <div className="flex items-baseline gap-1.5">
             {paperGone && (
-              <span className="mr-1.5 self-center border border-foreground/60 px-1.5 font-mono text-sm font-semibold">{submission.label}</span>
+              <span className="mr-1.5 self-center">
+                <StudentTag student={submission} />
+              </span>
             )}
             <span className="text-sm text-muted-foreground">{score.total === null ? "지금까지" : "총점"}</span>
             <span
@@ -617,7 +621,7 @@ function ItemList({
             variant="ghost"
             disabled={clearDecisions.isPending || open === rows.length || locked}
             onClick={() =>
-              confirm(`${submission.label}의 확정한 항목 ${rows.length - open}개를 모두 취소할까요? 직접 고른 점수도 지워집니다.`) &&
+              confirm(`${studentFull(submission, hidden)}의 확정한 항목 ${rows.length - open}개를 모두 취소할까요? 직접 고른 점수도 지워집니다.`) &&
               clearDecisions.mutate({ submission_id: submission.id })
             }
           >

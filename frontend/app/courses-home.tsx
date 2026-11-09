@@ -144,7 +144,7 @@ function Welcome({ onStart }: { onStart: () => void }) {
           <span className="text-sm text-muted-foreground">과목(학과·학기·분반)을 만들면 그 안에 문항을 추가합니다.</span>
         </div>
         <p className="border-t pt-3 text-xs text-muted-foreground">
-          학생 이름은 저장하지 않고, 채점하는 동안에는 학번 대신 S001 같은 라벨만 보입니다.
+          AI에는 학생 이름·학번을 지운 답안만 보냅니다. 원하면 이름을 가리고 채점할 수도 있습니다.
         </p>
       </CardContent>
     </Card>

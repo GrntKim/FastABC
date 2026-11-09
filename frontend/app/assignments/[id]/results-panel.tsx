@@ -24,8 +24,9 @@ export default function ResultsPanel({ assignmentId }: { assignmentId: number })
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>라벨</TableHead>
               <TableHead>학번</TableHead>
+              <TableHead>이름</TableHead>
+              <TableHead>라벨</TableHead>
               <TableHead className="text-right">확정</TableHead>
               <TableHead className="text-right">총점</TableHead>
             </TableRow>
@@ -33,8 +34,9 @@ export default function ResultsPanel({ assignmentId }: { assignmentId: number })
           <TableBody>
             {results.data.map((r) => (
               <TableRow key={r.submission_id}>
-                <TableCell className="font-mono">{r.label}</TableCell>
-                <TableCell>{r.student_ref}</TableCell>
+                <TableCell className="tabular-nums">{r.student_ref}</TableCell>
+                <TableCell>{r.student_name ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                <TableCell className="font-mono text-muted-foreground">{r.label}</TableCell>
                 <TableCell className="text-right">
                   {r.decided} / {r.cells}
                 </TableCell>

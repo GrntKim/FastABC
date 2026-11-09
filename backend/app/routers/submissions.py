@@ -50,7 +50,8 @@ def _parse_csv(text: str) -> list[dict[str, str]]:
         if student_id in seen:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, f"line {line}: duplicate student_id {student_id}")
         seen.add(student_id)
-        rows.append({"student_id": student_id, "answer": row.get("answer") or "", "name": row.get("name")})
+        name = (row.get("name") or "").strip() or None
+        rows.append({"student_id": student_id, "answer": row.get("answer") or "", "name": name})
     if not rows:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "CSV has no rows")
     return rows
@@ -65,7 +66,7 @@ def _next_label_number(db: Session, assignment_id: int) -> int:
 def upload_csv(
     assignment_id: int, file: UploadFile, db: Session = Depends(get_db), user: User = Depends(current_user)
 ) -> list[SubmissionOut]:
-    """Columns: student_id, answer, optional name (used only for redaction, not stored)."""
+    """Columns: student_id, answer, optional name. The name is shown to the grader and removed from the text judges see."""
     own_assignment(db, user, assignment_id)
     ensure_unlocked(db, assignment_id)  # a new answer would change finalized results
     data = file.file.read(MAX_UPLOAD_BYTES + 1)  # sync route: runs in the threadpool like the DB calls
@@ -87,6 +88,7 @@ def upload_csv(
         Submission(
             assignment_id=assignment_id,
             student_ref=row["student_id"],
+            student_name=row["name"],
             label=f"S{start + i:03d}",
             raw_text=row["answer"],
             clean_text=redact(row["answer"], [row["student_id"], row["name"]]),

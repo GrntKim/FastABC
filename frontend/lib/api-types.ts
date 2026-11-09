@@ -189,7 +189,7 @@ export interface paths {
         put?: never;
         /**
          * Upload Csv
-         * @description Columns: student_id, answer, optional name (used only for redaction, not stored).
+         * @description Columns: student_id, answer, optional name. The name is shown to the grader and removed from the text judges see.
          */
         post: operations["upload_csv_assignments__assignment_id__submissions_csv_post"];
         delete?: never;
@@ -562,6 +562,10 @@ export interface components {
             submission_id: number;
             /** Label */
             label: string;
+            /** Student Ref */
+            student_ref: string;
+            /** Student Name */
+            student_name: string | null;
             /** Answer */
             answer: string;
             /** Rubric Item Id */
@@ -862,6 +866,8 @@ export interface components {
             label: string;
             /** Student Ref */
             student_ref: string;
+            /** Student Name */
+            student_name: string | null;
             /** Source Filename */
             source_filename: string | null;
             /** Extraction Status */
@@ -882,6 +888,8 @@ export interface components {
             label: string;
             /** Student Ref */
             student_ref: string;
+            /** Student Name */
+            student_name: string | null;
             /** Decided */
             decided: number;
             /** Cells */
