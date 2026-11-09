@@ -8,10 +8,17 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { progressSegments, SegmentBar } from "@/components/segment-bar";
+import { StepList, type Step } from "@/components/step-list";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api, ApiError, type CourseOut } from "@/lib/api";
 import { nextAction, STAGE_LABEL, STAGE_VARIANT, termLabel } from "@/lib/progress";
 import CourseForm from "../../course-form";
+
+const ASSIGNMENT_STEPS: Step[] = [
+  { title: "문제와 채점 기준", body: "평소 쓰던 채점 기준 문장을 붙여 넣으면 AI가 항목으로 나눕니다. 확인하고 고친 뒤 저장합니다." },
+  { title: "답안 올리고 채점 시작", body: "답안 CSV를 올리고 채점을 시작하면, AI가 모든 항목을 판단해 확인할 곳을 표시합니다." },
+  { title: "확인하고 성적 확정", body: "확인이 필요한 항목만 보고, 나머지는 한 번에 확정합니다. 끝나면 성적을 확정해 잠급니다." },
+];
 
 /** One course section: its questions, where each one stands, and what to do next. */
 export default function CourseScreen({ courseId }: { courseId: number }) {
@@ -75,7 +82,13 @@ export default function CourseScreen({ courseId }: { courseId: number }) {
       </div>
 
       {c.assignments.length === 0 ? (
-        <p className="text-muted-foreground">아직 문항이 없습니다. 문제와 채점 기준을 넣어 첫 문항을 만드세요.</p>
+        <div className="flex flex-col gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+          <p>아직 문항이 없습니다. 문항 하나는 이렇게 채점합니다.</p>
+          <StepList steps={ASSIGNMENT_STEPS} />
+          <Link href={`/courses/${courseId}/assignments/new`} className={`self-start ${buttonVariants()}`}>
+            첫 문항 만들기
+          </Link>
+        </div>
       ) : (
         <div className="rounded-xl bg-card px-2 shadow-xs ring-1 ring-foreground/10">
           <Table>

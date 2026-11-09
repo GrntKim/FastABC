@@ -381,6 +381,12 @@ function StudentList({
           );
         })}
       </ul>
+      <p
+        className="hidden px-2 text-xs text-muted-foreground lg:block"
+        title="학번은 결과 탭의 학생 표와 내보낸 CSV에만 나옵니다. 이름은 저장하지 않습니다."
+      >
+        이름·학번 가림
+      </p>
     </nav>
   );
 }

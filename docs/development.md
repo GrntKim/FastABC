@@ -241,7 +241,7 @@ class Judge(Protocol):
 | `/assignments/[id]/review` | 항목별 보기 |
 
 - API 타입은 백엔드를 띄운 상태에서 `pnpm --dir frontend gen:api`로 `lib/api-types.ts`를 다시 만듭니다.
-- 화면 용어는 `lib/rubric.ts`, 진행 단계는 `lib/progress.ts`에 모여 있습니다. 진행 단계는 탭 이름에 맞춰 준비(`setup`) / AI 판단 중(`grading`) / 채점 중(`review`) / 채점 끝(`done`) / 성적 확정(`finalized`)으로 보여 줍니다. 진행은 숫자 대신 세 구간 막대(`components/segment-bar.tsx`: 확정 / AI가 확신 · 한 번에 확정 가능 / 확인 필요)로 보여 주고, 남은 일은 학생 단위로 셉니다. 채점자 화면은 내부 경로 이름을 쓰지 않고 아래처럼 바꿔 보여 줍니다.
+- 화면 용어는 `lib/rubric.ts`, 진행 단계는 `lib/progress.ts`에 모여 있습니다. 진행 단계는 탭 이름에 맞춰 준비(`setup`) / AI 판단 중(`grading`) / 채점 중(`review`) / 채점 끝(`done`) / 성적 확정(`finalized`)으로 보여 줍니다. 진행은 숫자 대신 세 구간 막대(`components/segment-bar.tsx`: 확정 / AI가 확신 · 한 번에 확정 가능 / 확인 필요)로 채점 탭, 과목 화면, 결과 탭, 항목별 보기에서 같게 보여 주고, 남은 일은 학생 단위로 셉니다. 결과 탭의 확정 요약은 채점자가 한 일(직접 확인 / AI 추천을 고침)을 먼저 보여 줍니다. 과목이나 문항이 없을 때는 `components/step-list.tsx`로 다음 할 일을 세 단계로 보여 줍니다. 채점자 화면은 내부 경로 이름을 쓰지 않고 아래처럼 바꿔 보여 줍니다.
 
   | 내부 (`grades.route`, `sampled`) | 채점자 화면 |
   |---|---|

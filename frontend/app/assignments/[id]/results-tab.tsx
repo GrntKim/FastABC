@@ -3,15 +3,28 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { progressSegments, SegmentBar } from "@/components/segment-bar";
+import { progressSegments, SegmentBar, SegmentLegend, type Segment } from "@/components/segment-bar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { api, ApiError, json, type AssignmentOut, type CellOut, type FinalizationOut } from "@/lib/api";
-import { DECISION_LABEL } from "@/lib/rubric";
+import { checkReason, DECISION_LABEL } from "@/lib/rubric";
 import { useMe } from "@/lib/use-me";
 import ResultsPanel from "./results-panel";
+
+/** How the confirmed items were settled: as recommended unseen, looked at by the grader, or changed by the grader. */
+function settled(cells: CellOut[]) {
+  const decided = cells.filter((c) => c.decision !== null);
+  const changed = decided.filter((c) => c.decision === "modified").length;
+  const looked = decided.filter((c) => c.decision === "modified" || checkReason(c) !== null).length;
+  const segments: Segment[] = [
+    { n: decided.length - looked, label: "AI가 확신해 추천대로 확정", className: "bg-sky-300 dark:bg-sky-700" },
+    { n: looked - changed, label: "직접 확인", className: "bg-emerald-500" },
+    { n: changed, label: "AI 추천을 고침", className: "bg-violet-500" },
+  ];
+  return { looked, changed, segments };
+}
 
 const when = (iso: string) =>
   new Date(iso).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -69,14 +82,7 @@ export default function ResultsTab({ assignment, onGoGrade }: { assignment: Assi
               </div>
             </div>
           ) : (
-            <div className="flex flex-wrap gap-x-6 gap-y-1">
-              <span>학생 {assignment.progress.submissions}명</span>
-              {Object.entries(DECISION_LABEL).map(([key, label]) => (
-                <span key={key}>
-                  {label} <strong>{counts[key]}</strong>
-                </span>
-              ))}
-            </div>
+            <Settled cells={cells.data} students={assignment.progress.submissions} counts={counts} />
           )}
           {current ? (
             <p className="rounded-md border bg-muted/30 px-3 py-2">
@@ -114,6 +120,27 @@ export default function ResultsTab({ assignment, onGoGrade }: { assignment: Assi
         onOpenChange={(o) => setDialog(o ? "finalize" : null)}
       />
       <ReopenDialog assignmentId={assignment.id} open={dialog === "reopen"} onOpenChange={(o) => setDialog(o ? "reopen" : null)} />
+    </div>
+  );
+}
+
+/** Who answers for the grades: what the grader looked at and changed, not only what the AI suggested. */
+function Settled({ cells, students, counts }: { cells: CellOut[]; students: number; counts: Record<string, number> }) {
+  const { looked, changed, segments } = settled(cells);
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-base">
+        학생 {students}명 · 직접 확인한 항목 <strong>{looked}개</strong> · AI 추천을 고친 항목 <strong>{changed}개</strong>
+      </p>
+      <SegmentBar segments={segments} />
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <SegmentLegend segments={segments} />
+        <span className="ml-auto" title="성적 확정 기록에 남는 구분입니다">
+          {Object.entries(DECISION_LABEL)
+            .map(([key, label]) => `${label} ${counts[key]}`)
+            .join(" · ")}
+        </span>
+      </div>
     </div>
   );
 }

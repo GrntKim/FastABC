@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { api, ApiError, type CourseSummary } from "@/lib/api";
 import { STAGE_LABEL, termLabel } from "@/lib/progress";
+import { useMe } from "@/lib/use-me";
+import { StepList } from "@/components/step-list";
 import CourseForm from "./course-form";
 
 /** Home: the courses a grader manages, by term, then department. */
@@ -31,6 +33,22 @@ export default function CoursesHome() {
   const departments = [...new Set(inTerm.map((c) => c.department))];
   const shown = inTerm.filter((c) => !department || c.department === department);
   const attention = inTerm.reduce((sum, c) => sum + c.attention, 0);
+  const courseForm = adding && (
+    <CourseForm
+      open={adding}
+      onOpenChange={setAdding}
+      defaults={{ term: currentTerm ?? undefined, department: department ?? departments[0] }}
+      onSaved={(c) => router.push(`/courses/${c.id}`)}
+    />
+  );
+
+  if (courses.data.length === 0)
+    return (
+      <>
+        <Welcome onStart={() => setAdding(true)} />
+        {courseForm}
+      </>
+    );
 
   return (
     <div className="flex flex-col gap-4">
@@ -73,51 +91,77 @@ export default function CoursesHome() {
         </div>
       )}
 
-      {courses.data.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-start gap-3 py-8">
-            <p>아직 등록한 과목이 없습니다. 채점할 과목과 분반을 먼저 추가하세요.</p>
-            <Button onClick={() => setAdding(true)}>첫 과목 추가</Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {shown.map((c) => (
-            <Link key={c.id} href={`/courses/${c.id}`} className="group">
-              <Card className="h-full transition-colors group-hover:bg-muted/40">
-                <CardHeader>
-                  <p className="text-xs text-muted-foreground">{c.department}</p>
-                  <CardTitle className="text-lg">
-                    {c.name} <span className="text-muted-foreground font-normal">· {c.section}분반</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-2 text-sm">
-                  <p className="text-muted-foreground">
-                    문항 {c.assignment_count} · 답안 {c.submission_count}
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    {Object.entries(c.stages).map(([stage, count]) => (
-                      <Badge key={stage} variant="outline">
-                        {STAGE_LABEL[stage] ?? stage} {count}
-                      </Badge>
-                    ))}
-                    {c.attention > 0 && <Badge>확인할 곳 있음</Badge>}
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      )}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {shown.map((c) => (
+          <Link key={c.id} href={`/courses/${c.id}`} className="group">
+            <Card className="h-full transition-colors group-hover:bg-muted/40">
+              <CardHeader>
+                <p className="text-xs text-muted-foreground">{c.department}</p>
+                <CardTitle className="text-lg">
+                  {c.name} <span className="text-muted-foreground font-normal">· {c.section}분반</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-2 text-sm">
+                <p className="text-muted-foreground">
+                  문항 {c.assignment_count} · 답안 {c.submission_count}
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {Object.entries(c.stages).map(([stage, count]) => (
+                    <Badge key={stage} variant="outline">
+                      {STAGE_LABEL[stage] ?? stage} {count}
+                    </Badge>
+                  ))}
+                  {c.attention > 0 && <Badge>확인할 곳 있음</Badge>}
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
 
-      {adding && (
-        <CourseForm
-          open={adding}
-          onOpenChange={setAdding}
-          defaults={{ term: currentTerm ?? undefined, department: department ?? departments[0] }}
-          onSaved={(c) => router.push(`/courses/${c.id}`)}
-        />
-      )}
+      {courseForm}
     </div>
+  );
+}
+
+const STEPS = [
+  {
+    title: "과목과 문항 만들기",
+    body: "문제와 채점 기준을 평소 쓰던 문장 그대로 붙여 넣으면 AI가 채점 항목으로 나눕니다. 저장하기 전에 고칠 수 있습니다.",
+  },
+  {
+    title: "답안 올리고 채점 시작",
+    body: "LMS에서 받은 답안 CSV를 올립니다. AI가 모든 답안의 항목을 판단해, 확신한 항목과 확인할 곳을 나눕니다.",
+  },
+  {
+    title: "확인할 곳만 보고 확정",
+    body: "확인이 필요한 항목부터 보여 줍니다. 나머지는 한 번에 확정하고, 다 끝나면 성적을 확정해 잠급니다.",
+  },
+];
+
+/** First visit: what the app does in three steps, and the one thing to do now. */
+function Welcome({ onStart }: { onStart: () => void }) {
+  const me = useMe();
+  return (
+    <Card className="mx-auto mt-6 w-full max-w-3xl">
+      <CardHeader>
+        <CardTitle className="text-2xl">{me.data ? `${me.data.name}님, 반갑습니다` : "반갑습니다"}</CardTitle>
+        <CardDescription className="text-base">
+          AI가 먼저 모든 답안을 읽고, 채점자가 봐야 할 곳만 골라 드립니다. 점수는 언제나 채점자가 확정합니다.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-6">
+        <StepList steps={STEPS} />
+        <div className="flex flex-wrap items-center gap-3">
+          <Button size="lg" onClick={onStart}>
+            첫 과목 추가
+          </Button>
+          <span className="text-sm text-muted-foreground">과목(학과·학기·분반)을 만들면 그 안에 문항을 추가합니다.</span>
+        </div>
+        <p className="border-t pt-3 text-xs text-muted-foreground">
+          학생 이름은 저장하지 않고, 채점하는 동안에는 학번 대신 S001 같은 라벨만 보입니다.
+        </p>
+      </CardContent>
+    </Card>
   );
 }
