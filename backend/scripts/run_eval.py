@@ -391,6 +391,14 @@ def analyze(args) -> None:
     print((run_dir / "summary.md").read_text())
 
 
+COST_LABEL = {
+    "(a) judgment: hybrid": "(a) 판단: 하이브리드",
+    "(a) judgment: LLM only": "(a) 판단: LLM 단독",
+    "(b) evidence (every answer opened)": "(b) 근거 찾기 (모든 답안을 열 때)",
+    "(c) hybrid total": "(c) 하이브리드 합계",
+}
+
+
 def plot(run_dir: Path, curve: list[dict], calib: list[dict], cost: dict) -> None:
     try:
         import matplotlib
@@ -401,12 +409,16 @@ def plot(run_dir: Path, curve: list[dict], calib: list[dict], cost: dict) -> Non
         print("matplotlib not installed: skipped figures (uv add --dev matplotlib)")
         return
 
+    # Korean labels for the report: first installed font wins
+    plt.rcParams["font.family"] = ["Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "NanumGothic", "sans-serif"]
+    plt.rcParams["axes.unicode_minus"] = False
+
     fig, ax = plt.subplots(figsize=(6, 4))
     ts = [r["threshold"] for r in curve]
-    ax.plot(ts, [r["auto_rate"] for r in curve], label="auto-handled rate")
-    ax.plot(ts, [r["acc_covered"] or 0 for r in curve], label="accuracy (covered)")
-    ax.plot(ts, [r["coverage"] for r in curve], label="coverage", linestyle="--")
-    ax.set_xlabel("confidence threshold")
+    ax.plot(ts, [r["auto_rate"] for r in curve], label="자동 처리율")
+    ax.plot(ts, [r["acc_covered"] or 0 for r in curve], label="정확도 (추천이 나온 칸)")
+    ax.plot(ts, [r["coverage"] for r in curve], label="추천 범위", linestyle="--")
+    ax.set_xlabel("확신 임계값")
     ax.set_ylim(0, 1.02)
     ax.legend()
     fig.tight_layout()
@@ -417,15 +429,15 @@ def plot(run_dir: Path, curve: list[dict], calib: list[dict], cost: dict) -> Non
     ax.bar([r["conf_bin"] for r in filled], [r["acc"] for r in filled])
     for i, r in enumerate(filled):
         ax.text(i, r["acc"] + 0.01, f"n={r['cells']}", ha="center", fontsize=8)
-    ax.set_xlabel("decision-model confidence")
-    ax.set_ylabel("accuracy")
+    ax.set_xlabel("판단 모델 확신도")
+    ax.set_ylabel("정확도")
     ax.set_ylim(0, 1.1)
     fig.tight_layout()
     fig.savefig(run_dir / "fig_calibration.png", dpi=200)
 
     fig, ax = plt.subplots(figsize=(6, 3))
-    ax.barh(list(cost), list(cost.values()))
-    ax.set_xlabel("USD (whole set)")
+    ax.barh([COST_LABEL.get(k, k) for k in cost], list(cost.values()))
+    ax.set_xlabel("USD (평가셋 전체)")
     fig.tight_layout()
     fig.savefig(run_dir / "fig_cost.png", dpi=200)
     plt.close("all")
