@@ -1,12 +1,12 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useIsMutating, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { api, type AssignmentOut, type CellOut, type RubricItemOut, type SubmissionOut } from "@/lib/api";
-import { annotate } from "@/lib/highlight";
+import { annotate, excerpts } from "@/lib/highlight";
 import {
   CHECK_HINT,
   DECISION_LABEL,
@@ -95,6 +95,18 @@ export default function StudentView({ assignment, onGoResults }: { assignment: A
   const [frozen, setFrozen] = useState<{ mode: SortMode; ids: number[] } | null>(null);
   const acceptRest = useAcceptConfident(assignment.id);
   const locked = assignment.progress.stage === "finalized";
+  // once the exam paper scrolls away, a slim bar keeps the student, the score, and the answer one click away
+  const [paper, setPaper] = useState<HTMLElement | null>(null);
+  const [paperGone, setPaperGone] = useState(false);
+  useEffect(() => {
+    if (!paper) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setPaperGone(!entry.isIntersecting && entry.boundingClientRect.top < 0),
+      { rootMargin: "-96px 0px 0px 0px" },
+    );
+    observer.observe(paper);
+    return () => observer.disconnect();
+  }, [paper]);
 
   if (!submissions.data || !cells.data) return <p className="text-muted-foreground pt-2">불러오는 중…</p>;
   const all = submissions.data;
@@ -124,6 +136,17 @@ export default function StudentView({ assignment, onGoResults }: { assignment: A
     if (selected === null) setSelected(submission.id);
   };
   const resort = (next: SortMode) => setFrozen({ mode: next, ids: sortIds(all, cellList, next) });
+  // from a quote under an item to the same words on the exam paper
+  const showInAnswer = (itemId: number, at: number) => {
+    setFocused(itemId);
+    const marks = [...document.querySelectorAll<HTMLElement>(`mark[data-item~="${itemId}"]`)];
+    const target = marks.find((m) => Number(m.dataset.start) <= at && at < Number(m.dataset.end)) ?? marks[0];
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    target.animate([{ outline: "3px solid currentColor", outlineOffset: "3px" }, { outline: "3px solid transparent", outlineOffset: "3px" }], {
+      duration: 1400,
+    });
+  };
   const nextAttention = [...list.slice(index + 1), ...list.slice(0, index + 1)].find(
     (s) => s.id !== submission.id && attention(loads.get(s.id)!) > 0,
   );
@@ -170,7 +193,16 @@ export default function StudentView({ assignment, onGoResults }: { assignment: A
           onSort={resort}
         />
         <div className="flex min-w-0 flex-col gap-4">
+          {/* zero-height sticky anchor: the bar floats over the items without pushing them down */}
+          <div className="sticky top-2 z-20 -mb-4 h-0">
+            {paperGone && (
+              <AnswerBar key={submission.id} submission={submission} score={scoreOf(assignment.items, cellList, submission.id)}>
+                <AnswerText text={submission.clean_text} items={assignment.items} byItem={byItem} focused={focused} onFocus={setFocused} />
+              </AnswerBar>
+            )}
+          </div>
           <AnswerCard
+            paperRef={setPaper}
             assignment={assignment}
             submission={submission}
             items={assignment.items}
@@ -186,6 +218,7 @@ export default function StudentView({ assignment, onGoResults }: { assignment: A
             byItem={byItem}
             focused={focused}
             onFocus={setFocused}
+            onShowInAnswer={showInAnswer}
             locked={locked}
             footer={
               <>
@@ -307,7 +340,76 @@ type CellsByItem = Map<number, CellOut>;
 /** LLM output that can carry evidence: the escalation re-judgment, else the on-demand evidence lookup. */
 const llmView = (cell: CellOut | undefined) => cell?.secondary ?? cell?.evidence ?? null;
 
+/** The answer with each item's evidence marked; `anchors` makes the marks targets for "show in answer". */
+function AnswerText({
+  text,
+  items,
+  byItem,
+  focused,
+  onFocus,
+  anchors = false,
+}: {
+  text: string;
+  items: RubricItemOut[];
+  byItem: CellsByItem;
+  focused: number | null;
+  onFocus: (itemId: number | null) => void;
+  anchors?: boolean;
+}) {
+  if (!text) return <p className="answer-sheet px-1 text-muted-foreground">(빈 답안)</p>;
+  const groups = items
+    .filter((i) => i.kind !== "gate")
+    .map((i) => ({ id: i.id, quotes: llmView(byItem.get(i.id))?.evidence ?? [] }));
+  const segments = annotate(text, groups);
+  const starts = segments.map((_, i) => segments.slice(0, i).reduce((n, s) => n + s.text.length, 0));
+  return (
+    <p className="answer-sheet whitespace-pre-wrap px-1 text-[1.05rem]">
+      {segments.map((s, i) => {
+        const start = starts[i];
+        if (s.ids.length === 0) return <span key={i}>{s.text}</span>;
+        // with one item in focus, only its evidence stays marked
+        if (focused !== null && !s.ids.includes(focused)) return <span key={i}>{s.text}</span>;
+        const color = itemColor(items, focused ?? s.ids[0]);
+        return (
+          <mark
+            key={i}
+            className={cn("cursor-pointer rounded px-0.5 text-inherit", color?.mark, focused !== null && cn("ring-2", color?.ring))}
+            title={s.ids.map((id) => items.find((it) => it.id === id)).map((it) => it && itemName(it)).join(", ")}
+            onClick={() => onFocus(s.ids[0])}
+            {...(anchors && { "data-item": s.ids.join(" "), "data-start": start, "data-end": start + s.text.length })}
+          >
+            {s.text}
+          </mark>
+        );
+      })}
+    </p>
+  );
+}
+
+/** Shown while the exam paper is scrolled away: who, how many points so far, and the answer on demand. */
+function AnswerBar({ submission, score, children }: { submission: SubmissionOut; score: Score; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="absolute inset-x-0 top-0 rounded-lg border bg-card/95 shadow-md backdrop-blur">
+      <div className="flex items-center gap-3 px-4 py-1.5 text-sm">
+        <span className="border border-foreground/60 px-1.5 font-mono font-semibold">{submission.label}</span>
+        <span className="flex items-baseline gap-1 tabular-nums">
+          <span className="text-muted-foreground">{score.total === null ? "지금까지" : "총점"}</span>
+          <strong className="text-lg">{score.total ?? formatPoints(score.sum)}</strong>
+          <span className="text-muted-foreground">/ {score.max}점</span>
+        </span>
+        {score.open > 0 && <span className="text-amber-700 dark:text-amber-400">{score.open}칸 미확정</span>}
+        <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setOpen(!open)} aria-expanded={open}>
+          {open ? "답안 닫기 ▴" : "답안 보기 ▾"}
+        </Button>
+      </div>
+      {open && <div className="max-h-[50vh] overflow-y-auto border-t px-4 py-2">{children}</div>}
+    </div>
+  );
+}
+
 function AnswerCard({
+  paperRef,
   assignment,
   submission,
   items,
@@ -315,6 +417,7 @@ function AnswerCard({
   focused,
   onFocus,
 }: {
+  paperRef: (el: HTMLElement | null) => void;
   assignment: AssignmentOut;
   submission: SubmissionOut;
   items: RubricItemOut[];
@@ -325,8 +428,6 @@ function AnswerCard({
   // a confident off-topic gate skips every scored item
   const offTopic = [...byItem.values()].some((c) => c.route === "skip");
   const scored = items.filter((i) => i.kind !== "gate");
-  const groups = scored.map((i) => ({ id: i.id, quotes: llmView(byItem.get(i.id))?.evidence ?? [] }));
-  const segments = annotate(submission.clean_text, groups);
 
   // Evidence is fetched once per submission the first time a grader opens it (design option A)
   const findEvidence = useFindEvidence(assignment.id);
@@ -344,7 +445,7 @@ function AnswerCard({
 
   return (
     // an exam paper: the question in bold, the student's answer written on ruled lines below it
-    <article className="flex flex-col gap-4 rounded-sm bg-[oklch(0.995_0.008_90)] px-6 py-5 shadow-md ring-1 ring-stone-300 dark:bg-[oklch(0.2_0.005_90)] dark:ring-stone-700">
+    <article ref={paperRef} className="flex flex-col gap-4 rounded-sm bg-[oklch(0.995_0.008_90)] px-6 py-5 shadow-md ring-1 ring-stone-300 dark:bg-[oklch(0.2_0.005_90)] dark:ring-stone-700">
       <header className="flex items-center gap-3 border-b-2 border-foreground/80 pb-2 text-sm">
         <span className="font-medium">{assignment.assessment ?? assignment.title}</span>
         {assignment.assessment && <span className="text-muted-foreground">{assignment.title}</span>}
@@ -370,27 +471,7 @@ function AnswerCard({
           <span className="text-sm font-semibold">답안</span>
           {offTopic && <Badge variant="destructive">문제와 관련 없는 답안</Badge>}
         </div>
-        {submission.clean_text ? (
-          <p className="answer-sheet whitespace-pre-wrap px-1 text-[1.05rem]">
-            {segments.map((s, i) => {
-              if (s.ids.length === 0) return <span key={i}>{s.text}</span>;
-              const color = itemColor(items, s.ids[0]);
-              const active = focused !== null && s.ids.includes(focused);
-              return (
-                <mark
-                  key={i}
-                  className={cn("cursor-pointer rounded px-0.5 text-inherit", color?.mark, active && "ring-2", active && color?.ring)}
-                  title={s.ids.map((id) => items.find((it) => it.id === id)).map((it) => it && itemName(it)).join(", ")}
-                  onClick={() => onFocus(s.ids[0])}
-                >
-                  {s.text}
-                </mark>
-              );
-            })}
-          </p>
-        ) : (
-          <p className="answer-sheet px-1 text-muted-foreground">(빈 답안)</p>
-        )}
+        <AnswerText text={submission.clean_text} items={items} byItem={byItem} focused={focused} onFocus={onFocus} anchors />
       </section>
     </article>
   );
@@ -404,6 +485,7 @@ function ItemList({
   byItem,
   focused,
   onFocus,
+  onShowInAnswer,
   locked,
   footer,
 }: {
@@ -413,11 +495,13 @@ function ItemList({
   byItem: CellsByItem;
   focused: number | null;
   onFocus: (itemId: number | null) => void;
+  onShowInAnswer: (itemId: number, at: number) => void;
   locked: boolean; // grades are finalized
   footer: React.ReactNode; // moving on to another student
 }) {
   const acceptConfident = useAcceptConfident(assignmentId);
   const clearDecisions = useClearDecisions(assignmentId);
+  const searching = useIsMutating({ mutationKey: ["evidence", assignmentId] }) > 0;
   const rows = items.filter((i) => i.kind !== "gate" && byItem.has(i.id)).map((item) => ({ item, cell: byItem.get(item.id)! }));
   // rows the grader opened or closed; the rest open only while they need a look
   const [opened, setOpened] = useState<Record<number, boolean>>({});
@@ -490,6 +574,9 @@ function ItemList({
               onFocus(next ? item.id : null);
             }}
             focused={focused === item.id}
+            answer={submission.clean_text}
+            searching={searching}
+            onShowInAnswer={(at) => onShowInAnswer(item.id, at)}
             locked={locked}
           />
         ))}
@@ -511,6 +598,9 @@ function ItemRow({
   expanded,
   onToggle,
   focused,
+  answer,
+  searching,
+  onShowInAnswer,
   locked,
 }: {
   assignmentId: number;
@@ -520,6 +610,9 @@ function ItemRow({
   expanded: boolean;
   onToggle: () => void; // also marks the item's evidence in the answer
   focused: boolean;
+  answer: string;
+  searching: boolean; // the evidence lookup for this answer is running
+  onShowInAnswer: (at: number) => void;
   locked: boolean;
 }) {
   const decide = useDecide(assignmentId);
@@ -538,11 +631,12 @@ function ItemRow({
 
   return (
     <div className={cn("flex flex-col gap-2 px-4 py-2.5", reason && cn("border-l-4", CHECK_TONE[reason].edge), focused && "bg-muted/50")}>
-      <div className="flex items-center gap-2">
-        <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+      {/* on a narrow screen the decision side drops to its own line instead of squeezing the name away */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 basis-56 flex-wrap items-center gap-x-2 gap-y-1 text-left">
           <span className="w-3 shrink-0 text-xs text-muted-foreground">{expanded ? "▾" : "▸"}</span>
           <span className={cn("size-2.5 shrink-0 rounded-full", color?.dot)} />
-          <span className="truncate font-medium" title={plain(item.instructions)}>
+          <span className="break-keep font-medium" title={plain(item.instructions)}>
             {itemName(item)}
           </span>
           {item.kind === "deduction" && (
@@ -559,54 +653,59 @@ function ItemRow({
             </span>
           )}
         </button>
-        {decided ? (
-          <>
-            <span className="whitespace-nowrap text-sm">
-              <span className="text-emerald-700 dark:text-emerald-400">✓</span> {outcomeName(item, cell.final_points!)}
-            </span>
-            <span className="whitespace-nowrap text-xs text-muted-foreground">{cell.decision && DECISION_LABEL[cell.decision]}</span>
-            {!locked && (
-              <Button size="xs" variant="ghost" disabled={busy} onClick={() => set({ action: "clear" })}>
-                취소
-              </Button>
-            )}
-          </>
-        ) : cell.recommended_points !== null ? (
-          <>
-            <span className="whitespace-nowrap text-sm" title={confidence}>
-              추천 <strong>{outcome(item, cell.recommended_points)}</strong>
-            </span>
-            <Button
-              size="sm"
-              // a cell nobody needs to check is quiet: bulk confirm handles it
-              variant={reason ? "default" : "secondary"}
-              disabled={busy}
-              onClick={() => set({ action: "accept" })}
-            >
-              확정
-            </Button>
-          </>
-        ) : (
-          <span className="whitespace-nowrap text-sm text-muted-foreground">
-            {cell.route === "pending" ? "추천을 기다리는 중" : "추천 없음 · 직접 고르세요"}
-          </span>
-        )}
-        <span className="w-16 shrink-0 text-right tabular-nums" title={decided ? undefined : "아직 확정하지 않았습니다"}>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           {decided ? (
             <>
-              <strong className={cn("text-xl", cell.final_points! < 0 && "text-rose-600 dark:text-rose-400")}>
-                {formatPoints(cell.final_points!)}
-              </strong>
-              {item.kind === "credit" && <span className="text-sm text-muted-foreground">/{itemMax(item)}</span>}
+              <span className="whitespace-nowrap text-sm">
+                <span className="text-emerald-700 dark:text-emerald-400">✓</span> {outcomeName(item, cell.final_points!)}
+              </span>
+              <span className="whitespace-nowrap text-xs text-muted-foreground">{cell.decision && DECISION_LABEL[cell.decision]}</span>
+              {!locked && (
+                <Button size="xs" variant="ghost" disabled={busy} onClick={() => set({ action: "clear" })}>
+                  취소
+                </Button>
+              )}
+            </>
+          ) : cell.recommended_points !== null ? (
+            <>
+              <span className="whitespace-nowrap text-sm" title={confidence}>
+                추천 <strong>{outcome(item, cell.recommended_points)}</strong>
+              </span>
+              <Button
+                size="sm"
+                // a cell nobody needs to check is quiet: bulk confirm handles it
+                variant={reason ? "default" : "secondary"}
+                disabled={busy}
+                onClick={() => set({ action: "accept" })}
+              >
+                확정
+              </Button>
             </>
           ) : (
-            <span className="text-xl text-muted-foreground/50">–</span>
+            <span className="whitespace-nowrap text-sm text-muted-foreground">
+              {cell.route === "pending" ? "추천을 기다리는 중" : "추천 없음 · 직접 고르세요"}
+            </span>
           )}
-        </span>
+          <span className="w-16 shrink-0 text-right tabular-nums" title={decided ? undefined : "아직 확정하지 않았습니다"}>
+            {decided ? (
+              <>
+                <strong className={cn("text-xl", cell.final_points! < 0 && "text-rose-600 dark:text-rose-400")}>
+                  {formatPoints(cell.final_points!)}
+                </strong>
+                {item.kind === "credit" && <span className="text-sm text-muted-foreground">/{itemMax(item)}</span>}
+              </>
+            ) : (
+              <span className="text-xl text-muted-foreground/50">–</span>
+            )}
+          </span>
+        </div>
       </div>
 
       {expanded && (
         <div className="flex flex-col gap-2 pb-1 pl-5 text-sm">
+          {cell.route !== "skip" && (
+            <Evidence text={answer} view={llm} searching={searching} color={color} onShow={onShowInAnswer} />
+          )}
           {cell.route === "human" ? (
             <SplitOpinion item={item} cell={cell} disabled={busy} onPick={(points) => set({ action: "set", points })} />
           ) : (
@@ -641,6 +740,54 @@ function ItemRow({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * The item's evidence quoted from the answer, right where the grader decides, so there is no scrolling
+ * back up to find it. Each quote keeps a few words around it and jumps to its place on the exam paper.
+ */
+function Evidence({
+  text,
+  view,
+  searching,
+  color,
+  onShow,
+}: {
+  text: string;
+  view: ReturnType<typeof llmView>;
+  searching: boolean;
+  color: ReturnType<typeof itemColor>;
+  onShow: (at: number) => void;
+}) {
+  if (!text) return null;
+  if (!view) return searching ? <p className="text-xs text-muted-foreground">답안에서 근거 찾는 중…</p> : null;
+  const found = excerpts(text, view.evidence);
+  if (found.length === 0) {
+    return <p className="text-xs text-muted-foreground">답안에서 이 항목에 해당하는 문장을 찾지 못했습니다.</p>;
+  }
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xs text-muted-foreground">답안에서</span>
+      {found.map((x) => (
+        <button
+          key={x.start}
+          type="button"
+          onClick={() => onShow(x.start)}
+          title="답안에서 위치 보기"
+          className={cn(
+            "rounded-sm border-l-4 bg-[oklch(0.995_0.008_90)] px-3 py-1 text-left text-[0.95rem] leading-7 text-foreground ring-1 ring-stone-200 transition-shadow hover:ring-stone-400 dark:bg-[oklch(0.2_0.005_90)] dark:ring-stone-700",
+            color?.edge,
+          )}
+        >
+          {x.clippedStart && "…"}
+          {x.before}
+          <mark className={cn("rounded px-0.5 text-inherit", color?.mark)}>{x.match}</mark>
+          {x.after}
+          {x.clippedEnd && "…"}
+        </button>
+      ))}
     </div>
   );
 }

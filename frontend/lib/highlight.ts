@@ -40,6 +40,39 @@ export function highlight(text: string, quotes: string[]): Segment[] {
   return annotate(text, [{ id: 0, quotes }]).map((s) => ({ text: s.text, marked: s.ids.length > 0 }));
 }
 
+export type Excerpt = { start: number; before: string; match: string; after: string; clippedStart: boolean; clippedEnd: boolean };
+
+/**
+ * Each place the quotes occur, with a few words of the answer on either side: a quote cut out alone
+ * can hide a negation or a qualifier right next to it.
+ */
+export function excerpts(text: string, quotes: string[], context = 24): Excerpt[] {
+  const merged: [number, number][] = [];
+  for (const [s, e] of findRanges(text, quotes).sort((a, b) => a[0] - b[0])) {
+    const last = merged[merged.length - 1];
+    if (last && s <= last[1]) last[1] = Math.max(last[1], e);
+    else merged.push([s, e]);
+  }
+  const flat = (s: string) => s.replace(/\s+/g, " ");
+  return merged.map(([s, e]) => {
+    // widen to whole words so the context does not start or end mid-word
+    let from = Math.max(0, s - context);
+    let to = Math.min(text.length, e + context);
+    const head = text.slice(from, s).search(/\s/);
+    if (from > 0 && head !== -1) from += head + 1;
+    const tail = text.slice(e, to).search(/\s\S*$/);
+    if (to < text.length && tail !== -1) to = e + tail;
+    return {
+      start: s,
+      before: flat(text.slice(from, s)),
+      match: flat(text.slice(s, e)),
+      after: flat(text.slice(e, to)),
+      clippedStart: from > 0,
+      clippedEnd: to < text.length,
+    };
+  });
+}
+
 export type Annotated = { text: string; ids: number[] };
 
 /** Split `text` into segments, each tagged with the ids whose quotes cover it (overlaps keep every id). */

@@ -115,14 +115,14 @@ export const CHECK_TONE: Record<string, { edge: string; chip: string }> = {
 // One color per scored rubric item: evidence marks in the answer and the matching note share it.
 // Literal class names so Tailwind picks them up. No yellow-family hues: the answer sits on yellow memo paper.
 export const ITEM_COLORS = [
-  { mark: "bg-sky-200/80 dark:bg-sky-800/70", dot: "bg-sky-500", ring: "ring-sky-400" },
-  { mark: "bg-fuchsia-200/80 dark:bg-fuchsia-800/70", dot: "bg-fuchsia-500", ring: "ring-fuchsia-400" },
-  { mark: "bg-emerald-200/80 dark:bg-emerald-800/70", dot: "bg-emerald-500", ring: "ring-emerald-400" },
-  { mark: "bg-rose-200/80 dark:bg-rose-800/70", dot: "bg-rose-500", ring: "ring-rose-400" },
-  { mark: "bg-violet-200/80 dark:bg-violet-800/70", dot: "bg-violet-500", ring: "ring-violet-400" },
-  { mark: "bg-teal-200/80 dark:bg-teal-800/70", dot: "bg-teal-500", ring: "ring-teal-400" },
-  { mark: "bg-indigo-200/80 dark:bg-indigo-800/70", dot: "bg-indigo-500", ring: "ring-indigo-400" },
-  { mark: "bg-cyan-200/80 dark:bg-cyan-800/70", dot: "bg-cyan-500", ring: "ring-cyan-400" },
+  { mark: "bg-sky-200/80 dark:bg-sky-800/70", dot: "bg-sky-500", ring: "ring-sky-400", edge: "border-sky-400" },
+  { mark: "bg-fuchsia-200/80 dark:bg-fuchsia-800/70", dot: "bg-fuchsia-500", ring: "ring-fuchsia-400", edge: "border-fuchsia-400" },
+  { mark: "bg-emerald-200/80 dark:bg-emerald-800/70", dot: "bg-emerald-500", ring: "ring-emerald-400", edge: "border-emerald-400" },
+  { mark: "bg-rose-200/80 dark:bg-rose-800/70", dot: "bg-rose-500", ring: "ring-rose-400", edge: "border-rose-400" },
+  { mark: "bg-violet-200/80 dark:bg-violet-800/70", dot: "bg-violet-500", ring: "ring-violet-400", edge: "border-violet-400" },
+  { mark: "bg-teal-200/80 dark:bg-teal-800/70", dot: "bg-teal-500", ring: "ring-teal-400", edge: "border-teal-400" },
+  { mark: "bg-indigo-200/80 dark:bg-indigo-800/70", dot: "bg-indigo-500", ring: "ring-indigo-400", edge: "border-indigo-400" },
+  { mark: "bg-cyan-200/80 dark:bg-cyan-800/70", dot: "bg-cyan-500", ring: "ring-cyan-400", edge: "border-cyan-400" },
 ];
 
 export function itemColor(items: RubricItemOut[], itemId: number) {

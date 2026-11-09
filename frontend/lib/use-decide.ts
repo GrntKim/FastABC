@@ -59,6 +59,7 @@ export function useClearDecisions(assignmentId: number) {
 export function useFindEvidence(assignmentId: number) {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: ["evidence", assignmentId], // item rows watch it to say "searching" while it runs
     mutationFn: (submissionId: number) =>
       api<{ requested: number }>(`/submissions/${submissionId}/evidence`, { method: "POST" }),
     onSuccess: ({ requested }) => {
