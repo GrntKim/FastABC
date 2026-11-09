@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import type { CellOut, RubricItemOut } from "@/lib/api";
 import { describePred, formatPoints, outcomeName, pointOptions, predPoints, type PointOption } from "@/lib/rubric";
 import { cn } from "@/lib/utils";
@@ -50,33 +49,49 @@ export default function SplitOpinion({
 
   return (
     <div className={cn("grid gap-2", !stacked && "sm:grid-cols-2")}>
-      {sides.map((side) => (
-        <div key={side.title} className="flex flex-col gap-1.5 rounded-lg border border-rose-200 bg-rose-50/40 p-3 dark:border-rose-900 dark:bg-rose-950/20">
-          <span className="text-xs font-medium text-rose-800 dark:text-rose-300" title={side.hint}>
-            {side.title}
-          </span>
-          {side.points === null ? (
-            <strong className="text-muted-foreground">판단 없음</strong>
-          ) : (
-            <div className="flex items-baseline gap-2">
-              <strong className="text-base">{outcomeName(item, side.points)}</strong>
-              <span className="text-lg font-bold tabular-nums">{formatPoints(side.points)}점</span>
-            </div>
-          )}
-          {side.why && <p className="text-sm text-muted-foreground">{side.why}</p>}
-          {side.points !== null && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="mt-auto self-start"
-              disabled={disabled || cell.final_points === side.points}
-              onClick={() => onPick(side.points!)}
-            >
-              이 판단으로 확정
-            </Button>
-          )}
-        </div>
-      ))}
+      {sides.map((side) => {
+        const chosen = side.points !== null && cell.final_points === side.points;
+        const other = cell.final_points !== null && !chosen;
+        return (
+          // the whole card is the choice: one click on the side the grader agrees with
+          <button
+            key={side.title}
+            type="button"
+            disabled={disabled || side.points === null || chosen}
+            onClick={() => onPick(side.points!)}
+            className={cn(
+              "group/side flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors",
+              chosen
+                ? "border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/30"
+                : "hover:border-primary hover:bg-muted/40 disabled:hover:border-border disabled:hover:bg-transparent",
+              other && "opacity-50",
+            )}
+          >
+            <span className="flex items-baseline gap-2">
+              <span className="text-xs text-muted-foreground" title={side.hint}>
+                {side.title}
+              </span>
+              {side.points === null ? (
+                <strong className="text-muted-foreground">판단 없음</strong>
+              ) : (
+                <strong>
+                  {outcomeName(item, side.points)} · {formatPoints(side.points)}점
+                </strong>
+              )}
+              <span
+                className={cn(
+                  "ml-auto text-xs",
+                  chosen ? "font-medium text-emerald-700 dark:text-emerald-400" : "text-primary/60 group-hover/side:text-primary",
+                  side.points === null && "hidden",
+                )}
+              >
+                {chosen ? "✓ 확정" : "이 판단으로 확정"}
+              </span>
+            </span>
+            {side.why && <span className="text-sm text-muted-foreground">{side.why}</span>}
+          </button>
+        );
+      })}
     </div>
   );
 }

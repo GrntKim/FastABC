@@ -151,6 +151,7 @@ export default function StudentView({ assignment, onGoResults }: { assignment: A
       duration: 1400,
     });
   };
+  const doneHere = loads.get(submission.id)!.open === 0;
   const nextAttention = [...list.slice(index + 1), ...list.slice(0, index + 1)].find(
     (s) => s.id !== submission.id && attention(loads.get(s.id)!) > 0,
   );
@@ -198,21 +199,22 @@ export default function StudentView({ assignment, onGoResults }: { assignment: A
             paperGone={paperGone}
             answer={<AnswerText text={submission.clean_text} items={assignment.items} byItem={byItem} focused={focused} onFocus={setFocused} />}
             locked={locked}
-            footer={
-              <>
-                <Button size="sm" variant="ghost" onClick={() => go(index - 1)}>
-                  ← 이전 학생
+            prev={
+              <Button size="sm" variant="ghost" onClick={() => go(index - 1)}>
+                ← 이전 학생
+              </Button>
+            }
+            next={
+              // the main button once this student is done; until then, confirming comes first
+              nextAttention ? (
+                <Button size="sm" variant={doneHere ? "default" : "outline"} onClick={() => go(list.indexOf(nextAttention))}>
+                  다음 확인 필요 학생 ({studentName(nextAttention, hidden)}) →
                 </Button>
-                {nextAttention ? (
-                  <Button size="sm" className="ml-auto" onClick={() => go(list.indexOf(nextAttention))}>
-                    다음 확인 필요 학생 ({studentName(nextAttention, hidden)}) →
-                  </Button>
-                ) : (
-                  <Button size="sm" variant="outline" className="ml-auto" onClick={() => go(index + 1)}>
-                    다음 학생 →
-                  </Button>
-                )}
-              </>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => go(index + 1)}>
+                  다음 학생 →
+                </Button>
+              )
             }
           />
         </div>
@@ -524,7 +526,8 @@ function ItemList({
   paperGone,
   answer,
   locked,
-  footer,
+  prev,
+  next,
 }: {
   assignmentId: number;
   submission: SubmissionOut;
@@ -536,7 +539,8 @@ function ItemList({
   paperGone: boolean; // the exam paper is scrolled out of view, so this header is stuck to the top
   answer: React.ReactNode; // the answer text, to drop down from the stuck header
   locked: boolean; // grades are finalized
-  footer: React.ReactNode; // moving on to another student
+  prev: React.ReactNode; // moving on to another student
+  next: React.ReactNode;
 }) {
   const acceptConfident = useAcceptConfident(assignmentId);
   const clearDecisions = useClearDecisions(assignmentId);
@@ -551,6 +555,8 @@ function ItemList({
   // rows that still need a look: undecided with a reason to check
   const needsLook = (cell: CellOut) => cell.final_points === null && checkReason(cell) !== null;
   const checkRows = rows.filter(({ cell }) => needsLook(cell));
+  // undecided rows whose recommendation can stand: what "추천대로 확정" settles
+  const quick = rows.filter(({ cell }) => cell.final_points === null && !needsLook(cell)).length;
   // exactly the rows to check are open (the default view)
   const checkOnly = checkRows.length > 0 && rows.every(({ item, cell }) => isOpen(item, cell) === needsLook(cell));
   const score = scoreOf(items, [...byItem.values()], submission.id);
@@ -590,9 +596,9 @@ function ItemList({
           )}
           {checkRows.length > 0 && (
             <Button
-              size="sm"
+              size="xs"
               variant="ghost"
-              className={cn(!paperGone && "ml-auto")}
+              className={cn("text-muted-foreground", !paperGone && "ml-auto")}
               // from any state, one click shows just the rows to check; from that view, one click folds them
               onClick={() => setOpened(Object.fromEntries(rows.map(({ item, cell }) => [item.id, !checkOnly && needsLook(cell)])))}
             >
@@ -600,32 +606,12 @@ function ItemList({
             </Button>
           )}
           <Button
-            size="sm"
+            size="xs"
             variant="ghost"
-            className={cn(!paperGone && checkRows.length === 0 && "ml-auto")}
+            className={cn("text-muted-foreground", !paperGone && checkRows.length === 0 && "ml-auto")}
             onClick={() => setOpened(Object.fromEntries(rows.map(({ item }) => [item.id, !allOpen])))}
           >
             {allOpen ? "모두 접기" : "모두 펼치기"}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={acceptConfident.isPending || locked}
-            onClick={() => acceptConfident.mutate({ submission_id: submission.id })}
-            title="확인이 필요 없는 항목만 추천대로 확정합니다. 확인 필요로 표시된 항목은 그대로 둡니다."
-          >
-            추천대로 확정 (확인 필요 항목 제외)
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={clearDecisions.isPending || open === rows.length || locked}
-            onClick={() =>
-              confirm(`${studentFull(submission, hidden)}의 확정한 항목 ${rows.length - open}개를 모두 취소할까요? 직접 고른 점수도 지워집니다.`) &&
-              clearDecisions.mutate({ submission_id: submission.id })
-            }
-          >
-            모두 취소
           </Button>
         </CardHeader>
         {paperGone && showAnswer && <div className="max-h-[50vh] overflow-y-auto border-t px-4 py-2">{answer}</div>}
@@ -644,6 +630,14 @@ function ItemList({
               setOpened({ ...opened, [item.id]: next });
               onFocus(next ? item.id : null);
             }}
+            onDecided={() => {
+              setOpened((o) => {
+                const rest = { ...o };
+                delete rest[item.id];
+                return rest;
+              });
+              if (focused === item.id) onFocus(null);
+            }}
             focused={focused === item.id}
             answer={submission.clean_text}
             searching={searching}
@@ -652,7 +646,36 @@ function ItemList({
           />
         ))}
       </CardContent>
-      <div className="flex items-center gap-2 border-t px-4 pt-3">{footer}</div>
+      {/* the grader's most used button, kept in reach at the bottom of the screen while the items scroll */}
+      <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-2 rounded-b-xl border-t bg-card px-4 py-3 shadow-[0_-4px_8px_-6px_rgb(0_0_0/0.15)]">
+        {prev}
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-muted-foreground"
+          disabled={clearDecisions.isPending || open === rows.length || locked}
+          onClick={() =>
+            confirm(`${studentFull(submission, hidden)}의 확정한 항목 ${rows.length - open}개를 모두 취소할까요? 직접 고른 점수도 지워집니다.`) &&
+            clearDecisions.mutate({ submission_id: submission.id })
+          }
+        >
+          모두 취소
+        </Button>
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          {quick > 0 ? (
+            <Button
+              disabled={acceptConfident.isPending || locked}
+              onClick={() => acceptConfident.mutate({ submission_id: submission.id })}
+              title="확인이 필요 없는 항목만 추천대로 확정합니다. 확인 필요로 표시된 항목은 그대로 둡니다."
+            >
+              {quick === open ? `남은 ${quick}개 항목 추천대로 확정` : `확인 필요 외 ${quick}개 항목 추천대로 확정`}
+            </Button>
+          ) : (
+            open > 0 && <span className="text-sm text-muted-foreground">확인 필요 항목 {open}개를 위에서 확정하세요</span>
+          )}
+          {next}
+        </div>
+      </div>
     </Card>
   );
 }
@@ -668,6 +691,7 @@ function ItemRow({
   color,
   expanded,
   onToggle,
+  onDecided,
   focused,
   answer,
   searching,
@@ -680,6 +704,7 @@ function ItemRow({
   color: ReturnType<typeof itemColor>;
   expanded: boolean;
   onToggle: () => void; // also marks the item's evidence in the answer
+  onDecided: () => void; // a decision made in this row: fold it away
   focused: boolean;
   answer: string;
   searching: boolean; // the evidence lookup for this answer is running
@@ -691,7 +716,8 @@ function ItemRow({
   const reason = decided ? null : checkReason(cell);
   const busy = decide.isPending || locked;
   const set = (body: { action: "accept" | "clear" } | { action: "set"; points: number }) =>
-    decide.mutate({ gradeId: cell.grade_id, body });
+    decide.mutate({ gradeId: cell.grade_id, body }, { onSuccess: () => body.action !== "clear" && onDecided() });
+  const flash = useFlashOnDecide(cell.final_points);
 
   const llm = llmView(cell);
   const judge = cell.secondary && cell.route !== "auto" ? cell.secondary : cell.primary;
@@ -701,7 +727,10 @@ function ItemRow({
   const confidence = cell.primary?.conf != null ? `첫 판단 확신도 ${Math.round(cell.primary.conf * 100)}%` : undefined;
 
   return (
-    <div className={cn("flex flex-col gap-2 px-4 py-2.5", reason && cn("border-l-4", CHECK_TONE[reason].edge), focused && "bg-muted/50")}>
+    <div
+      ref={flash}
+      className={cn("group flex flex-col gap-2 px-4 py-2.5", reason && cn("border-l-4", CHECK_TONE[reason].edge), focused && "bg-muted/50")}
+    >
       {/* on a narrow screen the decision side drops to its own line instead of squeezing the name away */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 basis-56 flex-wrap items-center gap-x-2 gap-y-1 text-left">
@@ -727,15 +756,21 @@ function ItemRow({
         <div className="ml-auto flex shrink-0 items-center gap-2">
           {decided ? (
             <>
-              <span className="whitespace-nowrap text-sm">
-                <span className="text-emerald-700 dark:text-emerald-400">✓</span> {outcomeName(item, cell.final_points!)}
-              </span>
-              <span className="whitespace-nowrap text-xs text-muted-foreground">{cell.decision && DECISION_LABEL[cell.decision]}</span>
               {!locked && (
-                <Button size="xs" variant="ghost" disabled={busy} onClick={() => set({ action: "clear" })}>
+                // out of the way until the row is pointed at or opened
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  className={cn("text-muted-foreground", !expanded && "opacity-0 group-hover:opacity-100 focus-visible:opacity-100")}
+                  disabled={busy}
+                  onClick={() => set({ action: "clear" })}
+                >
                   취소
                 </Button>
               )}
+              <span className="whitespace-nowrap text-sm text-muted-foreground" title={cell.decision ? DECISION_LABEL[cell.decision] : undefined}>
+                {outcomeName(item, cell.final_points!)}
+              </span>
             </>
           ) : cell.recommended_points !== null ? (
             <>
@@ -757,9 +792,10 @@ function ItemRow({
               {cell.route === "pending" ? "추천을 기다리는 중" : "추천 없음 · 직접 고르세요"}
             </span>
           )}
-          <span className="w-16 shrink-0 text-right tabular-nums" title={decided ? undefined : "아직 확정하지 않았습니다"}>
+          <span className="w-20 shrink-0 text-right tabular-nums" title={decided ? undefined : "아직 확정하지 않았습니다"}>
             {decided ? (
               <>
+                <span className="mr-1 text-sm text-emerald-600 dark:text-emerald-400">✓</span>
                 <strong className={cn("text-xl", cell.final_points! < 0 && "text-rose-600 dark:text-rose-400")}>
                   {formatPoints(cell.final_points!)}
                 </strong>
@@ -815,6 +851,22 @@ function ItemRow({
   );
 }
 
+/** A short green wash over a row the moment its points are confirmed, so the click visibly lands. */
+function useFlashOnDecide(points: number | null) {
+  const ref = useRef<HTMLDivElement>(null);
+  const before = useRef(points);
+  useEffect(() => {
+    if (before.current === null && points !== null && ref.current) {
+      ref.current.animate([{ backgroundColor: "rgb(16 185 129 / 0.18)" }, { backgroundColor: "transparent" }], {
+        duration: 1200,
+        easing: "ease-out",
+      });
+    }
+    before.current = points;
+  }, [points]);
+  return ref;
+}
+
 /**
  * The item's evidence quoted from the answer, right where the grader decides, so there is no scrolling
  * back up to find it. Each quote keeps a few words around it and jumps to its place on the exam paper.
@@ -835,9 +887,7 @@ function Evidence({
   if (!text) return null;
   if (!view) return searching ? <p className="text-xs text-muted-foreground">답안에서 근거 찾는 중…</p> : null;
   const found = excerpts(text, view.evidence);
-  if (found.length === 0) {
-    return <p className="text-xs text-muted-foreground">답안에서 이 항목에 해당하는 문장을 찾지 못했습니다.</p>;
-  }
+  if (found.length === 0) return null; // the reasoning below already says what is missing
   return (
     <div className="flex flex-col gap-1">
       <span className="text-xs text-muted-foreground">답안에서</span>
