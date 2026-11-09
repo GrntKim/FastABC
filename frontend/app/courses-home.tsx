@@ -55,7 +55,7 @@ export default function CoursesHome() {
       </div>
 
       {attention > 0 && (
-        <p className="rounded-lg border bg-muted/40 px-4 py-3 text-sm">
+        <p className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-800 dark:bg-amber-950/40">
           이번 학기에 직접 확인이 필요한 칸이 <strong>{attention}칸</strong> 있습니다.
         </p>
       )}

@@ -77,54 +77,56 @@ export default function CourseScreen({ courseId }: { courseId: number }) {
       {c.assignments.length === 0 ? (
         <p className="text-muted-foreground">아직 문항이 없습니다. 문제와 채점 기준을 넣어 첫 문항을 만드세요.</p>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>문항</TableHead>
-              <TableHead>상태</TableHead>
-              <TableHead className="w-48">확정 진행</TableHead>
-              <TableHead className="text-right">답안</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {c.assignments.map((a) => {
-              const p = a.progress;
-              return (
-                <TableRow key={a.id}>
-                  <TableCell>
-                    {a.assessment && <div className="text-xs text-muted-foreground">{a.assessment}</div>}
-                    <Link href={`/assignments/${a.id}`} className="font-medium hover:underline">
-                      {a.title}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={STAGE_VARIANT[p.stage]}>{STAGE_LABEL[p.stage] ?? p.stage}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    {p.cells > 0 && (
-                      <div className="flex items-center gap-2">
-                        <Progress value={(p.decided / p.cells) * 100} className="flex-1" />
-                        <span className="text-xs text-muted-foreground">
-                          {p.decided}/{p.cells}
-                        </span>
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">{p.submissions}</TableCell>
-                  <TableCell className="text-right">
-                    <Link
-                      href={`/assignments/${a.id}`}
-                      className={buttonVariants({ size: "sm", variant: p.attention ? "default" : "outline" })}
-                    >
-                      {nextAction(a)}
-                    </Link>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+        <div className="rounded-xl bg-card px-2 shadow-xs ring-1 ring-foreground/10">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>문항</TableHead>
+                <TableHead>상태</TableHead>
+                <TableHead className="w-48">확정 진행</TableHead>
+                <TableHead className="text-right">답안</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {c.assignments.map((a) => {
+                const p = a.progress;
+                return (
+                  <TableRow key={a.id}>
+                    <TableCell>
+                      {a.assessment && <div className="text-xs text-muted-foreground">{a.assessment}</div>}
+                      <Link href={`/assignments/${a.id}`} className="font-medium hover:underline">
+                        {a.title}
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={STAGE_VARIANT[p.stage]}>{STAGE_LABEL[p.stage] ?? p.stage}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {p.cells > 0 && (
+                        <div className="flex items-center gap-2">
+                          <Progress value={(p.decided / p.cells) * 100} className="flex-1" />
+                          <span className="text-xs text-muted-foreground">
+                            {p.decided}/{p.cells}
+                          </span>
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">{p.submissions}</TableCell>
+                    <TableCell className="text-right">
+                      <Link
+                        href={`/assignments/${a.id}`}
+                        className={buttonVariants({ size: "sm", variant: p.attention ? "default" : "outline" })}
+                      >
+                        {nextAction(a)}
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       {editing && <CourseForm open={editing} onOpenChange={setEditing} course={c} />}

@@ -1,20 +1,12 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CellOut, GradeDecisionIn, RubricItemOut } from "@/lib/api";
 import { highlight } from "@/lib/highlight";
-import { confLabel, describePred, formatPred, pointOptions, ROUTE_LABEL, SAMPLED_HINT } from "@/lib/rubric";
+import { confLabel, describePred, formatPred, pointOptions, ROUTE_LABEL, ROUTE_TONE, SAMPLED_HINT } from "@/lib/rubric";
 import { useDecide } from "@/lib/use-decide";
-
-const ROUTE_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  auto: "secondary",
-  skip: "outline",
-  llm: "default",
-  human: "destructive",
-  pending: "outline",
-};
+import { cn } from "@/lib/utils";
 
 export default function CellCard({
   assignmentId,
@@ -34,15 +26,29 @@ export default function CellCard({
   const decided = cell.final_points !== null;
   const pending = cell.route === "pending";
 
+  // undecided cells the grader must look at get an accent edge, as in the student view
+  const accent =
+    !decided &&
+    (cell.route === "human"
+      ? "border-l-4 border-l-rose-400"
+      : cell.route === "llm"
+        ? "border-l-4 border-l-violet-400"
+        : cell.sampled && "border-l-4 border-l-amber-400");
+
   return (
-    <Card className={decided ? "opacity-70" : undefined}>
+    <Card className={cn(accent, decided && "opacity-70")}>
       <CardHeader className="flex flex-row items-center gap-2">
         <CardTitle className="font-mono">{cell.label}</CardTitle>
-        <Badge variant={ROUTE_VARIANT[cell.route]}>{ROUTE_LABEL[cell.route] ?? cell.route}</Badge>
+        <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", ROUTE_TONE[cell.route])}>
+          {ROUTE_LABEL[cell.route] ?? cell.route}
+        </span>
         {cell.sampled && (
-          <Badge variant="outline" title={SAMPLED_HINT}>
+          <span
+            className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+            title={SAMPLED_HINT}
+          >
             샘플 검토
-          </Badge>
+          </span>
         )}
         {decided && (
           <span className="ml-auto text-sm">
@@ -53,11 +59,11 @@ export default function CellCard({
       </CardHeader>
 
       <CardContent className="grid gap-4 md:grid-cols-[1fr_18rem]">
-        <p className="whitespace-pre-wrap leading-relaxed">
+        <p className="self-start whitespace-pre-wrap rounded-md bg-yellow-50 p-3 leading-relaxed ring-1 ring-yellow-300/60 dark:bg-yellow-950/30 dark:ring-yellow-800/50">
           {cell.answer
             ? highlight(cell.answer, evidence).map((s, i) =>
                 s.marked ? (
-                  <mark key={i} className="rounded bg-yellow-200 px-0.5 dark:bg-yellow-700">
+                  <mark key={i} className="rounded bg-sky-200/80 px-0.5 text-inherit dark:bg-sky-800/70">
                     {s.text}
                   </mark>
                 ) : (
@@ -88,6 +94,8 @@ export default function CellCard({
             <div className="flex flex-col gap-2">
               {cell.recommended_points !== null ? (
                 <Button
+                  // confident auto cells can go through bulk accept: keep their button quiet
+                  variant={cell.route === "auto" && !cell.sampled ? "secondary" : "default"}
                   disabled={decide.isPending}
                   onClick={() => decide.mutate({ action: "accept" })}
                 >
