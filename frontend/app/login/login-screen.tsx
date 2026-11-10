@@ -3,10 +3,12 @@
 import { useMutation } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { api, ApiError, json, type UserOut } from "@/lib/api";
+import { useMe } from "@/lib/use-me";
 
 type Mode = "login" | "signup";
 
@@ -23,6 +25,7 @@ function message(e: unknown, mode: Mode) {
 export default function LoginScreen() {
   const params = useSearchParams();
   const router = useRouter();
+  const me = useMe(); // a 401 here only means logged out: /login is a public page
   const next = safeNext(params.get("next"));
   // the mode lives in the URL, not in state: the page stays mounted between visits, so state would keep
   // whichever form was open last instead of the one the link asked for
@@ -48,6 +51,32 @@ export default function LoginScreen() {
     value: form[key],
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [key]: e.target.value }),
   });
+
+  if (me.isPending) return null;
+  if (me.data)
+    // already in: go on, or log out to use another account
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl">이미 로그인되어 있습니다</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <p className="text-sm text-muted-foreground">{me.data.name} · {me.data.email}</p>
+          <Link href={next} className={buttonVariants()}>
+            채점하러 가기
+          </Link>
+          <Button
+            variant="ghost"
+            onClick={async () => {
+              await api("/auth/logout", { method: "POST" }).catch(() => undefined);
+              window.location.reload(); // a full load: no cached data of this account survives
+            }}
+          >
+            다른 계정으로 로그인
+          </Button>
+        </CardContent>
+      </Card>
+    );
 
   return (
     <Card>
