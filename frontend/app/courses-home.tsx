@@ -118,28 +118,31 @@ export default function CoursesHome() {
         </p>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {/* one wide card per course, stacked: each exam row says in full what it is */}
+      <div className="flex flex-col gap-3">
         {shown.map((c) => (
-          <Link key={c.id} href={`/courses/${c.id}`} className="group">
-            <Card className="h-full transition-colors group-hover:bg-muted/40">
-              <CardHeader>
-                <p className="text-xs text-muted-foreground">{c.department}</p>
-                <CardTitle className="text-lg">
-                  {c.name} <span className="text-muted-foreground font-normal">· {c.section}분반</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-2 text-sm">
-                <p className="text-muted-foreground">
-                  문항 {c.assignment_count} · 답안 {c.submission_count}
-                </p>
-                <ul className="flex flex-col gap-1.5">
-                  {groupsOf(c).map((g) => (
-                    <GroupRow key={g.exam_id ?? "none"} group={g} />
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          </Link>
+          <Card key={c.id} className="gap-0 py-0">
+            <Link
+              href={`/courses/${c.id}`}
+              className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b px-4 py-3 transition-colors hover:bg-muted/40"
+            >
+              <span className="text-lg font-semibold">
+                {c.name} <span className="font-normal text-muted-foreground">{c.section}분반</span>
+              </span>
+              <span className="text-sm text-muted-foreground">
+                {c.department} · 문항 {c.assignment_count} · 답안 {c.submission_count}
+              </span>
+              <span className="ml-auto text-sm text-muted-foreground">과목 열기 →</span>
+            </Link>
+            <ul className="divide-y">
+              {groupsOf(c).map((g) => (
+                <GroupRow key={g.exam_id ?? "none"} course={c} group={g} />
+              ))}
+              {groupsOf(c).length === 0 && (
+                <li className="px-4 py-3 text-sm text-muted-foreground">아직 시험이나 문항이 없습니다. 과목을 열어 추가하세요.</li>
+              )}
+            </ul>
+          </Card>
         ))}
       </div>
 
@@ -156,32 +159,47 @@ const PERIODS: { value: Period; name: string }[] = [
   { value: "other", name: "그 외 (퀴즈·과제 등)" },
 ];
 const PERIOD_LABEL: Record<Period, string> = { midterm: "중간", final: "기말", other: "그 외" };
-// the period as a tag on each card row, the same colors as nothing else on the page uses
-const PERIOD_TAG: Record<Period, string> = {
-  midterm: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200",
-  final: "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200",
-  other: "bg-muted text-muted-foreground",
-};
 
-/** One exam of a course card: its name, where its questions stand, and whether anything needs a look. */
-function GroupRow({ group: g }: { group: CourseGroup }) {
+/**
+ * One exam of a course, named in full ("2026년 2학기 딥러닝개론 중간고사") so it reads on its own,
+ * with where its questions stand. Opens the exam's results; questions outside an exam open the course.
+ */
+function GroupRow({ course: c, group: g }: { course: CourseSummary; group: CourseGroup }) {
   const stages = Object.keys(STAGE_LABEL).filter((s) => g.stages[s]);
   return (
-    <li className="flex flex-wrap items-center gap-1">
-      <span className={cn("w-9 shrink-0 rounded px-1 py-0.5 text-center text-[0.7rem] font-medium", PERIOD_TAG[g.period])}>
-        {PERIOD_LABEL[g.period]}
-      </span>
-      <span className="mr-1 text-xs font-medium">{g.name ?? "시험 밖 문항"}</span>
-      {g.assignment_count === 0 ? (
-        <span className="text-xs text-muted-foreground">문항 없음</span>
-      ) : (
-        stages.map((s) => (
-          <Badge key={s} variant="outline">
-            {STAGE_LABEL[s]} {g.stages[s]}
-          </Badge>
-        ))
-      )}
-      {g.attention > 0 && <Badge>확인할 곳 있음</Badge>}
+    <li>
+      <Link
+        href={g.exam_id !== null ? `/exams/${g.exam_id}` : `/courses/${c.id}`}
+        className="grid gap-x-4 gap-y-1.5 px-4 py-3 transition-colors hover:bg-muted/40 sm:grid-cols-[1fr_auto_auto] sm:items-center"
+      >
+        <span>
+          <span className="text-muted-foreground">
+            {termLabel(c.term)} {c.name}{" "}
+          </span>
+          <strong className="font-semibold">{g.name ?? "시험에 묶이지 않은 문항"}</strong>
+        </span>
+        <span className="flex flex-wrap items-center gap-1 text-sm">
+          {g.assignment_count === 0 ? (
+            <span className="text-muted-foreground">문항 없음</span>
+          ) : (
+            <>
+              <span className="mr-1 text-muted-foreground">문항 {g.assignment_count}</span>
+              {stages.map((s) => (
+                <Badge key={s} variant="outline">
+                  {STAGE_LABEL[s]} {g.stages[s]}
+                </Badge>
+              ))}
+            </>
+          )}
+        </span>
+        {/* on a phone the arrow alone would take a line: there it shows only with the badge */}
+        <span className={cn("items-center gap-2 sm:flex sm:justify-end", g.attention > 0 ? "flex" : "hidden")}>
+          {g.attention > 0 && <Badge>확인할 곳 있음</Badge>}
+          <span className="text-muted-foreground" aria-hidden>
+            →
+          </span>
+        </span>
+      </Link>
     </li>
   );
 }

@@ -11,7 +11,7 @@ export default function UserMenu() {
   if (me.isPending) return null;
   if (!me.data)
     return (
-      <nav className="flex items-center gap-2 text-sm">
+      <nav className="flex items-center gap-2 whitespace-nowrap text-sm">
         <Link href="/welcome" className="mr-2 hover:underline">
           소개
         </Link>
@@ -24,14 +24,14 @@ export default function UserMenu() {
       </nav>
     );
   return (
-    <nav className="flex items-center gap-4 text-sm">
+    <nav className="flex items-center gap-3 whitespace-nowrap text-sm sm:gap-4">
       <Link href="/welcome" className="hover:underline">
         소개
       </Link>
       <Link href={"/"} className="hover:underline">
         과목
       </Link>
-      <span className="text-muted-foreground">{me.data.name}</span>
+      <span className="hidden text-muted-foreground sm:inline">{me.data.name}</span>
       <Button
         size="sm"
         variant="ghost"
