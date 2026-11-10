@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { api, ApiError, type CourseGroup, type CourseSummary } from "@/lib/api";
 import { STAGE_LABEL, termLabel } from "@/lib/progress";
 import { useMe } from "@/lib/use-me";
+import { cn } from "@/lib/utils";
 import { GradesDue } from "@/components/grades-due";
 import { GRADING_STEPS, StepList } from "@/components/step-list";
 import CourseForm from "./course-form";
@@ -152,16 +153,25 @@ type Period = CourseGroup["period"];
 const PERIODS: { value: Period; name: string }[] = [
   { value: "midterm", name: "중간" },
   { value: "final", name: "기말" },
-  { value: "other", name: "그 밖 (퀴즈·과제 등)" },
+  { value: "other", name: "그 외 (퀴즈·과제 등)" },
 ];
-const PERIOD_LABEL: Record<Period, string> = { midterm: "중간", final: "기말", other: "그 밖의" };
+const PERIOD_LABEL: Record<Period, string> = { midterm: "중간", final: "기말", other: "그 외" };
+// the period as a tag on each card row, the same colors as nothing else on the page uses
+const PERIOD_TAG: Record<Period, string> = {
+  midterm: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200",
+  final: "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200",
+  other: "bg-muted text-muted-foreground",
+};
 
 /** One exam of a course card: its name, where its questions stand, and whether anything needs a look. */
 function GroupRow({ group: g }: { group: CourseGroup }) {
   const stages = Object.keys(STAGE_LABEL).filter((s) => g.stages[s]);
   return (
     <li className="flex flex-wrap items-center gap-1">
-      <span className="mr-1 min-w-16 text-xs font-medium">{g.name ?? "시험 밖 문항"}</span>
+      <span className={cn("w-9 shrink-0 rounded px-1 py-0.5 text-center text-[0.7rem] font-medium", PERIOD_TAG[g.period])}>
+        {PERIOD_LABEL[g.period]}
+      </span>
+      <span className="mr-1 text-xs font-medium">{g.name ?? "시험 밖 문항"}</span>
       {g.assignment_count === 0 ? (
         <span className="text-xs text-muted-foreground">문항 없음</span>
       ) : (
