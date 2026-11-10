@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,8 +22,18 @@ function message(e: unknown, mode: Mode) {
 
 export default function LoginScreen() {
   const params = useSearchParams();
+  const router = useRouter();
   const next = safeNext(params.get("next"));
-  const [mode, setMode] = useState<Mode>(params.get("mode") === "signup" ? "signup" : "login");
+  // the mode lives in the URL, not in state: the page stays mounted between visits, so state would keep
+  // whichever form was open last instead of the one the link asked for
+  const mode: Mode = params.get("mode") === "signup" ? "signup" : "login";
+  const switchTo = (m: Mode) => {
+    const query = new URLSearchParams(params);
+    if (m === "signup") query.set("mode", "signup");
+    else query.delete("mode");
+    router.replace(query.size ? `/login?${query}` : "/login");
+    submit.reset();
+  };
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const submit = useMutation({
     mutationFn: () =>
@@ -84,10 +94,7 @@ export default function LoginScreen() {
           <button
             type="button"
             className="text-primary underline-offset-4 hover:underline"
-            onClick={() => {
-              setMode(signup ? "login" : "signup");
-              submit.reset();
-            }}
+            onClick={() => switchTo(signup ? "login" : "signup")}
           >
             {signup ? "로그인" : "가입하기"}
           </button>

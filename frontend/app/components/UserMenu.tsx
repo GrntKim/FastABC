@@ -1,16 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useMe } from "@/lib/use-me";
 
-/** Navigation and the account, once logged in; nothing on the login page. */
+/** Logged in: the introduction, the courses and the account. Logged out: ways in. */
 export default function UserMenu() {
-  const me = useMe();
-  if (!me.data) return null;
+  const me = useMe(); // a 401 here only means logged out
+  if (me.isPending) return null;
+  if (!me.data)
+    return (
+      <nav className="flex items-center gap-2 text-sm">
+        <Link href="/welcome" className="mr-2 hover:underline">
+          소개
+        </Link>
+        <Link href="/login" className={buttonVariants({ size: "sm", variant: "ghost" })}>
+          로그인
+        </Link>
+        <Link href="/login?mode=signup" className={buttonVariants({ size: "sm" })}>
+          가입하기
+        </Link>
+      </nav>
+    );
   return (
     <nav className="flex items-center gap-4 text-sm">
+      <Link href="/welcome" className="hover:underline">
+        소개
+      </Link>
       <Link href={"/"} className="hover:underline">
         과목
       </Link>
