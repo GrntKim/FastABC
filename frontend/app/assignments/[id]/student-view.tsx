@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { api, type AssignmentOut, type CellOut, type RubricItemOut, type SubmissionOut } from "@/lib/api";
 import { annotate, excerpts } from "@/lib/highlight";
 import {
-  CHECK_HINT,
+  checkHelp,
   formatPoints,
   itemMax,
   CHECK_TONE,
@@ -24,6 +24,7 @@ import {
 } from "@/lib/rubric";
 import { HideNamesSwitch, StudentTag } from "@/components/student";
 import { studentFull, studentName, useHideNames } from "@/lib/student";
+import { HelpTip } from "@/components/help-tip";
 import { JudgeCards, PointPicker, SampleNote } from "@/components/point-picker";
 import { cn } from "@/lib/utils";
 import { useAcceptConfident, useClearDecisions, useDecide, useFindEvidence } from "@/lib/use-decide";
@@ -304,7 +305,7 @@ function ProgressStrip({
       {explain && (
         <ul className="ml-4 list-disc space-y-1 rounded-md bg-muted/60 py-2 pr-3 pl-5 text-xs leading-5">
           <li>AI가 모든 학생의 모든 항목을 먼저 판단합니다. 확신한 항목은 추천대로 한 번에 확정할 수 있게 둡니다.</li>
-          <li>AI가 확신하지 못했거나, 다시 읽은 AI와 의견이 갈린 항목만 &lsquo;확인 필요&rsquo;로 보여 드립니다.</li>
+          <li>처음 판단한 AI가 확신하지 못한 항목은 다른 AI가 다시 읽습니다. 둘이 같으면 &lsquo;AI가 다시 확인함&rsquo;, 다르면 &lsquo;AI 의견이 갈림&rsquo;으로 &lsquo;확인 필요&rsquo;에 보여 드립니다.</li>
           <li>확신한 항목 중 일부(약 10%)도 &lsquo;무작위 점검&rsquo;으로 섞어 AI가 놓친 것이 없는지 보게 합니다.</li>
           <li>점수는 어느 경우든 채점자가 확정해야 기록됩니다.</li>
         </ul>
@@ -553,6 +554,7 @@ function ItemList({
   const [hidden] = useHideNames();
   const searching = useIsMutating({ mutationKey: ["evidence", assignmentId] }) > 0;
   const rows = items.filter((i) => i.kind !== "gate" && byItem.has(i.id)).map((item) => ({ item, cell: byItem.get(item.id)! }));
+  const firstSample = rows.find(({ cell }) => cell.sampled && cell.route === "auto")?.item.id;
   // rows the grader opened or closed; the rest open only while they need a look
   const [opened, setOpened] = useState<Record<number, boolean>>({});
   const isOpen = (item: RubricItemOut, cell: CellOut) =>
@@ -623,8 +625,10 @@ function ItemList({
         {paperGone && showAnswer && <div className="max-h-[50vh] overflow-y-auto border-t px-4 py-2">{answer}</div>}
       </div>
       <CardContent className="flex flex-col divide-y px-0">
+        {/* the random audit is explained in full on its first item only */}
         {rows.map(({ item, cell }) => (
           <ItemRow
+            sampleBrief={cell.sampled && item.id !== firstSample}
             key={item.id}
             assignmentId={assignmentId}
             item={item}
@@ -696,6 +700,7 @@ function ItemRow({
   searching,
   onShowInAnswer,
   locked,
+  sampleBrief,
 }: {
   assignmentId: number;
   item: RubricItemOut;
@@ -709,6 +714,7 @@ function ItemRow({
   searching: boolean; // the evidence lookup for this answer is running
   onShowInAnswer: (at: number) => void;
   locked: boolean;
+  sampleBrief: boolean; // another item of this student already explains the random audit
 }) {
   const decide = useDecide(assignmentId);
   const decided = cell.final_points !== null;
@@ -745,11 +751,11 @@ function ItemRow({
           {reason && (
             <span
               className={cn("shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium", CHECK_TONE[reason].chip)}
-              title={CHECK_HINT[reason]}
             >
               {reason}
             </span>
           )}
+          {reason && <HelpTip text={checkHelp(item, cell, reason)} />}
         </button>
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
           {decided && !locked && (
@@ -777,7 +783,7 @@ function ItemRow({
           {cell.route !== "skip" && (
             <Evidence text={answer} view={llm} searching={searching} color={color} onShow={onShowInAnswer} />
           )}
-          <SampleNote cell={cell} />
+          <SampleNote cell={cell} brief={sampleBrief} />
           {cell.route === "human" ? (
             <JudgeCards item={item} cell={cell} disabled={busy} onPick={(points) => set({ action: "set", points })} />
           ) : (

@@ -5,7 +5,8 @@ import { StudentTag } from "@/components/student";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CellOut, GradeDecisionIn, RubricItemOut } from "@/lib/api";
 import { highlight } from "@/lib/highlight";
-import { CHECK_HINT, CHECK_TONE, checkReason, describePred } from "@/lib/rubric";
+import { HelpTip } from "@/components/help-tip";
+import { CHECK_TONE, checkHelp, checkReason, describePred } from "@/lib/rubric";
 import { useDecide } from "@/lib/use-decide";
 import { cn } from "@/lib/utils";
 import { JudgeCards, PointPicker, SampleNote } from "@/components/point-picker";
@@ -39,10 +40,9 @@ export default function CellCard({
           <StudentTag student={cell} />
         </CardTitle>
         {reason && (
-          <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", CHECK_TONE[reason].chip)} title={CHECK_HINT[reason]}>
-            {reason}
-          </span>
+          <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", CHECK_TONE[reason].chip)}>{reason}</span>
         )}
+        {reason && <HelpTip text={checkHelp(item, cell, reason)} />}
         {decided && <span className="ml-auto text-sm text-emerald-700 dark:text-emerald-400">✓ 확정</span>}
       </CardHeader>
 

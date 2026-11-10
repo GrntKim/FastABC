@@ -11,10 +11,10 @@ function hint(item: RubricItemOut, o: PointOption): string | undefined {
   return describePred(item, o.points !== 0); // noul, including deductions
 }
 
-/** The two judges of a split cell, named at their options. */
+/** The two judges, named at their options: apart on a split cell, together on a re-checked one. */
 function judgeMarks(item: RubricItemOut, cell: CellOut): Map<number, string[]> {
   const marks = new Map<number, string[]>();
-  if (cell.route !== "human") return marks;
+  if (cell.route !== "human" && cell.route !== "llm") return marks;
   for (const [name, pred] of [["1차", cell.primary?.pred] as const, ["재확인", cell.secondary?.pred] as const]) {
     const points = predPoints(item, pred);
     if (points !== null) marks.set(points, [...(marks.get(points) ?? []), name]);
@@ -79,7 +79,16 @@ export function PointPicker({
               {formatPoints(o.points)}
             </span>
             {named && (
-              <span className={cn("whitespace-nowrap text-[0.65rem]", chosen ? "text-primary-foreground/80" : "text-rose-600/80 dark:text-rose-400/80")}>
+              <span
+                className={cn(
+                  "whitespace-nowrap text-[0.65rem]",
+                  chosen
+                    ? "text-primary-foreground/80"
+                    : cell.route === "llm"
+                      ? "text-violet-700/80 dark:text-violet-300/80"
+                      : "text-rose-600/80 dark:text-rose-400/80",
+                )}
+              >
                 {marks.get(o.points)?.join(" · ") ?? " "}
               </span>
             )}
@@ -166,8 +175,11 @@ export function JudgeCards({
  * Why a confident item is up for a look: it was drawn for the random audit. Said where the grader
  * sees it, since a confident item asking for attention otherwise looks like a mistake.
  */
-export function SampleNote({ cell }: { cell: CellOut }) {
-  if (!cell.sampled || cell.route !== "auto") return null;
+export function SampleNote({ cell, brief = false }: { cell: CellOut; brief?: boolean }) {
+  // gone once decided, like the reason chip: it explains why to look, not what was done
+  if (!cell.sampled || cell.route !== "auto" || cell.final_points !== null) return null;
+  // said once in full per student; the rest only point back to it
+  if (brief) return <p className="text-xs text-amber-800 dark:text-amber-300">무작위 점검 항목입니다. 추천이 맞으면 그 점수를 누르세요.</p>;
   return (
     <p className="rounded-md bg-amber-50 px-2.5 py-1.5 text-xs leading-5 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
       AI가 확신한 항목입니다. AI 판단이 정말 맞는지 확인하려고, 확신한 항목 중 일부(약 10%)를 무작위로 골라 보여 드립니다.

@@ -92,7 +92,7 @@ export function outcome(item: RubricItemOut, points: number | null): string {
 export function checkReason(cell: { route: string; sampled: boolean }): string | null {
   if (cell.route === "pending") return "AI가 다시 보는 중";
   if (cell.route === "human") return "AI 의견이 갈림";
-  if (cell.route === "llm") return "AI가 확신하지 못함";
+  if (cell.route === "llm") return "AI가 다시 확인함";
   if (cell.sampled) return "무작위 점검";
   return null;
 }
@@ -100,15 +100,22 @@ export function checkReason(cell: { route: string; sampled: boolean }): string |
 export const CHECK_HINT: Record<string, string> = {
   "AI가 다시 보는 중": "더 꼼꼼한 AI가 이 항목을 다시 판단하고 있습니다. 끝나면 추천이 나옵니다.",
   "AI 의견이 갈림": "두 AI의 판단이 달라 추천을 내지 않았습니다. 직접 점수를 고르세요.",
-  "AI가 확신하지 못함": "처음 판단이 확실하지 않아 다시 판단했습니다. 추천이 있지만 확인해 주세요.",
+  "AI가 다시 확인함": "처음 판단한 AI가 확신하지 못해 다른 AI가 다시 읽었고, 둘이 같은 결론을 냈습니다. 경계에 있는 답안일 수 있으니 근거를 보고 확정하세요.",
   "무작위 점검": "확신이 높은 항목 중 무작위로 뽑았습니다. 일괄 확정에서 빠지니 직접 확인하세요.",
 };
+
+/** The reason in full for its "?" tip; a re-checked cell also names the outcome both AIs agreed on. */
+export function checkHelp(item: RubricItemOut, cell: { route: string; recommended_points: number | null }, reason: string): string {
+  if (cell.route === "llm" && cell.recommended_points !== null)
+    return `처음 판단한 AI가 확신하지 못해 다른 AI가 다시 읽었고, 둘 다 같은 결론(${outcomeName(item, cell.recommended_points)})을 냈습니다. 경계에 있는 답안일 수 있으니 근거를 보고 확정하세요.`;
+  return CHECK_HINT[reason];
+}
 
 // Accent for a cell that needs a look: left edge on cards, chip color for the reason
 export const CHECK_TONE: Record<string, { edge: string; chip: string }> = {
   "AI가 다시 보는 중": { edge: "border-l-amber-300", chip: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200" },
   "AI 의견이 갈림": { edge: "border-l-rose-400", chip: "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200" },
-  "AI가 확신하지 못함": { edge: "border-l-violet-400", chip: "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200" },
+  "AI가 다시 확인함": { edge: "border-l-violet-400", chip: "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200" },
   "무작위 점검": { edge: "border-l-amber-400", chip: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200" },
 };
 
