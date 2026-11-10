@@ -176,7 +176,7 @@ function GroupRow({ course: c, group: g }: { course: CourseSummary; group: Cours
           <span className="text-muted-foreground">
             {termLabel(c.term)} {c.name}{" "}
           </span>
-          <strong className="font-semibold">{g.name ?? "시험에 묶이지 않은 문항"}</strong>
+          <strong className="font-semibold">{g.name ?? "시험에 넣지 않은 문항"}</strong>
         </span>
         <span className="flex flex-wrap items-center gap-1 text-sm">
           {g.assignment_count === 0 ? (

@@ -7,6 +7,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { GradesDue } from "@/components/grades-due";
 import { progressSegments, SegmentBar } from "@/components/segment-bar";
 import { StepList, type Step } from "@/components/step-list";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -113,6 +114,9 @@ export default function CourseScreen({ courseId }: { courseId: number }) {
                 <div className="flex flex-wrap items-center gap-2 px-1">
                   <h3 className="text-base font-semibold">{exam.name}</h3>
                   <span className="text-sm text-muted-foreground">문항 {questions.length}개</span>
+                  {!(questions.length > 0 && questions.every((a) => a.progress.stage === "finalized")) && (
+                    <GradesDue term={c.term} question={{ examName: exam.name }} className="mx-1" />
+                  )}
                   <Button size="xs" variant="ghost" className="text-muted-foreground" onClick={() => setExamForm({ exam })}>
                     이름 바꾸기
                   </Button>
@@ -147,7 +151,12 @@ export default function CourseScreen({ courseId }: { courseId: number }) {
           })}
           {c.assignments.some((a) => a.exam_id === null) && (
             <section className="flex flex-col gap-2 rounded-xl bg-card p-3 shadow-xs ring-1 ring-foreground/10">
-              <h3 className="px-1 text-base font-semibold text-muted-foreground">시험에 넣지 않은 문항</h3>
+              <div className="flex flex-wrap items-center gap-2 px-1">
+                <h3 className="text-base font-semibold text-muted-foreground">시험에 넣지 않은 문항</h3>
+                {c.assignments.some((a) => a.exam_id === null && a.progress.stage !== "finalized") && (
+                  <GradesDue term={c.term} question={{ examName: null }} className="mx-1" />
+                )}
+              </div>
               <QuestionTable questions={c.assignments.filter((a) => a.exam_id === null)} />
             </section>
           )}
