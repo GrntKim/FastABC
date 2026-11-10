@@ -245,7 +245,7 @@ class Judge(Protocol):
 | POST | `/assignments/{id}/submissions/csv` | 답안 CSV 업로드 (최대 5 MB, UTF-8 또는 CP949) |
 | GET | `/assignments/{id}/submissions` | 답안 목록 (식별 정보 제거본) |
 | DELETE | `/submissions/{id}` | 답안 삭제 (확정 칸이 없을 때만) |
-| POST | `/assignments/{id}/grade` | 채점 시작 (202, 재판단은 백그라운드) |
+| POST | `/assignments/{id}/grade` | 채점 시작 (202, 재판단은 백그라운드). `only_new=true`면 채점 시작 뒤 추가한 답안만 판단하고 기존 확정은 그대로 둠 |
 | GET | `/assignments/{id}/grading` | 경로별 칸 수, 남은 재판단 |
 | GET | `/assignments/{id}/cells` | 칸 목록 (추천, 판단기 출력, 확정) |
 | PATCH | `/grades/{id}` | 칸 확정 `accept` / `set` / `clear` |

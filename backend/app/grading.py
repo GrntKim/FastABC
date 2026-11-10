@@ -13,8 +13,8 @@ from functools import lru_cache
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.judges.base import Judge, Judgment, Questions
 from app.drafting import RubricDrafter
+from app.judges.base import Judge, Judgment, Questions
 from app.judges.gemini import GeminiJudge, GeminiRubricDrafter
 from app.judges.jev import DEFAULT_MODEL as PRIMARY_MODEL
 from app.judges.jev import JevJudge
@@ -105,19 +105,38 @@ def has_confirmed_grades(db: Session, assignment_id: int) -> bool:
     ) is not None
 
 
-def run_primary(db: Session, assignment: Assignment, judge: Judge) -> int:
-    """Re-grade every submission with the primary judge. Returns the number of pending cells."""
-    submission_ids = select(Submission.id).where(Submission.assignment_id == assignment.id)
-    db.execute(delete(JudgmentRecord).where(JudgmentRecord.submission_id.in_(submission_ids)))
-    db.execute(delete(Grade).where(Grade.submission_id.in_(submission_ids)))
+def ungraded(db: Session, assignment: Assignment) -> list[Submission]:
+    """Readable answers with no first judgment yet: added after grading started."""
+    judged = select(JudgmentRecord.submission_id).where(JudgmentRecord.source == JudgeSource.PRIMARY)
+    # queried, not read from assignment.submissions: that collection may predate an upload in this session
+    return list(db.scalars(
+        select(Submission)
+        .where(
+            Submission.assignment_id == assignment.id,
+            Submission.id.not_in(judged),
+            Submission.extraction_status != ExtractionStatus.FAILED,
+        )
+        .order_by(Submission.label)
+    ))
+
+
+def run_primary(db: Session, assignment: Assignment, judge: Judge, only_new: bool = False) -> int:
+    """Grade with the primary judge: every submission again, or only those not graded yet. Returns pending cells."""
+    if only_new:
+        targets = ungraded(db, assignment)
+    else:
+        submission_ids = select(Submission.id).where(Submission.assignment_id == assignment.id)
+        db.execute(delete(JudgmentRecord).where(JudgmentRecord.submission_id.in_(submission_ids)))
+        db.execute(delete(Grade).where(Grade.submission_id.in_(submission_ids)))
+        targets = [s for s in assignment.submissions if s.extraction_status != ExtractionStatus.FAILED]
 
     items = {item.key: item for item in assignment.items}
     questions = questions_for(assignment.items)
     pending = 0
     rng = random.Random(assignment.id)  # same sample on re-grade
-    for submission in assignment.submissions:
-        if submission.extraction_status == ExtractionStatus.FAILED:
-            continue
+    for submission in targets:
+        if only_new:
+            rng = random.Random(f"{assignment.id}-{submission.id}")  # an added answer's sample does not shift others
         judgments = judge.evaluate(assignment.problem, submission.clean_text, questions)
         for j in judgments:
             item = items[j.question_id]
@@ -148,7 +167,9 @@ def escalate(session_factory: Callable[[], Session], assignment_id: int, judge: 
         assignment = db.get(Assignment, assignment_id)
         items = {item.id: item for item in assignment.items}
         questions = questions_for(assignment.items)
-        for submission in assignment.submissions:
+        # queried rather than assignment.submissions, which may predate an answer added in the same session
+        submissions = db.scalars(select(Submission).where(Submission.assignment_id == assignment_id).order_by(Submission.id))
+        for submission in submissions:
             pending = db.scalars(
                 select(Grade).where(Grade.submission_id == submission.id, Grade.route == GradeRoute.PENDING)
             ).all()

@@ -133,7 +133,9 @@ function GradingCard({
     refetchInterval: (q) => (q.state.data && !q.state.data.done ? 2000 : false),
   });
   const grade = useMutation({
-    mutationFn: () => api<GradingStatus>(`/assignments/${assignmentId}/grade`, { method: "POST" }),
+    // only_new: answers added after grading started, leaving every existing decision as it is
+    mutationFn: (onlyNew: boolean) =>
+      api<GradingStatus>(`/assignments/${assignmentId}/grade${onlyNew ? "?only_new=true" : ""}`, { method: "POST" }),
     onSuccess: (data) => {
       queryClient.setQueryData(["grading", assignmentId], data);
       queryClient.invalidateQueries({ queryKey: ["cells", assignmentId] });
@@ -148,8 +150,9 @@ function GradingCard({
   const graded = !!s && s.total > 0;
   const start = () => {
     if (graded && !confirm("기존 판단과 추천을 지우고 다시 채점할까요? 확정한 항목이 있으면 다시 채점할 수 없습니다.")) return;
-    grade.mutate();
+    grade.mutate(false);
   };
+  const fresh = s?.ungraded ?? 0;
 
   return (
     <Card>
@@ -164,11 +167,23 @@ function GradingCard({
           >
             {grade.isPending ? "판단 중…" : graded ? "다시 채점" : "채점 시작"}
           </Button>
-          {graded && <Button onClick={onStarted}>채점하러 가기</Button>}
+          {graded && fresh > 0 ? (
+            <Button disabled={grade.isPending} onClick={() => grade.mutate(true)}>
+              {grade.isPending ? "판단 중…" : `새 답안 ${fresh}건 채점`}
+            </Button>
+          ) : (
+            graded && <Button onClick={onStarted}>채점하러 가기</Button>
+          )}
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {submissionCount === 0 && <p className="text-muted-foreground">답안을 먼저 올리세요.</p>}
+        {graded && fresh > 0 && (
+          <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+            채점을 시작한 뒤 추가한 답안 {fresh}건이 아직 판단 전입니다. &ldquo;새 답안 {fresh}건 채점&rdquo;은 이 답안만 판단하고, 이미 확정한
+            항목은 그대로 둡니다.
+          </p>
+        )}
         {graded && (
           <>
             <Progress value={((s.total - s.pending) / s.total) * 100} />

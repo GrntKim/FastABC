@@ -25,6 +25,7 @@ class Progress:
     pending: int = 0
     attention: int = 0  # undecided cells a person must look at: human, llm, or sampled
     students_done: int = 0  # submissions with every cell confirmed
+    graded_submissions: int = 0  # submissions with at least one cell
     finalized: bool = False
 
     @property
@@ -35,8 +36,8 @@ class Progress:
             return Stage.SETUP
         if self.pending:
             return Stage.GRADING
-        if self.decided < self.cells:
-            return Stage.REVIEW
+        if self.decided < self.cells or self.graded_submissions < self.submissions:
+            return Stage.REVIEW  # an answer added later still waits to be graded
         return Stage.DONE
 
 
@@ -70,6 +71,14 @@ def progress(db: Session, assignment_ids: list[int]) -> dict[int, Progress]:
     for aid, cells, decided, pending, attention in rows:
         p = result[aid]
         p.cells, p.decided, p.pending, p.attention = cells, decided, pending or 0, attention or 0
+
+    for aid, count in db.execute(
+        select(Submission.assignment_id, func.count(func.distinct(Grade.submission_id)))
+        .join(Grade, Grade.submission_id == Submission.id)
+        .where(Submission.assignment_id.in_(assignment_ids))
+        .group_by(Submission.assignment_id)
+    ):
+        result[aid].graded_submissions = count
 
     finished = (
         select(Submission.assignment_id)

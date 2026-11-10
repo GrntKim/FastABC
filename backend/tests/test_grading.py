@@ -100,7 +100,7 @@ def test_routes_and_points(client, db, grading):
     assert (c["b", "misc_is_optimizer"].route, c["b", "misc_is_optimizer"].recommended_pred) == ("human", None)
 
     status = client.get(f"/assignments/{aid}/grading").json()
-    assert status == {"total": 12, "pending": 0, "done": True, "routes": {"auto": 10, "llm": 1, "human": 1}}
+    assert status == {"total": 12, "pending": 0, "done": True, "routes": {"auto": 10, "llm": 1, "human": 1}, "ungraded": 0}
 
     records = db.query(JudgmentRecord).all()
     assert sum(r.source == "primary" for r in records) == 14
@@ -160,3 +160,27 @@ def test_no_submissions_and_unknown(client, course_id, grading):
     assert client.post(f"/assignments/{aid}/grade").status_code == 400
     assert client.post("/assignments/999999/grade").status_code == 404
     assert client.get("/assignments/999999/grading").status_code == 404
+
+
+def test_grade_only_new_answers(client, db, grading):
+    """An answer added after grading started gets graded alone; confirmed grades stay."""
+    primary = FakePrimary({"b": {"mentions_chain_rule": (True, 0.2)}})
+    secondary = FakeSecondary({"b": {"mentions_chain_rule": True}})
+    aid = grading(primary, secondary, ["a"])
+    client.post(f"/assignments/{aid}/grade")
+    first = client.get(f"/assignments/{aid}/cells").json()[0]
+    client.patch(f"/grades/{first['grade_id']}", json={"action": "set", "points": 0})
+
+    csv = "student_id,answer\n20239999,b\n"
+    client.post(f"/assignments/{aid}/submissions/csv", files={"file": ("b.csv", csv.encode(), "text/csv")})
+    assert client.get(f"/assignments/{aid}/grading").json()["ungraded"] == 1
+    assert client.get(f"/assignments/{aid}").json()["progress"]["stage"] == "review"  # waits for the new answer
+    assert client.post(f"/assignments/{aid}/grade").status_code == 409  # a full re-grade would drop the decision
+
+    r = client.post(f"/assignments/{aid}/grade", params={"only_new": True})
+    assert r.status_code == 202 and r.json()["ungraded"] == 0
+    cells = client.get(f"/assignments/{aid}/cells").json()
+    assert {c["answer"] for c in cells} == {"a", "b"} and len(cells) == 12
+    assert next(c for c in cells if c["grade_id"] == first["grade_id"])["final_points"] == 0  # kept
+    assert next(c for c in cells if c["answer"] == "b" and c["item_key"] == "mentions_chain_rule")["route"] == "llm"
+    assert client.post(f"/assignments/{aid}/grade", params={"only_new": True}).status_code == 400  # nothing new

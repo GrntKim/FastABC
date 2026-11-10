@@ -10,8 +10,16 @@ from sqlalchemy.orm import Session
 
 from app.auth import current_user, own_assignment
 from app.db import get_db, get_session_factory
-from app.grading import Judges, escalate, get_judges, has_confirmed_grades, run_primary
-from app.models import Grade, GradeRoute, Submission, User
+from app.finalization import ensure_unlocked
+from app.grading import (
+    Judges,
+    escalate,
+    get_judges,
+    has_confirmed_grades,
+    run_primary,
+    ungraded,
+)
+from app.models import Assignment, Grade, GradeRoute, Submission, User
 from app.schemas import GradingStatus
 
 logger = logging.getLogger(__name__)
@@ -27,27 +35,34 @@ def _status(db: Session, assignment_id: int) -> GradingStatus:
         .group_by(Grade.route)
     ).all())
     pending = counts.get(GradeRoute.PENDING, 0)
-    return GradingStatus(total=sum(counts.values()), pending=pending, done=pending == 0, routes=counts)
+    new = len(ungraded(db, db.get(Assignment, assignment_id)))
+    return GradingStatus(total=sum(counts.values()), pending=pending, done=pending == 0, routes=counts, ungraded=new)
 
 
 @router.post("/grade", status_code=status.HTTP_202_ACCEPTED)
 def start_grading(
     assignment_id: int,
     background_tasks: BackgroundTasks,
+    only_new: bool = False,
     db: Session = Depends(get_db),
     judges: Judges = Depends(get_judges),
     session_factory: Callable[[], Session] = Depends(get_session_factory),
     user: User = Depends(current_user),
 ) -> GradingStatus:
-    """(Re-)grade every submission. Primary judgments return now; escalations finish in the background."""
+    """(Re-)grade every submission, or with `only_new` just the answers added since: confirmed grades stay.
+    Primary judgments return now; escalations finish in the background."""
     assignment = own_assignment(db, user, assignment_id)
     if not assignment.submissions:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "no submissions to grade")
-    if has_confirmed_grades(db, assignment_id):
+    if only_new:
+        ensure_unlocked(db, assignment_id)
+        if not ungraded(db, assignment):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "no new submissions to grade")
+    elif has_confirmed_grades(db, assignment_id):
         raise HTTPException(status.HTTP_409_CONFLICT, "some grades are already confirmed")
 
     try:
-        pending = run_primary(db, assignment, judges.primary)
+        pending = run_primary(db, assignment, judges.primary, only_new=only_new)
     except httpx.HTTPError as e:
         db.rollback()
         logger.exception("primary judge failed")

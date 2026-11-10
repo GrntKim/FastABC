@@ -355,7 +355,8 @@ export interface paths {
         put?: never;
         /**
          * Start Grading
-         * @description (Re-)grade every submission. Primary judgments return now; escalations finish in the background.
+         * @description (Re-)grade every submission, or with `only_new` just the answers added since: confirmed grades stay.
+         *     Primary judgments return now; escalations finish in the background.
          */
         post: operations["start_grading_assignments__assignment_id__grade_post"];
         delete?: never;
@@ -934,6 +935,8 @@ export interface components {
             routes: {
                 [key: string]: number;
             };
+            /** Ungraded */
+            ungraded: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1974,7 +1977,9 @@ export interface operations {
     };
     start_grading_assignments__assignment_id__grade_post: {
         parameters: {
-            query?: never;
+            query?: {
+                only_new?: boolean;
+            };
             header?: never;
             path: {
                 assignment_id: number;

@@ -234,6 +234,7 @@ class GradingStatus(BaseModel):
     pending: int  # waiting for the LLM re-judgment
     done: bool
     routes: dict[str, int]  # route -> cell count
+    ungraded: int  # answers added after grading started, not judged yet
 
 
 class JudgeView(BaseModel):
