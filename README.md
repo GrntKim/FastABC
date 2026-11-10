@@ -2,29 +2,9 @@
 
 **서술형 채점, 봐야 할 곳부터.**
 
-FastABC는 대학 교수·조교를 위한 서술형 답안 채점 보조 도구입니다.<br/>
-AI가 모든 답안을 채점 기준 항목별로 먼저 읽고, 애매한 곳만 골라 드립니다.<br/>
-추천 점수와 근거만 보여 주고, 모든 점수는 채점자가 확정합니다.
+대학 교수·조교를 위한 서술형 답안 채점 보조 도구입니다. AI가 모든 답안을 채점 기준 항목별로 먼저 읽고 애매한 곳만 골라 드리며, 점수는 채점자가 확정합니다. 채점 기준이 "이 내용을 썼는가"로 나뉘는 개념·원리 설명형 문제에 맞춰져 있습니다.
 
-![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
-![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-D71F00?style=flat-square&logo=sqlalchemy&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
-![uv](https://img.shields.io/badge/uv-DE5FE9?style=flat-square&logo=uv&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
-<br/>
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
-![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat-square&logo=nextdotjs&logoColor=white)
-![React](https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black)
-![TanStack Query](https://img.shields.io/badge/TanStack_Query-FF4154?style=flat-square&logo=reactquery&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
-![shadcn/ui](https://img.shields.io/badge/shadcn%2Fui-000000?style=flat-square&logo=shadcnui&logoColor=white)
-<br/>
-![TypeSafe Jev](https://img.shields.io/badge/TypeSafe_Jev-2E4FA3?style=flat-square)
-![Gemini](https://img.shields.io/badge/Gemini-8E75B2?style=flat-square&logo=googlegemini&logoColor=white)
-
-[사용 시나리오](docs/scenario.md) · [개발 문서](docs/development.md)<br/>
-시연 영상 · 결과보고서 · 포스터 _(추가 예정)_
+[사용 시나리오](docs/scenario.md) · [개발 문서](docs/development.md) · 시연 영상 · 결과보고서 · 포스터 _(추가 예정)_
 
 ## 왜 만들었나
 
@@ -130,7 +110,24 @@ cd backend && uv run pytest              # 별도 DB fastabc_test, 외부 API �
 cd frontend && pnpm exec tsc --noEmit && pnpm lint
 ```
 
-## 기술 스택
+## 사용 기술
+
+![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
+![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-D71F00?style=flat-square&logo=sqlalchemy&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![uv](https://img.shields.io/badge/uv-DE5FE9?style=flat-square&logo=uv&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
+<br/>
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat-square&logo=nextdotjs&logoColor=white)
+![React](https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black)
+![TanStack Query](https://img.shields.io/badge/TanStack_Query-FF4154?style=flat-square&logo=reactquery&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
+![shadcn/ui](https://img.shields.io/badge/shadcn%2Fui-000000?style=flat-square&logo=shadcnui&logoColor=white)
+<br/>
+![TypeSafe Jev](https://img.shields.io/badge/TypeSafe_Jev-2E4FA3?style=flat-square)
+![Gemini](https://img.shields.io/badge/Gemini-8E75B2?style=flat-square&logo=googlegemini&logoColor=white)
 
 | 영역 | 기술 |
 |---|---|
@@ -146,6 +143,8 @@ cd frontend && pnpm exec tsc --noEmit && pnpm lint
 - LMS 직접 연동, 이메일 인증·비밀번호 재설정·과목 공유와 역할 구분 (계정은 자기 과목만 봅니다)
 - PDF·워드 답안 업로드 (CSV만)
 - 객관식 채점 (LMS·OMR이 낸 점수를 가져와 더하기만 합니다)
+- 논술형처럼 글 전체의 완성도를 보는 총체적 채점 (수준별 항목은 정확도가 71.4%로 충족 여부 항목 94.4%보다 낮아, 충족 여부 항목 여러 개로 나누도록 안내합니다)
+- 계산 문제의 숫자 검산 (풀이를 문장과 간단한 식으로 쓴 문제는 항목별 부분 점수로 다룹니다)
 - 학생 이의 제기 처리 (개정 기능으로 점수 변경과 사유만 기록)
 
 ## 라이선스

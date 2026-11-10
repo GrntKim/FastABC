@@ -39,7 +39,7 @@ export default function WelcomePage() {
         <div className="flex flex-col gap-5">
           <h1 className="text-3xl font-bold leading-snug sm:text-4xl">서술형 채점, 봐야 할 곳부터.</h1>
           <p className="text-muted-foreground sm:text-lg">
-            AI가 모든 답안을 채점 기준 항목별로 먼저 읽고, 애매한 곳만 골라 드립니다. 점수는 언제나 채점자가 확정합니다.
+            AI가 대학 서술형 답안을 채점 기준 항목별로 먼저 읽고, 애매한 곳만 골라 드립니다. 점수는 언제나 채점자가 확정합니다.
           </p>
           <WelcomeActions />
         </div>
