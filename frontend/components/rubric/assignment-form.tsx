@@ -21,7 +21,7 @@ import {
 import { termLabel } from "@/lib/progress";
 import ItemEditor from "./item-editor";
 
-export type AssignmentDraft = { assessment: string; title: string; problem: string; items: RubricItemIn[] };
+export type AssignmentDraft = { examId: number | null; number: number | null; title: string; problem: string; items: RubricItemIn[] };
 
 const GATE_ITEM: RubricItemIn = {
   key: "is_on_topic",
@@ -69,17 +69,20 @@ type ValidationDetail = { loc: (string | number)[]; msg: string }[];
 export default function AssignmentForm({
   courseId,
   assignmentId,
+  examId: startExam = null,
   initial,
 }: {
   courseId: number;
   assignmentId?: number;
+  examId?: number | null; // a new question started from an exam
   initial?: AssignmentDraft;
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const course = useQuery({ queryKey: ["course", courseId], queryFn: () => api<CourseOut>(`/courses/${courseId}`) });
 
-  const [assessment, setAssessment] = useState(initial?.assessment ?? "");
+  const [examId, setExamId] = useState<number | null>(initial ? initial.examId : startExam);
+  const [number, setNumber] = useState(initial?.number != null ? String(initial.number) : "");
   const [title, setTitle] = useState(initial?.title ?? "");
   const [problem, setProblem] = useState(initial?.problem ?? "");
   const [rubricText, setRubricText] = useState("");
@@ -104,7 +107,14 @@ export default function AssignmentForm({
       api<AssignmentOut>(
         assignmentId ? `/assignments/${assignmentId}` : "/assignments",
         json(
-          { course_id: courseId, assessment: assessment || null, title, problem, items: withKeys(withGate(items ?? [])) },
+          {
+            course_id: courseId,
+            exam_id: examId,
+            number: examId === null ? null : Number(number) || nextNumber,
+            title,
+            problem,
+            items: withKeys(withGate(items ?? [])),
+          },
           assignmentId ? "PUT" : "POST",
         ),
       ),
@@ -139,6 +149,9 @@ export default function AssignmentForm({
     return sum + (i.type === "noul" ? (i.points ?? 0) : Math.max(0, ...Object.values(i.points_map ?? {})));
   }, 0);
   const scored = (items ?? []).filter((i) => i.kind !== "gate").length;
+  // the next free number in the chosen exam, used when the grader leaves it empty
+  const nextNumber =
+    Math.max(0, ...(course.data?.assignments ?? []).filter((a) => a.exam_id === examId && a.id !== assignmentId).map((a) => a.number ?? 0)) + 1;
   const ready = title.trim() && problem.trim() && scored >= 1;
 
   return (
@@ -165,10 +178,37 @@ export default function AssignmentForm({
           <CardTitle>1. 문제</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          <div className="grid gap-3 sm:grid-cols-[12rem_1fr]">
-            <Input placeholder="평가명 (예: 중간고사 2번)" value={assessment} onChange={(e) => setAssessment(e.target.value)} />
+          <div className="grid gap-3 sm:grid-cols-[10rem_5rem_1fr]">
+            <select
+              className="h-9 rounded-md border bg-card px-2 text-sm"
+              aria-label="시험"
+              value={examId ?? ""}
+              onChange={(e) => setExamId(e.target.value ? Number(e.target.value) : null)}
+            >
+              <option value="">시험 없음</option>
+              {course.data?.exams.map((exam) => (
+                <option key={exam.id} value={exam.id}>
+                  {exam.name}
+                </option>
+              ))}
+            </select>
+            <Input
+              type="number"
+              min={1}
+              max={99}
+              aria-label="문항 번호"
+              disabled={examId === null}
+              placeholder={examId === null ? "번호" : `${nextNumber}번`}
+              value={number}
+              onChange={(e) => setNumber(e.target.value)}
+            />
             <Input placeholder="문항 제목 (예: 교착상태 필요조건)" value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
+          {course.data && course.data.exams.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              시험(중간고사 등)으로 묶으려면 과목 화면에서 시험을 먼저 추가하세요. 시험 결과에서 학생별 합계를 볼 수 있습니다.
+            </p>
+          )}
           <Textarea rows={3} placeholder="학생에게 낸 문제 그대로" value={problem} onChange={(e) => setProblem(e.target.value)} />
         </CardContent>
       </Card>

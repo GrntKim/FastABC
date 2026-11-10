@@ -53,7 +53,11 @@ erDiagram
     users ||--o{ sessions : "logged in as"
     users ||--o{ courses : owns
     users ||--o{ finalizations : signs
+    courses ||--o{ exams : has
     courses ||--o{ assignments : has
+    exams |o--o{ assignments : groups
+    exams ||--o{ imported_parts : "adds points from"
+    imported_parts ||--o{ imported_scores : has
     assignments ||--o{ rubric_items : has
     assignments ||--o{ submissions : has
     assignments ||--o{ finalizations : "signed off as"
@@ -81,10 +85,29 @@ erDiagram
         string name
         string section
     }
+    exams {
+        int id PK
+        int course_id FK
+        string name "중간고사"
+    }
+    imported_parts {
+        int id PK
+        int exam_id FK
+        string title "객관식"
+        float max_points
+    }
+    imported_scores {
+        int id PK
+        int part_id FK
+        string student_ref
+        string student_name
+        float points
+    }
     assignments {
         int id PK
         int course_id FK
-        string assessment
+        int exam_id FK "nullable"
+        int number "2 for 2번"
         string title
         text problem
         string judge_model
@@ -208,7 +231,13 @@ class Judge(Protocol):
 | POST | `/auth/signup`, `/auth/login`, `/auth/logout` | 가입(바로 로그인), 로그인, 로그아웃 |
 | GET | `/auth/me` | 로그인한 사용자 (아니면 401) |
 | GET, POST | `/courses` | 내 과목 목록, 생성 |
-| GET, PUT, DELETE | `/courses/{id}` | 과목 조회(문항과 진행 단계 포함), 수정, 삭제 |
+| GET, PUT, DELETE | `/courses/{id}` | 과목 조회(시험, 문항과 진행 단계 포함), 수정, 삭제 |
+| POST | `/courses/{id}/exams` | 시험 추가 |
+| PATCH, DELETE | `/exams/{id}` | 시험 이름 바꾸기, 삭제 (문항은 과목에 남음) |
+| GET | `/exams/{id}/results` | 시험 결과: 학생(학번) × 문항·가져온 점수, 합계 |
+| GET | `/exams/{id}/export.csv` | 시험 결과 CSV (학번, 이름, 열마다 점수, 합계) |
+| POST | `/exams/{id}/imports` | 객관식 등 다른 곳에서 채점한 점수 CSV 가져오기 (학번, 점수, 선택 이름) |
+| DELETE | `/imports/{id}` | 가져온 점수 지우기 |
 | GET, POST | `/assignments` | 문항 목록, 생성 (채점 기준 포함) |
 | GET, PUT, DELETE | `/assignments/{id}` | 문항 조회, 수정(채점 전만), 삭제 |
 | POST | `/rubric-drafts` | 채점 기준 문장 → 판단 질문 초안 (저장 안 함) |
@@ -236,8 +265,9 @@ class Judge(Protocol):
 | `/welcome` | 소개 (로그인 전 첫 화면) |
 | `/login` | 로그인, 가입 (`?mode=signup`이면 가입부터) |
 | `/` | 과목 목록 (학기 탭, 학과 필터) |
-| `/courses/[id]` | 과목: 문항 목록, 진행 단계, 다음 행동 버튼 |
-| `/courses/[id]/assignments/new` | 문항 만들기: 문제, 기준 문장 → 채점 항목 변환, 편집 |
+| `/courses/[id]` | 과목: 시험별 문항 목록, 진행 단계, 다음 행동 버튼 |
+| `/courses/[id]/assignments/new` | 문항 만들기: 시험·번호, 문제, 기준 문장 → 채점 항목 변환, 편집 (`?exam=`이면 그 시험에) |
+| `/exams/[id]` | 시험 결과: 학생별 문항 점수와 합계, 객관식 점수 가져오기, CSV 내보내기 |
 | `/assignments/[id]` | 문항: 준비(기준, 답안, 채점 실행) / 채점(학생별, 시험지 모양) / 결과(성적 확정, 내보내기) 탭 |
 | `/assignments/[id]/edit` | 문항 수정 (채점 전만) |
 | `/assignments/[id]/review` | 항목별 보기 |

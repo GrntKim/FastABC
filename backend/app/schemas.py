@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.judges.base import GATE
 from app.models import ItemKind, ItemType
@@ -105,7 +105,8 @@ class ProgressOut(BaseModel):
 
 class AssignmentIn(BaseModel):
     course_id: int
-    assessment: str | None = Field(default=None, max_length=100)  # e.g. "중간고사 2번"
+    exam_id: int | None = None  # an exam of the same course
+    number: int | None = Field(default=None, ge=1, le=99)  # question number within the exam
     title: str = Field(min_length=1, max_length=200)
     problem: str = Field(min_length=1)
     items: list[RubricItemIn] = Field(min_length=2)
@@ -132,7 +133,10 @@ class AssignmentSummary(BaseModel):
 
     id: int
     course_id: int
-    assessment: str | None
+    exam_id: int | None
+    exam_name: str | None
+    number: int | None
+    assessment: str | None  # exam and number as graders say it, e.g. "중간고사 2번"
     title: str
     judge_model: str
     created_at: datetime
@@ -155,8 +159,60 @@ class CourseSummary(CourseRef):
     stages: dict[str, int]  # stage -> assignment count
 
 
+class ExamIn(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+
+    @field_validator("name")
+    @classmethod
+    def strip_name(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("name is empty")
+        return v.strip()
+
+
+class ExamRef(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    course_id: int
+    name: str
+
+
 class CourseOut(CourseSummary):
     assignments: list[AssignmentSummary]
+    exams: list[ExamRef]
+
+
+class ExamColumn(BaseModel):
+    """One column of an exam's results: a question graded here, or points imported from elsewhere."""
+
+    kind: Literal["question", "imported"]
+    id: int  # assignment id or imported part id
+    title: str
+    number: int | None
+    max_points: float
+    stage: str | None  # questions only: setup / grading / review / done / finalized
+
+
+class ExamCell(BaseModel):
+    points: float | None  # None: not decided yet, or no answer
+    submitted: bool  # False: this student has no answer (or no imported score) for the column
+
+
+class ExamStudent(BaseModel):
+    student_ref: str
+    student_name: str | None
+    cells: list[ExamCell]
+    total: float | None  # None while any submitted answer is undecided; missing answers count as 0
+
+
+class ExamResults(BaseModel):
+    exam: ExamRef
+    course: CourseRef
+    columns: list[ExamColumn]
+    students: list[ExamStudent]
+    max_points: float
+    finalized: bool  # every question signed off
 
 
 class SubmissionOut(BaseModel):

@@ -36,7 +36,8 @@ export default function EditAssignment({ assignmentId }: { assignmentId: number 
       courseId={a.course_id}
       assignmentId={a.id}
       initial={{
-        assessment: a.assessment ?? "",
+        examId: a.exam_id,
+        number: a.number,
         title: a.title,
         problem: a.problem,
         items: a.items.map((i) => ({

@@ -95,28 +95,85 @@ class Course(Base):
     assignments: Mapped[list["Assignment"]] = relationship(
         back_populates="course", cascade="all, delete-orphan", passive_deletes=True, order_by="Assignment.created_at"
     )
+    exams: Mapped[list["Exam"]] = relationship(
+        back_populates="course", cascade="all, delete-orphan", passive_deletes=True, order_by="Exam.created_at"
+    )
+
+
+class Exam(Base):
+    """An exam of a course. Its questions are graded one by one; its results add them up per student."""
+
+    __tablename__ = "exams"
+    __table_args__ = (UniqueConstraint("course_id", "name"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(100))  # e.g. "중간고사"
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    course: Mapped[Course] = relationship(back_populates="exams")
+    assignments: Mapped[list["Assignment"]] = relationship(back_populates="exam", order_by="Assignment.number")
+    imports: Mapped[list["ImportedPart"]] = relationship(
+        back_populates="exam", cascade="all, delete-orphan", passive_deletes=True, order_by="ImportedPart.created_at"
+    )
+
+
+class ImportedPart(Base):
+    """Points graded elsewhere (multiple choice from the LMS or an OMR sheet), brought in as one column of an exam."""
+
+    __tablename__ = "imported_parts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    exam_id: Mapped[int] = mapped_column(ForeignKey("exams.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(100))  # e.g. "객관식"
+    max_points: Mapped[float] = mapped_column(Float)
+    source_filename: Mapped[str | None] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    exam: Mapped[Exam] = relationship(back_populates="imports")
+    scores: Mapped[list["ImportedScore"]] = relationship(cascade="all, delete-orphan", passive_deletes=True)
+
+
+class ImportedScore(Base):
+    __tablename__ = "imported_scores"
+    __table_args__ = (UniqueConstraint("part_id", "student_ref"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    part_id: Mapped[int] = mapped_column(ForeignKey("imported_parts.id", ondelete="CASCADE"))
+    student_ref: Mapped[str] = mapped_column(String(100))
+    student_name: Mapped[str | None] = mapped_column(String(100))
+    points: Mapped[float] = mapped_column(Float)
 
 
 class Assignment(Base):
-    """One question of an assessment, with its rubric."""
+    """One question of an exam, with its rubric. Grading happens per question."""
 
     __tablename__ = "assignments"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"))
-    assessment: Mapped[str | None] = mapped_column(String(100))  # e.g. "중간고사 2번": stands in for an exam grouping
+    exam_id: Mapped[int | None] = mapped_column(ForeignKey("exams.id", ondelete="SET NULL"), index=True)
+    number: Mapped[int | None]  # question number within the exam, e.g. 2 for "2번"
     title: Mapped[str] = mapped_column(String(200))
     problem: Mapped[str] = mapped_column(Text)
     judge_model: Mapped[str] = mapped_column(String(50))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     course: Mapped[Course] = relationship(back_populates="assignments")
+    exam: Mapped[Exam | None] = relationship(back_populates="assignments")
     items: Mapped[list["RubricItem"]] = relationship(
         back_populates="assignment", cascade="all, delete-orphan", passive_deletes=True, order_by="RubricItem.position"
     )
     submissions: Mapped[list["Submission"]] = relationship(
         back_populates="assignment", cascade="all, delete-orphan", passive_deletes=True
     )
+
+    @property
+    def assessment(self) -> str | None:
+        """How graders name the question, e.g. "중간고사 2번"."""
+        if self.exam is None:
+            return None
+        return f"{self.exam.name} {self.number}번" if self.number is not None else self.exam.name
 
 
 class RubricItem(Base):

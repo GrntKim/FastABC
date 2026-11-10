@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.auth import current_user, own_assignment, own_course
 from app.db import get_db
 from app.grading import PRIMARY_MODEL
-from app.models import Assignment, Course, Grade, RubricItem, Submission, User
+from app.models import Assignment, Course, Exam, Grade, RubricItem, Submission, User
 from app.progress import Progress, progress
 from app.schemas import AssignmentIn, AssignmentOut, AssignmentSummary, CourseRef, ProgressOut, RubricItemOut
 from app.scoring import max_total
@@ -19,6 +19,9 @@ def summary(assignment: Assignment, p: Progress) -> AssignmentSummary:
     return AssignmentSummary(
         id=assignment.id,
         course_id=assignment.course_id,
+        exam_id=assignment.exam_id,
+        exam_name=assignment.exam.name if assignment.exam else None,
+        number=assignment.number,
         assessment=assignment.assessment,
         title=assignment.title,
         judge_model=assignment.judge_model,
@@ -54,6 +57,13 @@ def _check_course(db: Session, user: User, course_id: int) -> None:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "course not found") from e
 
 
+def _check_exam(db: Session, body: AssignmentIn) -> None:
+    if body.exam_id is not None:
+        exam = db.get(Exam, body.exam_id)
+        if exam is None or exam.course_id != body.course_id:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "exam not found in this course")
+
+
 def _items(body: AssignmentIn) -> list[RubricItem]:
     return [RubricItem(position=i, **item.model_dump(mode="json")) for i, item in enumerate(body.items)]
 
@@ -61,9 +71,11 @@ def _items(body: AssignmentIn) -> list[RubricItem]:
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_assignment(body: AssignmentIn, db: Session = Depends(get_db), user: User = Depends(current_user)) -> AssignmentOut:
     _check_course(db, user, body.course_id)
+    _check_exam(db, body)
     assignment = Assignment(
         course_id=body.course_id,
-        assessment=body.assessment,
+        exam_id=body.exam_id,
+        number=body.number,
         title=body.title,
         problem=body.problem,
         judge_model=PRIMARY_MODEL,
@@ -109,8 +121,10 @@ def replace_assignment(
         raise HTTPException(status.HTTP_409_CONFLICT, "rubric cannot change after grading has started")
 
     _check_course(db, user, body.course_id)
+    _check_exam(db, body)
     assignment.course_id = body.course_id
-    assignment.assessment = body.assessment
+    assignment.exam_id = body.exam_id
+    assignment.number = body.number
     assignment.title = body.title
     assignment.problem = body.problem
     assignment.items.clear()

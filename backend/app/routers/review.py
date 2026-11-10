@@ -231,7 +231,7 @@ def find_evidence(
     return EvidenceOut(requested=len(items))
 
 
-def _results(db: Session, assignment: Assignment) -> list[SubmissionResult]:
+def submission_results(db: Session, assignment: Assignment) -> list[SubmissionResult]:
     points: dict[int, list[float | None]] = {}
     for g, s, _ in db.execute(_grades_query(assignment.id)).all():
         points.setdefault(s.id, []).append(g.final_points)
@@ -255,7 +255,7 @@ def _results(db: Session, assignment: Assignment) -> list[SubmissionResult]:
 def results(
     assignment_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)
 ) -> list[SubmissionResult]:
-    return _results(db, own_assignment(db, user, assignment_id))
+    return submission_results(db, own_assignment(db, user, assignment_id))
 
 
 @router.get("/assignments/{assignment_id}/export.csv")
@@ -268,7 +268,7 @@ def export_csv(assignment_id: int, db: Session = Depends(get_db), user: User = D
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(["student_id", "name", "label", *(i.key for i in items), "total"])
-    for r in _results(db, assignment):
+    for r in submission_results(db, assignment):
         cells = [finals.get((r.submission_id, i.id)) for i in items]
         writer.writerow([r.student_ref, r.student_name or "", r.label, *("" if p is None else p for p in cells), "" if r.total is None else r.total])
     name = f"assignment_{assignment_id}"

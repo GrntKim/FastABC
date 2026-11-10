@@ -24,7 +24,8 @@ def test_list_order_and_term_filter(client):
 
 
 def test_assignment_belongs_to_course(client, course_id):
-    body = make_body(course_id) | {"assessment": "중간고사 2번"}
+    exam_id = client.post(f"/courses/{course_id}/exams", json={"name": "중간고사"}).json()["id"]
+    body = make_body(course_id) | {"exam_id": exam_id, "number": 2}
     a = client.post("/assignments", json=body).json()
     assert (a["course"]["id"], a["course"]["name"], a["assessment"]) == (course_id, "딥러닝개론", "중간고사 2번")
     assert a["progress"]["stage"] == "setup"

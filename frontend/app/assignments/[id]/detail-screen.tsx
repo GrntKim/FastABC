@@ -41,6 +41,15 @@ export default function DetailScreen({ assignmentId }: { assignmentId: number })
         <Link href={`/courses/${a.course.id}`} className="hover:underline">
           {a.course.name} ({a.course.section}분반)
         </Link>
+        {a.exam_id !== null && (
+          <>
+            {" "}
+            ›{" "}
+            <Link href={`/exams/${a.exam_id}`} className="hover:underline" title="이 시험의 학생별 결과">
+              {a.exam_name}
+            </Link>
+          </>
+        )}
       </nav>
       <header className="flex flex-col gap-3">
         <div className="flex items-baseline gap-2">

@@ -11,7 +11,7 @@ from app.db import get_db
 from app.models import Course, User
 from app.progress import progress
 from app.routers.assignments import summary
-from app.schemas import CourseIn, CourseOut, CourseSummary
+from app.schemas import CourseIn, CourseOut, CourseSummary, ExamRef
 
 router = APIRouter(prefix="/courses", tags=["courses"])
 
@@ -47,6 +47,7 @@ def _outs(db: Session, courses: list[Course]) -> list[CourseOut]:
             attention=sum(a.progress.attention for a in assignments),
             stages=dict(Counter(a.progress.stage for a in assignments)),
             assignments=assignments,
+            exams=[ExamRef.model_validate(e) for e in c.exams],
         ))
     return outs
 
@@ -68,7 +69,7 @@ def list_courses(
     query = select(Course).where(Course.owner_id == user.id).order_by(Course.term.desc(), Course.department, Course.name, Course.section)
     if term is not None:
         query = query.where(Course.term == term)
-    return [CourseSummary(**c.model_dump(exclude={"assignments"})) for c in _outs(db, list(db.scalars(query)))]
+    return [CourseSummary(**c.model_dump(exclude={"assignments", "exams"})) for c in _outs(db, list(db.scalars(query)))]
 
 
 @router.get("/{course_id}")

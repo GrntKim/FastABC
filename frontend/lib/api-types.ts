@@ -118,6 +118,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/courses/{course_id}/exams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Exam */
+        post: operations["create_exam_courses__course_id__exams_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/exams/{exam_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Exam
+         * @description Its questions stay in the course without an exam; imported points go with it.
+         */
+        delete: operations["delete_exam_exams__exam_id__delete"];
+        options?: never;
+        head?: never;
+        /** Rename Exam */
+        patch: operations["rename_exam_exams__exam_id__patch"];
+        trace?: never;
+    };
+    "/exams/{exam_id}/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Exam Results */
+        get: operations["exam_results_exams__exam_id__results_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/exams/{exam_id}/export.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Exam
+         * @description One row per student: points per column and the total. Undecided cells are empty, missing answers "-".
+         */
+        get: operations["export_exam_exams__exam_id__export_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/exams/{exam_id}/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Scores
+         * @description Columns: student_id (학번), points (점수), optional name (이름).
+         */
+        post: operations["import_scores_exams__exam_id__imports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/imports/{part_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Import */
+        delete: operations["delete_import_imports__part_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/assignments": {
         parameters: {
             query?: never;
@@ -476,8 +588,10 @@ export interface components {
         AssignmentIn: {
             /** Course Id */
             course_id: number;
-            /** Assessment */
-            assessment?: string | null;
+            /** Exam Id */
+            exam_id?: number | null;
+            /** Number */
+            number?: number | null;
             /** Title */
             title: string;
             /** Problem */
@@ -491,6 +605,12 @@ export interface components {
             id: number;
             /** Course Id */
             course_id: number;
+            /** Exam Id */
+            exam_id: number | null;
+            /** Exam Name */
+            exam_name: string | null;
+            /** Number */
+            number: number | null;
             /** Assessment */
             assessment: string | null;
             /** Title */
@@ -519,6 +639,12 @@ export interface components {
             id: number;
             /** Course Id */
             course_id: number;
+            /** Exam Id */
+            exam_id: number | null;
+            /** Exam Name */
+            exam_name: string | null;
+            /** Number */
+            number: number | null;
             /** Assessment */
             assessment: string | null;
             /** Title */
@@ -535,6 +661,15 @@ export interface components {
             /** Submission Count */
             submission_count: number;
             progress: components["schemas"]["ProgressOut"];
+        };
+        /** Body_import_scores_exams__exam_id__imports_post */
+        Body_import_scores_exams__exam_id__imports_post: {
+            /** File */
+            file: string;
+            /** Title */
+            title: string;
+            /** Max Points */
+            max_points: number;
         };
         /** Body_upload_csv_assignments__assignment_id__submissions_csv_post */
         Body_upload_csv_assignments__assignment_id__submissions_csv_post: {
@@ -630,6 +765,8 @@ export interface components {
             };
             /** Assignments */
             assignments: components["schemas"]["AssignmentSummary"][];
+            /** Exams */
+            exams: components["schemas"]["ExamRef"][];
         };
         /** CourseRef */
         CourseRef: {
@@ -676,6 +813,72 @@ export interface components {
         EvidenceOut: {
             /** Requested */
             requested: number;
+        };
+        /** ExamCell */
+        ExamCell: {
+            /** Points */
+            points: number | null;
+            /** Submitted */
+            submitted: boolean;
+        };
+        /**
+         * ExamColumn
+         * @description One column of an exam's results: a question graded here, or points imported from elsewhere.
+         */
+        ExamColumn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "question" | "imported";
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Number */
+            number: number | null;
+            /** Max Points */
+            max_points: number;
+            /** Stage */
+            stage: string | null;
+        };
+        /** ExamIn */
+        ExamIn: {
+            /** Name */
+            name: string;
+        };
+        /** ExamRef */
+        ExamRef: {
+            /** Id */
+            id: number;
+            /** Course Id */
+            course_id: number;
+            /** Name */
+            name: string;
+        };
+        /** ExamResults */
+        ExamResults: {
+            exam: components["schemas"]["ExamRef"];
+            course: components["schemas"]["CourseRef"];
+            /** Columns */
+            columns: components["schemas"]["ExamColumn"][];
+            /** Students */
+            students: components["schemas"]["ExamStudent"][];
+            /** Max Points */
+            max_points: number;
+            /** Finalized */
+            finalized: boolean;
+        };
+        /** ExamStudent */
+        ExamStudent: {
+            /** Student Ref */
+            student_ref: string;
+            /** Student Name */
+            student_name: string | null;
+            /** Cells */
+            cells: components["schemas"]["ExamCell"][];
+            /** Total */
+            total: number | null;
         };
         /** FinalizationOut */
         FinalizationOut: {
@@ -1200,6 +1403,245 @@ export interface operations {
             header?: never;
             path: {
                 course_id: number;
+            };
+            cookie?: {
+                fastabc_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_exam_courses__course_id__exams_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: number;
+            };
+            cookie?: {
+                fastabc_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExamIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExamRef"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_exam_exams__exam_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exam_id: number;
+            };
+            cookie?: {
+                fastabc_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_exam_exams__exam_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exam_id: number;
+            };
+            cookie?: {
+                fastabc_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExamIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExamRef"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    exam_results_exams__exam_id__results_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exam_id: number;
+            };
+            cookie?: {
+                fastabc_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExamResults"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_exam_exams__exam_id__export_csv_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exam_id: number;
+            };
+            cookie?: {
+                fastabc_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_scores_exams__exam_id__imports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exam_id: number;
+            };
+            cookie?: {
+                fastabc_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_scores_exams__exam_id__imports_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExamColumn"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_import_imports__part_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                part_id: number;
             };
             cookie?: {
                 fastabc_session?: string | null;

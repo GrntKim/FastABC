@@ -16,7 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Assignment, AuthSession, Course, Grade, Submission, User
+from app.models import Assignment, AuthSession, Course, Exam, Grade, Submission, User
 
 COOKIE = "fastabc_session"
 SESSION_DAYS = 14
@@ -84,6 +84,13 @@ def own_course(db: Session, user: User, course_id: int) -> Course:
     if course is None or course.owner_id != user.id:
         raise _not_found("course")
     return course
+
+
+def own_exam(db: Session, user: User, exam_id: int) -> Exam:
+    exam = db.get(Exam, exam_id)
+    if exam is None or exam.course.owner_id != user.id:
+        raise _not_found("exam")
+    return exam
 
 
 def own_assignment(db: Session, user: User, assignment_id: int) -> Assignment:
