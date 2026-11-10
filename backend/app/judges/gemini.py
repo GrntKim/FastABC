@@ -5,6 +5,7 @@ Unpaid (free tier) API input may be used by Google and read by human reviewers:
 use a billed Cloud project before sending real student answers.
 """
 
+import base64
 import logging
 import time
 from typing import Literal
@@ -215,3 +216,35 @@ class GeminiRubricDrafter:
             store=False,
         )
         return RubricDraft.model_validate_json(interaction.output_text)
+
+
+READ_SYSTEM = """당신은 시험 답안지를 글자로 옮기는 전사자입니다. 채점하지 않습니다.
+
+규칙:
+- 답안에 쓰인 글을 보이는 그대로 옮긴다. 맞춤법, 띄어쓰기, 문법, 내용이 틀려도 고치지 않는다.
+- 빠진 말을 채우거나 요약하지 않는다. 읽을 수 없는 글자는 [?]로 쓴다.
+- 줄을 바꾼 곳은 줄을 바꾸고, 지운 글(줄 그은 글)은 옮기지 않는다.
+- 이름, 학번, 서명처럼 답안지 머리의 인적 사항 칸은 옮기지 않는다.
+- 인쇄된 문제 문장은 옮기지 않고, 학생이 쓴 답만 옮긴다.
+- 옮긴 글만 출력한다. 설명이나 머리말을 붙이지 않는다."""
+
+
+class GeminiReader:
+    """Image or scanned PDF -> the answer's text, transcribed as written (no corrections)."""
+
+    def __init__(self, client: genai.Client | None = None, model: str = DEFAULT_MODEL):
+        self.client = client or genai.Client()
+        self.model = model
+
+    def read(self, data: bytes, mime_type: str) -> str:
+        kind = "document" if mime_type == "application/pdf" else "image"
+        interaction = self.client.interactions.create(
+            model=self.model,
+            system_instruction=READ_SYSTEM,
+            input=[
+                {"type": kind, "data": base64.b64encode(data).decode(), "mime_type": mime_type},
+                {"type": "text", "text": "이 답안지에서 학생이 쓴 답을 그대로 옮겨 주세요."},
+            ],
+            store=False,
+        )
+        return interaction.output_text or ""

@@ -310,6 +310,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/assignments/{assignment_id}/readings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read File
+         * @description A PDF or picture of one answer -> its text, for the grader to check. Nothing is saved.
+         *     A PDF with a text layer is read locally; a scan or photo goes to the LLM (paid account for real answers).
+         */
+        post: operations["read_file_assignments__assignment_id__readings_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/assignments/{assignment_id}/submissions": {
         parameters: {
             query?: never;
@@ -320,7 +341,11 @@ export interface paths {
         /** List Submissions */
         get: operations["list_submissions_assignments__assignment_id__submissions_get"];
         put?: never;
-        post?: never;
+        /**
+         * Add Submission
+         * @description One answer, after the grader checked its text. Identifiers are removed as for CSV uploads.
+         */
+        post: operations["add_submission_assignments__assignment_id__submissions_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -672,6 +697,11 @@ export interface components {
             /** Max Points */
             max_points: number;
         };
+        /** Body_read_file_assignments__assignment_id__readings_post */
+        Body_read_file_assignments__assignment_id__readings_post: {
+            /** File */
+            file: string;
+        };
         /** Body_upload_csv_assignments__assignment_id__submissions_csv_post */
         Body_upload_csv_assignments__assignment_id__submissions_csv_post: {
             /** File */
@@ -990,6 +1020,16 @@ export interface components {
             /** Students Done */
             students_done: number;
         };
+        /** ReadingOut */
+        ReadingOut: {
+            /** Text */
+            text: string;
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "text" | "ai";
+        };
         /** ReopenIn */
         ReopenIn: {
             /** Reason */
@@ -1063,6 +1103,20 @@ export interface components {
             name: string;
             /** Password */
             password: string;
+        };
+        /**
+         * SubmissionIn
+         * @description One answer typed in or read from a PDF or picture, after the grader checked the text.
+         */
+        SubmissionIn: {
+            /** Student Id */
+            student_id: string;
+            /** Name */
+            name?: string | null;
+            /** Answer */
+            answer: string;
+            /** Source Filename */
+            source_filename?: string | null;
         };
         /** SubmissionOut */
         SubmissionOut: {
@@ -1911,6 +1965,43 @@ export interface operations {
             };
         };
     };
+    read_file_assignments__assignment_id__readings_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assignment_id: number;
+            };
+            cookie?: {
+                fastabc_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_read_file_assignments__assignment_id__readings_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_submissions_assignments__assignment_id__submissions_get: {
         parameters: {
             query?: never;
@@ -1931,6 +2022,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SubmissionOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_submission_assignments__assignment_id__submissions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assignment_id: number;
+            };
+            cookie?: {
+                fastabc_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmissionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmissionOut"];
                 };
             };
             /** @description Validation Error */

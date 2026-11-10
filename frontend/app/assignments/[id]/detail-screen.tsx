@@ -21,6 +21,7 @@ export default function DetailScreen({ assignmentId }: { assignmentId: number })
     refetchInterval: (q) => (q.state.data && !q.state.data.done ? 2000 : false),
   });
   const [tab, setTab] = useState<string | null>(null);
+  const [focus, setFocus] = useState<number | null>(null); // a student to open on the grading tab
 
   if (assignment.error) {
     const e = assignment.error;
@@ -86,10 +87,17 @@ export default function DetailScreen({ assignmentId }: { assignmentId: number })
             </Link>
           )}
         </div>
-        <TabsContent value="grade">{graded && <StudentView assignment={a} onGoResults={() => setTab("results")} />}</TabsContent>
+        <TabsContent value="grade">{graded && <StudentView key={focus ?? "list"} assignment={a} focus={focus} onGoResults={() => setTab("results")} />}</TabsContent>
         <TabsContent value="results">{graded && <ResultsTab assignment={a} onGoGrade={() => setTab("grade")} />}</TabsContent>
         <TabsContent value="admin">
-          <AdminPanel assignment={a} onGradingStarted={() => setTab("grade")} />
+          <AdminPanel
+            assignment={a}
+            onGradingStarted={() => setTab("grade")}
+            onOpenStudent={(id) => {
+              setFocus(id);
+              setTab("grade");
+            }}
+          />
         </TabsContent>
       </Tabs>
     </div>

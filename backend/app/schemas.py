@@ -229,6 +229,20 @@ class SubmissionOut(BaseModel):
     created_at: datetime
 
 
+class SubmissionIn(BaseModel):
+    """One answer typed in or read from a PDF or picture, after the grader checked the text."""
+
+    student_id: str = Field(min_length=1, max_length=100)
+    name: str | None = Field(default=None, max_length=100)
+    answer: str = Field(min_length=1)
+    source_filename: str | None = Field(default=None, max_length=255)
+
+
+class ReadingOut(BaseModel):
+    text: str
+    method: Literal["text", "ai"]  # taken from the PDF's own text, or transcribed by the LLM
+
+
 class GradingStatus(BaseModel):
     total: int  # cells (submission x rubric item)
     pending: int  # waiting for the LLM re-judgment

@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api, ApiError, type AssignmentOut, type GradingStatus, type RubricItemOut, type SubmissionOut } from "@/lib/api";
 import { itemName, KIND_HINT, KIND_LABEL, plain, TYPE_LABEL } from "@/lib/rubric";
+import ReadAnswer from "./read-answer";
 
 const errorMessage = (e: unknown, fallback: string) => (e instanceof ApiError ? String(e.detail) : fallback);
 
@@ -19,9 +20,11 @@ const errorMessage = (e: unknown, fallback: string) => (e instanceof ApiError ? 
 export default function AdminPanel({
   assignment,
   onGradingStarted,
+  onOpenStudent,
 }: {
   assignment: AssignmentOut;
   onGradingStarted: () => void;
+  onOpenStudent: (submissionId: number) => void; // an answer added and graded on its own
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -39,7 +42,7 @@ export default function AdminPanel({
     <div className="flex flex-col gap-6 pt-2">
       {/* in working order: criteria, answers, then the grading run */}
       <RubricCard assignment={assignment} />
-      <SubmissionsCard assignmentId={assignment.id} />
+      <SubmissionsCard assignmentId={assignment.id} onOpenStudent={onOpenStudent} />
       <GradingCard assignmentId={assignment.id} submissionCount={assignment.submission_count} onStarted={onGradingStarted} />
       <div className="flex justify-end">
         <Button
@@ -201,10 +204,15 @@ function GradingCard({
 
 const PREVIEW_ROWS = 5; // a long class list buries the grading card below it
 
-function SubmissionsCard({ assignmentId }: { assignmentId: number }) {
+function SubmissionsCard({ assignmentId, onOpenStudent }: { assignmentId: number; onOpenStudent: (submissionId: number) => void }) {
   const queryClient = useQueryClient();
   const fileInput = useRef<HTMLInputElement>(null);
   const [showAll, setShowAll] = useState(false);
+  const [reading, setReading] = useState(false);
+  const status = useQuery({
+    queryKey: ["grading", assignmentId],
+    queryFn: () => api<GradingStatus>(`/assignments/${assignmentId}/grading`),
+  });
   const submissions = useQuery({
     queryKey: ["submissions", assignmentId],
     queryFn: () => api<SubmissionOut[]>(`/assignments/${assignmentId}/submissions`),
@@ -239,7 +247,10 @@ function SubmissionsCard({ assignmentId }: { assignmentId: number }) {
     <Card>
       <CardHeader className="flex flex-row items-center gap-2">
         <CardTitle>답안 {submissions.data && `(${submissions.data.length})`}</CardTitle>
-        <div className="ml-auto">
+        <div className="ml-auto flex gap-2">
+          <Button variant="outline" onClick={() => setReading(true)}>
+            종이 답안·문서로 추가
+          </Button>
           <input
             ref={fileInput}
             type="file"
@@ -300,6 +311,14 @@ function SubmissionsCard({ assignmentId }: { assignmentId: number }) {
           </Button>
         )}
       </CardContent>
+      {reading && (
+        <ReadAnswer
+          assignmentId={assignmentId}
+          graded={(status.data?.total ?? 0) > 0}
+          onClose={() => setReading(false)}
+          onGraded={onOpenStudent}
+        />
+      )}
     </Card>
   );
 }

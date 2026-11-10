@@ -83,7 +83,15 @@ function sortIds(list: SubmissionOut[], cells: CellOut[], mode: SortMode, hidden
 }
 
 /** One student at a time: the students on the side, then the answer and its items. */
-export default function StudentView({ assignment, onGoResults }: { assignment: AssignmentOut; onGoResults: () => void }) {
+export default function StudentView({
+  assignment,
+  focus = null,
+  onGoResults,
+}: {
+  assignment: AssignmentOut;
+  focus?: number | null; // open this student first (an answer just added and graded)
+  onGoResults: () => void;
+}) {
   const submissions = useQuery({
     queryKey: ["submissions", assignment.id],
     queryFn: () => api<SubmissionOut[]>(`/assignments/${assignment.id}/submissions`),
@@ -92,7 +100,7 @@ export default function StudentView({ assignment, onGoResults }: { assignment: A
     queryKey: ["cells", assignment.id],
     queryFn: () => api<CellOut[]>(`/assignments/${assignment.id}/cells`),
   });
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState<number | null>(focus);
   const [focused, setFocused] = useState<number | null>(null);
   // Order is live until the grader acts, then frozen so students do not jump around while being graded
   const [frozen, setFrozen] = useState<{ mode: SortMode; ids: number[] } | null>(null);

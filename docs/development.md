@@ -28,12 +28,13 @@ backend/
       gemini.py        LLM 어댑터 (Google Gemini): 재판단, 근거 찾기, 채점 기준 변환
     drafting.py        채점 기준 문장 → 판단 질문 변환 인터페이스
     scoring.py         판단 → 점수, 항목별 점수 범위, 총점
+    reading.py         PDF·사진 답안 읽기 (텍스트 PDF는 로컬 pypdf, 스캔·사진은 AnswerReader)
     redact.py          식별 정보 제거
     progress.py        문항 진행 단계와 진행 수치 (채점 끝난 학생 수 포함)
     finalization.py    성적 확정: 스냅샷, 해시, 잠금
     routers/           auth, courses, assignments, drafts, submissions, grading, review, finalizations
   alembic/             마이그레이션
-  scripts/             seed_demo.py, export_rubric.py, run_eval.py
+  scripts/             seed_demo.py, booth_reset.py, export_rubric.py, run_eval.py
   tests/               pytest (실제 API 호출 없음)
   notebooks/           판단기 응답 검증 노트북 (01 Jev, 02 Gemini)
 frontend/
@@ -180,7 +181,7 @@ erDiagram
 ## 채점 흐름
 
 1. **채점 기준 변환** (`POST /rubric-drafts`): LLM이 기준 문장을 판단 질문 목록으로 바꿉니다. 저장하지 않고 편집기로 돌려주며, 채점자가 고친 뒤 문항을 저장합니다.
-2. **업로드** (`POST /assignments/{id}/submissions/csv`): 열 이름은 `학번, 답안, 이름` 또는 `student_id, answer, name`입니다. `redact()`가 학번·이름을 지우고, `학번:`·`이름:` 같은 표시와 이메일·전화번호·학번 패턴을 정규식으로 지운 `clean_text`를 만듭니다.
+2. **업로드** (`POST /assignments/{id}/submissions/csv`): 열 이름은 `학번, 답안, 이름` 또는 `student_id, answer, name`입니다. 종이 답안·문서는 한 건씩 넣습니다. `POST /assignments/{id}/readings`가 파일을 글로 바꿔 돌려주고(저장 안 함), 채점자가 확인한 글을 `POST /assignments/{id}/submissions`로 저장합니다. 글자가 들어 있는 PDF(공백 제외 20자 이상)는 `pypdf`로 로컬에서 읽고, 스캔 PDF·사진·웹캠 사진은 `AnswerReader`(구현: `GeminiReader`, 조립: `grading.get_reader`)가 "보이는 그대로, 고치지 않고, 머리의 인적 사항과 인쇄된 문제는 빼고" 옮깁니다. 이 경로는 식별 정보 제거 전에 이미지가 외부로 나가므로 실제 답안은 유료 계정에서만 씁니다. 웹캠은 브라우저에서 안내 틀 안쪽만 잘라 보냅니다. `redact()`가 학번·이름을 지우고, `학번:`·`이름:` 같은 표시와 이메일·전화번호·학번 패턴을 정규식으로 지운 `clean_text`를 만듭니다.
 3. **1차 판단** (`POST /assignments/{id}/grade`, `run_primary`): 판단 모델이 답안마다 모든 질문을 한 번에 판단합니다. 각 `Judgment`의 `confident`는 어댑터가 자기 임계값으로 정합니다. Jev는 예/아니오 확신도가 |2p−1|이고 임계값은 0.6이며, 수준과 선택형은 0.8입니다. 라우팅은 `confident`만 읽습니다.
    - 주제 확인에 "아니오"로 확신하면 나머지 칸은 `skip`(0점 추천)입니다.
    - 확신하면 `auto`가 되고, 그중 10%를 `sampled`로 표시합니다. 시드는 문항 id라 다시 채점해도 같은 칸이 뽑힙니다.
@@ -244,6 +245,8 @@ class Judge(Protocol):
 | POST | `/rubric-drafts` | 채점 기준 문장 → 판단 질문 초안 (저장 안 함) |
 | POST | `/assignments/{id}/submissions/csv` | 답안 CSV 업로드 (최대 5 MB, UTF-8 또는 CP949) |
 | GET | `/assignments/{id}/submissions` | 답안 목록 (식별 정보 제거본) |
+| POST | `/assignments/{id}/readings` | PDF·사진 한 장을 글로 읽기 (저장 안 함, 10 MB·10쪽까지) |
+| POST | `/assignments/{id}/submissions` | 확인한 답안 한 건 저장 (학번, 이름, 답안, 파일 이름) |
 | DELETE | `/submissions/{id}` | 답안 삭제 (확정 칸이 없을 때만) |
 | POST | `/assignments/{id}/grade` | 채점 시작 (202, 재판단은 백그라운드). `only_new=true`면 채점 시작 뒤 추가한 답안만 판단하고 기존 확정은 그대로 둠 |
 | GET | `/assignments/{id}/grading` | 경로별 칸 수, 남은 재판단 |
