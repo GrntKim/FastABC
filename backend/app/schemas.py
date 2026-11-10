@@ -326,7 +326,7 @@ class FinalizeIn(BaseModel):
 
 
 class TermScheduleIn(BaseModel):
-    midterm_due: date | None = None  # None: midterms follow the final due date
+    midterm_due: date | None = None  # None: midterm questions are not checked
     final_due: date | None = None
 
 

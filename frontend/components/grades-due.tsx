@@ -22,16 +22,17 @@ export function useGradesDue(term: string) {
 const isMidterm = (examName: string | null) => examName?.includes("중간") ?? false;
 
 /**
- * The due date a question's grades fall under: the midterm one for a midterm question when it is set,
- * otherwise the final one (기말고사, quizzes, questions outside an exam).
+ * The due date a question's grades fall under: the midterm one for a midterm question, the final one
+ * for everything else (기말고사, quizzes, questions outside an exam). The backend checks the same.
  */
 export function dueFor(schedule: TermScheduleOut | undefined, examName: string | null) {
   if (!schedule) return null;
-  const midterm = isMidterm(examName);
-  if (midterm && schedule.midterm_due) return { label: "중간고사", date: schedule.midterm_due, fallback: false };
-  // a midterm question with no midterm date falls back to the final one: say so
-  return schedule.final_due ? { label: "기말", date: schedule.final_due, fallback: midterm } : null;
+  const date = isMidterm(examName) ? schedule.midterm_due : schedule.final_due;
+  return date ? { label: periodLabel(examName), date } : null;
 }
+
+/** "중간고사" or "기말": which due date a question's exam falls under. */
+const periodLabel = (examName: string | null) => (isMidterm(examName) ? "중간고사" : "기말");
 
 const dayNumber = (iso: string) => {
   const [y, m, d] = iso.split("-").map(Number);
@@ -77,7 +78,7 @@ export function GradesDue({
     <>
       {!any ? (
         <Button size="xs" variant="ghost" className={cn("text-muted-foreground", className)} onClick={() => setEditing(true)}>
-          성적 입력 마감일 넣기
+          {question ? `${periodLabel(question.examName)} 성적 입력 마감일 넣기` : "성적 입력 마감일 넣기"}
         </Button>
       ) : (
         <button
@@ -90,7 +91,6 @@ export function GradesDue({
             // a question: only the date it falls under
             <>
               {own.label} 성적 입력 마감 <Due date={own.date} />
-              {own.fallback && <span>· 중간 마감 미정</span>}
             </>
           ) : (
             // the term: both dates side by side, an unset one said so
@@ -149,8 +149,8 @@ function DueDialog({ schedule, onClose }: { schedule: TermScheduleOut; onClose: 
         <DialogHeader>
           <DialogTitle>{termLabel(term)} 성적 입력 마감일</DialogTitle>
           <DialogDescription>
-            학사일정의 마감일을 넣으면 성적 확정 화면에 남은 날짜가 나오고, 마감이 지난 뒤 확정할 때 한 번 더 묻습니다. 중간
-            마감을 비워 두면 중간고사도 기말 마감을 따릅니다.
+            학사일정의 마감일을 넣으면 성적 확정 화면에 남은 날짜가 나오고, 마감이 지난 뒤 확정할 때 한 번 더 묻습니다. 비워 둔
+            마감은 확인하지 않습니다.
           </DialogDescription>
         </DialogHeader>
         <form

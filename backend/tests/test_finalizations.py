@@ -106,6 +106,16 @@ def test_midterm_questions_follow_the_midterm_due_date(client, db, decided):
     assert client.post(f"/assignments/{aid}/finalizations", json=SIGN).json()["late"] is False
 
 
+def test_midterm_questions_never_borrow_the_final_due_date(client, db, decided):
+    aid = decided["aid"]
+    a = client.get(f"/assignments/{aid}").json()
+    exam = client.post(f"/courses/{a['course']['id']}/exams", json={"name": "중간고사"}).json()["id"]
+    db.get(Assignment, aid).exam = db.get(Exam, exam)
+    db.flush()
+    client.put(f"/terms/{a['course']['term']}", json={"final_due": "2000-01-31"})  # no midterm date
+    assert client.post(f"/assignments/{aid}/finalizations", json=SIGN).json()["late"] is False
+
+
 def test_unknown_assignment(client):
     assert client.get("/assignments/999999/finalizations").status_code == 404
     assert client.post("/assignments/999999/finalizations", json=SIGN).status_code == 404

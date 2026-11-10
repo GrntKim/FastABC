@@ -43,12 +43,13 @@ def _row(db: Session, user: User, term: str) -> TermSchedule | None:
 
 def grades_due(db: Session, user: User, assignment: Assignment) -> tuple[str, date] | None:
     """Which due date this question's grades fall under, and the date: the midterm one for a midterm
-    question when it is set, otherwise the final one."""
+    question, the final one for everything else. None when that date is not set: a midterm question
+    never borrows the final date, so what the screen shows is what is checked."""
     row = _row(db, user, assignment.course.term)
     if row is None:
         return None
-    if is_midterm(assignment.exam and assignment.exam.name) and row.midterm_due is not None:
-        return "중간고사", row.midterm_due
+    if is_midterm(assignment.exam and assignment.exam.name):
+        return ("중간고사", row.midterm_due) if row.midterm_due is not None else None
     return ("기말", row.final_due) if row.final_due is not None else None
 
 

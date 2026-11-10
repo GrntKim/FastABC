@@ -111,7 +111,7 @@ class TermSchedule(Base):
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     term: Mapped[str] = mapped_column(String(20))  # same codes as courses.term
     # the last day grades can be entered, inclusive. Midterm: questions of an exam named like 중간고사;
-    # final: everything else (기말고사, quizzes, questions outside an exam), and midterms when unset
+    # final: everything else (기말고사, quizzes, questions outside an exam). An unset date checks nothing
     midterm_due: Mapped[date | None]
     final_due: Mapped[date | None]
 
