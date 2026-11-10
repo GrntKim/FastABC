@@ -18,13 +18,16 @@ import ResultsPanel from "./results-panel";
 function settled(cells: CellOut[]) {
   const decided = cells.filter((c) => c.decision !== null);
   const changed = decided.filter((c) => c.decision === "modified").length;
+  // the random audit of confident items: how many the grader looked at, and how many the AI had wrong
+  const sampled = decided.filter((c) => c.sampled);
+  const audit = { checked: sampled.length, fixed: sampled.filter((c) => c.decision === "modified").length };
   const looked = decided.filter((c) => c.decision === "modified" || checkReason(c) !== null).length;
   const segments: Segment[] = [
     { n: decided.length - looked, label: "AI가 확신해 추천대로 확정", className: "bg-sky-300 dark:bg-sky-700" },
     { n: looked - changed, label: "직접 확인", className: "bg-emerald-500" },
     { n: changed, label: "AI 추천을 고침", className: "bg-violet-500" },
   ];
-  return { looked, changed, segments };
+  return { looked, changed, segments, audit };
 }
 
 const when = (iso: string) =>
@@ -132,7 +135,7 @@ export default function ResultsTab({ assignment, onGoGrade }: { assignment: Assi
 
 /** Who answers for the grades: what the grader looked at and changed, not only what the AI suggested. */
 function Settled({ cells, students, counts }: { cells: CellOut[]; students: number; counts: Record<string, number> }) {
-  const { looked, changed, segments } = settled(cells);
+  const { looked, changed, segments, audit } = settled(cells);
   return (
     <div className="flex flex-col gap-2">
       <p className="text-base">
@@ -147,6 +150,24 @@ function Settled({ cells, students, counts }: { cells: CellOut[]; students: numb
             .join(" · ")}
         </span>
       </div>
+      {audit.checked > 0 && (
+        // what the random audit found: the reason it asked for those looks
+        <p className="text-sm">
+          무작위 점검{" "}
+          {audit.fixed > 0 ? (
+            <>
+              <strong>{audit.checked}개</strong> 중 <strong className="text-violet-700 dark:text-violet-400">{audit.fixed}개</strong>는 AI
+              추천을 고쳤습니다.
+              <span className="text-muted-foreground"> AI가 확신한 항목도 이만큼 틀릴 수 있어 일부를 골라 보게 했습니다.</span>
+            </>
+          ) : (
+            <>
+              <strong>{audit.checked}개</strong>는 모두 AI 추천이 맞았습니다.
+              <span className="text-muted-foreground"> 확신한 항목 중 일부를 골라 AI 판단을 점검한 결과입니다.</span>
+            </>
+          )}
+        </p>
+      )}
     </div>
   );
 }

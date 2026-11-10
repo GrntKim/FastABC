@@ -161,3 +161,17 @@ export function JudgeCards({
     </div>
   );
 }
+
+/**
+ * Why a confident item is up for a look: it was drawn for the random audit. Said where the grader
+ * sees it, since a confident item asking for attention otherwise looks like a mistake.
+ */
+export function SampleNote({ cell }: { cell: CellOut }) {
+  if (!cell.sampled || cell.route !== "auto") return null;
+  return (
+    <p className="rounded-md bg-amber-50 px-2.5 py-1.5 text-xs leading-5 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+      AI가 확신한 항목입니다. AI 판단이 정말 맞는지 확인하려고, 확신한 항목 중 일부(약 10%)를 무작위로 골라 보여 드립니다.
+      점선 밑줄 친 점수가 추천이니, 맞으면 그 점수를 누르세요.
+    </p>
+  );
+}

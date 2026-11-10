@@ -24,7 +24,7 @@ import {
 } from "@/lib/rubric";
 import { HideNamesSwitch, StudentTag } from "@/components/student";
 import { studentFull, studentName, useHideNames } from "@/lib/student";
-import { JudgeCards, PointPicker } from "@/components/point-picker";
+import { JudgeCards, PointPicker, SampleNote } from "@/components/point-picker";
 import { cn } from "@/lib/utils";
 import { useAcceptConfident, useClearDecisions, useDecide, useFindEvidence } from "@/lib/use-decide";
 
@@ -777,6 +777,7 @@ function ItemRow({
           {cell.route !== "skip" && (
             <Evidence text={answer} view={llm} searching={searching} color={color} onShow={onShowInAnswer} />
           )}
+          <SampleNote cell={cell} />
           {cell.route === "human" ? (
             <JudgeCards item={item} cell={cell} disabled={busy} onPick={(points) => set({ action: "set", points })} />
           ) : (

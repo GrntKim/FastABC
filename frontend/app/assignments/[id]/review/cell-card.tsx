@@ -8,7 +8,7 @@ import { highlight } from "@/lib/highlight";
 import { CHECK_HINT, CHECK_TONE, checkReason, describePred } from "@/lib/rubric";
 import { useDecide } from "@/lib/use-decide";
 import { cn } from "@/lib/utils";
-import { JudgeCards, PointPicker } from "@/components/point-picker";
+import { JudgeCards, PointPicker, SampleNote } from "@/components/point-picker";
 
 export default function CellCard({
   assignmentId,
@@ -62,6 +62,7 @@ export default function CellCard({
         </p>
 
         <div className="flex flex-col gap-3 text-sm">
+          <SampleNote cell={cell} />
           {cell.route === "human" ? (
             <JudgeCards
               item={item}
