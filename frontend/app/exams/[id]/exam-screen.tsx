@@ -63,7 +63,7 @@ export default function ExamScreen({ examId }: { examId: number }) {
         </div>
         <div className="ml-auto flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setImporting(true)}>
-            객관식 점수 가져오기
+            다른 곳에서 채점한 점수 가져오기
           </Button>
           <a className={buttonVariants()} href={`${API_URL}/exams/${examId}/export.csv`}>
             CSV 내보내기
@@ -159,7 +159,7 @@ function ColumnHead({ column: c, onRemove }: { column: ExamColumn; onRemove: () 
   );
 }
 
-/** Points graded elsewhere (LMS, OMR): a CSV of 학번 and 점수 becomes one more column. */
+/** Points graded elsewhere (multiple choice, calculation; LMS, OMR, by hand): a CSV of 학번 and 점수 becomes one more column. */
 function ImportDialog({ examId, onClose }: { examId: number; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("객관식");
@@ -186,7 +186,7 @@ function ImportDialog({ examId, onClose }: { examId: number; onClose: () => void
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>객관식 점수 가져오기</DialogTitle>
+          <DialogTitle>다른 곳에서 채점한 점수 가져오기</DialogTitle>
         </DialogHeader>
         <form
           className="flex flex-col gap-3"
@@ -196,7 +196,7 @@ function ImportDialog({ examId, onClose }: { examId: number; onClose: () => void
           }}
         >
           <p className="text-sm text-muted-foreground">
-            LMS나 OMR에서 이미 채점한 점수를 시험 결과에 한 열로 더합니다. 열: 학번, 점수, 선택 이름. UTF-8 또는 CP949.
+            객관식이나 계산 문항처럼 LMS·OMR 또는 직접 채점한 점수를 시험 결과에 한 열로 더합니다. 열: 학번, 점수, 선택 이름. UTF-8 또는 CP949.
           </p>
           <div className="grid grid-cols-[1fr_7rem] gap-3">
             <label className="flex flex-col gap-1 text-sm">

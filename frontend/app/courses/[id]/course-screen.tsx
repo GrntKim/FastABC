@@ -96,7 +96,7 @@ export default function CourseScreen({ courseId }: { courseId: number }) {
           <p>아직 문항이 없습니다. 문항 하나는 이렇게 채점합니다.</p>
           <StepList steps={ASSIGNMENT_STEPS} />
           <p className="text-sm text-muted-foreground">
-            중간고사처럼 여러 문항을 묶으려면 먼저 시험을 추가하세요. 시험 결과에서 학생별 합계를 보고, 객관식 점수도 가져올 수 있습니다.
+            중간고사처럼 여러 문항을 묶으려면 먼저 시험을 추가하세요. 시험 결과에서 학생별 합계를 보고, 객관식·계산 문항처럼 다른 곳에서 채점한 점수도 가져와 더할 수 있습니다.
           </p>
           <Link href={`/courses/${courseId}/assignments/new`} className={`self-start ${buttonVariants()}`}>
             첫 문항 만들기
@@ -121,7 +121,7 @@ export default function CourseScreen({ courseId }: { courseId: number }) {
                     variant="ghost"
                     className="text-muted-foreground"
                     onClick={() =>
-                      confirm(`시험 '${exam.name}'을 삭제할까요? 문항과 채점 결과는 과목에 남고, 가져온 객관식 점수는 지워집니다.`) &&
+                      confirm(`시험 '${exam.name}'을 삭제할까요? 문항과 채점 결과는 과목에 남고, 가져온 점수는 지워집니다.`) &&
                       removeExam.mutate(exam.id)
                     }
                   >

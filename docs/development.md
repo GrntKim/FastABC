@@ -236,7 +236,7 @@ class Judge(Protocol):
 | PATCH, DELETE | `/exams/{id}` | 시험 이름 바꾸기, 삭제 (문항은 과목에 남음) |
 | GET | `/exams/{id}/results` | 시험 결과: 학생(학번) × 문항·가져온 점수, 합계 |
 | GET | `/exams/{id}/export.csv` | 시험 결과 CSV (학번, 이름, 열마다 점수, 합계) |
-| POST | `/exams/{id}/imports` | 객관식 등 다른 곳에서 채점한 점수 CSV 가져오기 (학번, 점수, 선택 이름) |
+| POST | `/exams/{id}/imports` | 객관식·계산 문항 등 다른 곳에서 채점한 점수 CSV 가져오기 (학번, 점수, 선택 이름) |
 | DELETE | `/imports/{id}` | 가져온 점수 지우기 |
 | GET, POST | `/assignments` | 문항 목록, 생성 (채점 기준 포함) |
 | GET, PUT, DELETE | `/assignments/{id}` | 문항 조회, 수정(채점 전만), 삭제 |
@@ -267,7 +267,7 @@ class Judge(Protocol):
 | `/` | 과목 목록 (학기 탭, 학과 필터) |
 | `/courses/[id]` | 과목: 시험별 문항 목록, 진행 단계, 다음 행동 버튼 |
 | `/courses/[id]/assignments/new` | 문항 만들기: 시험·번호, 문제, 기준 문장 → 채점 항목 변환, 편집 (`?exam=`이면 그 시험에) |
-| `/exams/[id]` | 시험 결과: 학생별 문항 점수와 합계, 객관식 점수 가져오기, CSV 내보내기 |
+| `/exams/[id]` | 시험 결과: 학생별 문항 점수와 합계, 다른 곳에서 채점한 점수 가져오기, CSV 내보내기 |
 | `/assignments/[id]` | 문항: 준비(기준, 답안, 채점 실행) / 채점(학생별, 시험지 모양) / 결과(성적 확정, 내보내기) 탭 |
 | `/assignments/[id]/edit` | 문항 수정 (채점 전만) |
 | `/assignments/[id]/review` | 항목별 보기 |
