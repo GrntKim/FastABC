@@ -26,8 +26,27 @@ export function nextAction(a: AssignmentSummary): string {
   return "결과 보기";
 }
 
-/** "2026-2" -> "2026년 2학기"; other formats are shown as typed. */
+/** The sessions of an academic year, in calendar order. Codes match backend CourseIn.term. */
+export const TERM_SESSIONS = [
+  { code: "1", label: "1학기" },
+  { code: "1S", label: "여름 계절학기" },
+  { code: "2", label: "2학기" },
+  { code: "2W", label: "겨울 계절학기" },
+] as const;
+
+/** "2026-2" -> "2026년 2학기", "2026-1S" -> "2026년 여름 계절학기"; other formats are shown as typed. */
 export function termLabel(term: string): string {
-  const m = /^(\d{4})-(\d)$/.exec(term);
-  return m ? `${m[1]}년 ${m[2]}학기` : term;
+  const m = /^(\d{4})-(\w+)$/.exec(term);
+  const session = m && TERM_SESSIONS.find((s) => s.code === m[2]);
+  return session ? `${m[1]}년 ${session.label}` : term;
+}
+
+/** The session running now: Mar–Jun 1학기, Jul–Aug 여름, Sep–Dec 2학기, Jan–Feb the previous year's 겨울. */
+export function currentTerm(now = new Date()): string {
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
+  if (month <= 2) return `${year - 1}-2W`;
+  if (month <= 6) return `${year}-1`;
+  if (month <= 8) return `${year}-1S`;
+  return `${year}-2`;
 }

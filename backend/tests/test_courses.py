@@ -14,13 +14,20 @@ def test_create_and_duplicate(client):
 
 
 def test_list_order_and_term_filter(client):
-    for term, name in [("2026-1", "운영체제"), ("2026-2", "자료구조"), ("2026-2", "알고리즘")]:
-        client.post("/courses", json=COURSE | {"term": term, "name": name})
+    terms = [("2026-1", "운영체제"), ("2026-2", "자료구조"), ("2026-2", "알고리즘"), ("2026-1S", "컴파일러"), ("2026-2W", "보안")]
+    for term, name in terms:
+        assert client.post("/courses", json=COURSE | {"term": term, "name": name}).status_code == 201
     listed = client.get("/courses").json()
-    expected = [("2026-2", "알고리즘"), ("2026-2", "자료구조"), ("2026-1", "운영체제")]
+    # newest first, the seasonal sessions in calendar order: 2W after 2, 1S between 1 and 2
+    expected = [("2026-2W", "보안"), ("2026-2", "알고리즘"), ("2026-2", "자료구조"), ("2026-1S", "컴파일러"), ("2026-1", "운영체제")]
     assert [(c["term"], c["name"]) for c in listed] == expected
     assert [c["name"] for c in client.get("/courses", params={"term": "2026-1"}).json()] == ["운영체제"]
     assert "assignments" not in listed[0]
+
+
+def test_term_format(client):
+    for bad in ("2026-3", "2026 2학기", "26-1", "2026-S"):
+        assert client.post("/courses", json=COURSE | {"term": bad}).status_code == 422, bad
 
 
 def test_assignment_belongs_to_course(client, course_id):

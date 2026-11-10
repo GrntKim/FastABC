@@ -8,6 +8,9 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import { api, ApiError, json, type ExamRef } from "@/lib/api";
 
+// the usual ones a click away; anything else is typed
+const EXAM_NAMES = ["중간고사", "기말고사", "퀴즈", "과제"];
+
 /** Add an exam to a course, or rename one when `exam` is given. */
 export default function ExamForm({
   courseId,
@@ -45,6 +48,13 @@ export default function ExamForm({
         >
           <label className="flex flex-col gap-1 text-sm">
             시험 이름
+            <span className="flex flex-wrap gap-1">
+              {EXAM_NAMES.map((n) => (
+                <Button key={n} type="button" size="xs" variant={name === n ? "secondary" : "outline"} onClick={() => setName(n)}>
+                  {n}
+                </Button>
+              ))}
+            </span>
             <Input autoFocus value={name} placeholder="중간고사" onChange={(e) => setName(e.target.value)} />
             <span className="text-xs text-muted-foreground">문항은 시험마다 따로 채점하고, 시험 결과에서 학생별로 합산합니다.</span>
           </label>

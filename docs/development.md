@@ -81,7 +81,7 @@ erDiagram
         int id PK
         int owner_id FK
         string department
-        string term
+        string term "2026-1 | 2026-1S | 2026-2 | 2026-2W"
         string name
         string section
     }
@@ -175,6 +175,7 @@ erDiagram
 - 주제 확인 항목(`kind = gate`, key `is_on_topic`)은 점수가 없어 `grades`를 만들지 않고 `judgments`에만 남습니다.
 - 학생 이름과 학번은 채점자 화면에만 씁니다. 외부 API에는 `clean_text`만 보냅니다. 채점자가 "이름 가리고 채점"을 켜면 화면에도 라벨(`S001`)만 보입니다(브라우저 `localStorage`의 `fastabc.hideNames`, `lib/student.ts`).
 - 과목 이름(학과·학기·과목·분반)은 채점자마다 따로 겹치지 않으면 됩니다.
+- 학기는 `연도-구분`으로 저장합니다. 구분은 `1`(1학기), `1S`(여름 계절학기), `2`(2학기), `2W`(겨울 계절학기)이고, 이 표기는 글자 순서가 곧 달력 순서라 그대로 정렬해도 최신 학기가 먼저 옵니다. 다른 형식은 422입니다.
 
 ## 채점 흐름
 

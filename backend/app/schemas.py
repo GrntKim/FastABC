@@ -80,7 +80,8 @@ class UserOut(BaseModel):
 
 class CourseIn(BaseModel):
     department: str = Field(min_length=1, max_length=100)
-    term: str = Field(min_length=1, max_length=20)  # e.g. "2026-2"
+    # year and session: 1, 1S (summer session), 2, 2W (winter session); sorts in calendar order as text
+    term: str = Field(pattern=r"^\d{4}-(1|1S|2|2W)$")
     name: str = Field(min_length=1, max_length=200)
     section: str = Field(min_length=1, max_length=20)
 
