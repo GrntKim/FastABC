@@ -43,7 +43,7 @@ export default function AdminPanel({
     <div className="flex flex-col gap-6 pt-2">
       {/* in working order: criteria, answers, then the grading run */}
       <RubricCard assignment={assignment} />
-      <SubmissionsCard assignmentId={assignment.id} onOpenStudent={onOpenStudent} onGraded={onGradingStarted} />
+      <SubmissionsCard assignmentId={assignment.id} onOpenStudent={onOpenStudent} />
       <GradingCard assignmentId={assignment.id} submissionCount={assignment.submission_count} onStarted={onGradingStarted} />
       <div className="flex justify-end">
         <Button
@@ -205,15 +205,7 @@ function GradingCard({
 
 const PREVIEW_ROWS = 5; // a long class list buries the grading card below it
 
-function SubmissionsCard({
-  assignmentId,
-  onOpenStudent,
-  onGraded,
-}: {
-  assignmentId: number;
-  onOpenStudent: (submissionId: number) => void;
-  onGraded: () => void; // answers added in bulk and graded: go grade them
-}) {
+function SubmissionsCard({ assignmentId, onOpenStudent }: { assignmentId: number; onOpenStudent: (submissionId: number) => void }) {
   const queryClient = useQueryClient();
   const fileInput = useRef<HTMLInputElement>(null);
   const [showAll, setShowAll] = useState(false);
@@ -337,7 +329,7 @@ function SubmissionsCard({
           graded={(status.data?.total ?? 0) > 0}
           existing={new Set(submissions.data?.map((s) => s.student_ref))}
           onClose={() => setReading(null)}
-          onGraded={onGraded}
+          onGraded={onOpenStudent}
         />
       )}
     </Card>

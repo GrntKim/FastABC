@@ -66,7 +66,7 @@ export default function BulkRead({
   graded: boolean; // grading has started: the new answers can be graded on their own right away
   existing: Set<string>; // student ids already uploaded to this question
   onClose: () => void;
-  onGraded: () => void;
+  onGraded: (firstSubmissionId: number) => void; // opens the first new student on the grading tab
 }) {
   const queryClient = useQueryClient();
   const [rows, setRows] = useState<Row[]>([]);
@@ -152,15 +152,17 @@ export default function BulkRead({
   const save = async (gradeNow: boolean) => {
     setSaving(true);
     let saved = 0;
+    let first: number | null = null;
     for (const r of ready) {
       update(r.key, { status: "saving" });
       try {
-        await api<SubmissionOut>(
+        const s = await api<SubmissionOut>(
           `/assignments/${assignmentId}/submissions`,
           json({ student_id: r.studentId.trim(), name: r.name.trim() || null, answer: r.text, source_filename: r.file.name }),
         );
         update(r.key, { status: "saved", error: undefined });
         saved += 1;
+        first ??= s.id;
       } catch (e) {
         update(r.key, { status: "read", error: errorMessage(e, "저장하지 못했습니다") });
       }
@@ -168,14 +170,14 @@ export default function BulkRead({
     for (const key of ["submissions", "assignment", "grading", "cells", "results"]) {
       queryClient.invalidateQueries({ queryKey: [key, assignmentId] });
     }
-    if (saved && gradeNow) {
+    if (first !== null && gradeNow) {
       try {
         const status = await api<GradingStatus>(`/assignments/${assignmentId}/grade?only_new=true`, { method: "POST" });
         queryClient.setQueryData(["grading", assignmentId], status);
         toast.success(`답안 ${saved}개를 저장하고 채점했습니다`);
         setSaving(false);
         onClose();
-        onGraded();
+        onGraded(first);
         return;
       } catch (e) {
         toast.error(errorMessage(e, "저장했지만 채점하지 못했습니다"));
