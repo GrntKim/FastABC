@@ -48,3 +48,22 @@ export function useHideNames(): [boolean, (hidden: boolean) => void] {
   );
   return [hidden, write];
 }
+
+/**
+ * A student id for a posted notice: the year and the last two digits stay, the middle is starred,
+ * e.g. 2024123401 → 2024****01, 20260001 → 2026**01. Short ids keep only their ends.
+ */
+export function maskId(id: string): string {
+  const chars = [...id];
+  const [head, tail] = chars.length >= 7 ? [4, 2] : [1, 1];
+  if (chars.length <= head + tail) return id;
+  return chars.slice(0, head).join("") + "*".repeat(chars.length - head - tail) + chars.slice(-tail).join("");
+}
+
+/** A name with its middle starred: 김민수 → 김*수, 남궁민수 → 남**수, 이준 → 이*. */
+export function maskName(name: string): string {
+  const chars = [...name.trim()];
+  if (chars.length <= 1) return "*";
+  if (chars.length === 2) return `${chars[0]}*`;
+  return chars[0] + "*".repeat(chars.length - 2) + chars[chars.length - 1];
+}

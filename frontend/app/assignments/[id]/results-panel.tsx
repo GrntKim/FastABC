@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { buttonVariants } from "@/components/ui/button";
+import { ExportButton } from "@/components/export-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api, API_URL, type SubmissionResult } from "@/lib/api";
 
@@ -16,9 +16,7 @@ export default function ResultsPanel({ assignmentId }: { assignmentId: number })
   return (
     <div className="flex flex-col gap-3 pt-2">
       <div className="flex justify-end">
-        <a className={buttonVariants({ variant: "outline", size: "sm" })} href={`${API_URL}/assignments/${assignmentId}/export.csv`}>
-          CSV 내보내기
-        </a>
+        <ExportButton size="sm" csvHref={`${API_URL}/assignments/${assignmentId}/export.csv`} printPath={`/assignments/${assignmentId}/print`} />
       </div>
       <div className="rounded-xl bg-card px-2 shadow-xs ring-1 ring-foreground/10">
         <Table>

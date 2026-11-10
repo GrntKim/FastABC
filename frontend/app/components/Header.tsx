@@ -3,7 +3,7 @@ import UserMenu from "./UserMenu";
 
 export default function Header() {
   return (
-    <header className="border-b bg-card">
+    <header className="border-b bg-card print:hidden">
       <div className="flex w-full max-w-5xl mx-auto items-center justify-between p-4">
         <Link href={"/"} className="flex items-baseline gap-2">
           <span className="font-bold text-xl text-primary">FastABC</span>

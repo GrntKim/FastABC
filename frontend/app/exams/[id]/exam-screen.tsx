@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { ExportButton } from "@/components/export-dialog";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -65,9 +66,7 @@ export default function ExamScreen({ examId }: { examId: number }) {
           <Button variant="outline" onClick={() => setImporting(true)}>
             다른 곳에서 채점한 점수 가져오기
           </Button>
-          <a className={buttonVariants()} href={`${API_URL}/exams/${examId}/export.csv`}>
-            CSV 내보내기
-          </a>
+          <ExportButton variant="default" csvHref={`${API_URL}/exams/${examId}/export.csv`} printPath={`/exams/${examId}/print`} />
         </div>
       </header>
 
