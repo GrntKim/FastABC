@@ -10,10 +10,8 @@ import { api, type AssignmentOut, type CellOut, type RubricItemOut, type Submiss
 import { annotate, excerpts } from "@/lib/highlight";
 import {
   CHECK_HINT,
-  DECISION_LABEL,
   formatPoints,
   itemMax,
-  outcomeName,
   CHECK_TONE,
   checkReason,
   describePred,
@@ -26,9 +24,9 @@ import {
 } from "@/lib/rubric";
 import { HideNamesSwitch, StudentTag } from "@/components/student";
 import { studentFull, studentName, useHideNames } from "@/lib/student";
+import { JudgeCards, PointPicker } from "@/components/point-picker";
 import { cn } from "@/lib/utils";
 import { useAcceptConfident, useClearDecisions, useDecide, useFindEvidence } from "@/lib/use-decide";
-import SplitOpinion, { otherOptions } from "./split-opinion";
 
 type SortMode = "attention" | "label" | "student";
 // "label" is by name while names show, by the anonymous label while they are hidden
@@ -630,14 +628,7 @@ function ItemList({
               setOpened({ ...opened, [item.id]: next });
               onFocus(next ? item.id : null);
             }}
-            onDecided={() => {
-              setOpened((o) => {
-                const rest = { ...o };
-                delete rest[item.id];
-                return rest;
-              });
-              if (focused === item.id) onFocus(null);
-            }}
+            onDecided={() => setOpened((o) => ({ ...o, [item.id]: isOpen(item, cell) }))}
             focused={focused === item.id}
             answer={submission.clean_text}
             searching={searching}
@@ -704,7 +695,7 @@ function ItemRow({
   color: ReturnType<typeof itemColor>;
   expanded: boolean;
   onToggle: () => void; // also marks the item's evidence in the answer
-  onDecided: () => void; // a decision made in this row: fold it away
+  onDecided: () => void; // deciding must not fold the row: it pins what is on screen
   focused: boolean;
   answer: string;
   searching: boolean; // the evidence lookup for this answer is running
@@ -715,8 +706,8 @@ function ItemRow({
   const decided = cell.final_points !== null;
   const reason = decided ? null : checkReason(cell);
   const busy = decide.isPending || locked;
-  const set = (body: { action: "accept" | "clear" } | { action: "set"; points: number }) =>
-    decide.mutate({ gradeId: cell.grade_id, body }, { onSuccess: () => body.action !== "clear" && onDecided() });
+  const set = (body: { action: "clear" } | { action: "set"; points: number }) =>
+    decide.mutate({ gradeId: cell.grade_id, body }, { onSuccess: () => body.action === "set" && onDecided() });
   const flash = useFlashOnDecide(cell.final_points);
 
   const llm = llmView(cell);
@@ -724,7 +715,6 @@ function ItemRow({
   // an on-demand lookup that disagrees with a confident first judgment: worth a mention
   const otherView = cell.route === "auto" && llm?.pred != null && llm.pred !== cell.primary?.pred ? llm : null;
   const why = cell.route === "skip" ? "답안이 문제와 관련 없어 판단하지 않았습니다." : (llm?.reasoning ?? describePred(item, judge?.pred));
-  const confidence = cell.primary?.conf != null ? `첫 판단 확신도 ${Math.round(cell.primary.conf * 100)}%` : undefined;
 
   return (
     <div
@@ -753,58 +743,24 @@ function ItemRow({
             </span>
           )}
         </button>
-        <div className="ml-auto flex shrink-0 items-center gap-2">
-          {decided ? (
-            <>
-              {!locked && (
-                // out of the way until the row is pointed at or opened
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  className={cn("text-muted-foreground", !expanded && "opacity-0 group-hover:opacity-100 focus-visible:opacity-100")}
-                  disabled={busy}
-                  onClick={() => set({ action: "clear" })}
-                >
-                  취소
-                </Button>
-              )}
-              <span className="whitespace-nowrap text-sm text-muted-foreground" title={cell.decision ? DECISION_LABEL[cell.decision] : undefined}>
-                {outcomeName(item, cell.final_points!)}
-              </span>
-            </>
-          ) : cell.recommended_points !== null ? (
-            <>
-              <span className="whitespace-nowrap text-sm" title={confidence}>
-                추천 <strong>{outcome(item, cell.recommended_points)}</strong>
-              </span>
-              <Button
-                size="sm"
-                // a cell nobody needs to check is quiet: bulk confirm handles it
-                variant={reason ? "default" : "secondary"}
-                disabled={busy}
-                onClick={() => set({ action: "accept" })}
-              >
-                확정
-              </Button>
-            </>
-          ) : (
-            <span className="whitespace-nowrap text-sm text-muted-foreground">
-              {cell.route === "pending" ? "추천을 기다리는 중" : "추천 없음 · 직접 고르세요"}
-            </span>
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          {decided && !locked && (
+            // out of the way until the row is pointed at or opened
+            <Button
+              size="xs"
+              variant="ghost"
+              className={cn("text-muted-foreground", !expanded && "opacity-0 group-hover:opacity-100 focus-visible:opacity-100")}
+              disabled={busy}
+              onClick={() => set({ action: "clear" })}
+            >
+              취소
+            </Button>
           )}
-          <span className="w-20 shrink-0 text-right tabular-nums" title={decided ? undefined : "아직 확정하지 않았습니다"}>
-            {decided ? (
-              <>
-                <span className="mr-1 text-sm text-emerald-600 dark:text-emerald-400">✓</span>
-                <strong className={cn("text-xl", cell.final_points! < 0 && "text-rose-600 dark:text-rose-400")}>
-                  {formatPoints(cell.final_points!)}
-                </strong>
-                {item.kind === "credit" && <span className="text-sm text-muted-foreground">/{itemMax(item)}</span>}
-              </>
-            ) : (
-              <span className="text-xl text-muted-foreground/50">–</span>
-            )}
-          </span>
+          {cell.route === "pending" ? (
+            <span className="whitespace-nowrap text-sm text-muted-foreground">추천을 기다리는 중</span>
+          ) : (
+            <PointPicker item={item} cell={cell} disabled={busy} onPick={(points) => set({ action: "set", points })} />
+          )}
         </div>
       </div>
 
@@ -814,7 +770,7 @@ function ItemRow({
             <Evidence text={answer} view={llm} searching={searching} color={color} onShow={onShowInAnswer} />
           )}
           {cell.route === "human" ? (
-            <SplitOpinion item={item} cell={cell} disabled={busy} onPick={(points) => set({ action: "set", points })} />
+            <JudgeCards item={item} cell={cell} disabled={busy} onPick={(points) => set({ action: "set", points })} />
           ) : (
             why && <p className="text-muted-foreground">{why}</p>
           )}
@@ -823,28 +779,6 @@ function ItemRow({
               참고: 근거를 찾던 AI는 &lsquo;{outcome(item, predPoints(item, otherView.pred))}&rsquo;로 봤습니다. {otherView.reasoning}
             </p>
           )}
-          <div className="flex flex-wrap items-center gap-1">
-            {cell.route === "human" && otherOptions(item, cell).length > 0 && (
-              <span className="mr-1 text-xs text-muted-foreground">다른 점수</span>
-            )}
-            {otherOptions(item, cell).map((o) => {
-              const recommended = o.points === cell.recommended_points;
-              return (
-                <Button
-                  key={o.label}
-                  size="xs"
-                  variant={cell.final_points === o.points ? "default" : "outline"}
-                  className={cn(recommended && cell.final_points === null && "ring-2 ring-primary/40")}
-                  disabled={busy || cell.route === "pending"}
-                  onClick={() => set({ action: "set", points: o.points })}
-                  title={recommended ? "추천" : undefined}
-                >
-                  {o.label}
-                  {recommended && <span className="ml-1 text-[0.65rem] opacity-70">추천</span>}
-                </Button>
-              );
-            })}
-          </div>
         </div>
       )}
     </div>

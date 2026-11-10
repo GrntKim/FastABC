@@ -5,10 +5,10 @@ import { StudentTag } from "@/components/student";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CellOut, GradeDecisionIn, RubricItemOut } from "@/lib/api";
 import { highlight } from "@/lib/highlight";
-import { CHECK_HINT, CHECK_TONE, checkReason, DECISION_LABEL, describePred, outcome } from "@/lib/rubric";
+import { CHECK_HINT, CHECK_TONE, checkReason, describePred } from "@/lib/rubric";
 import { useDecide } from "@/lib/use-decide";
 import { cn } from "@/lib/utils";
-import SplitOpinion, { otherOptions } from "../split-opinion";
+import { JudgeCards, PointPicker } from "@/components/point-picker";
 
 export default function CellCard({
   assignmentId,
@@ -43,12 +43,7 @@ export default function CellCard({
             {reason}
           </span>
         )}
-        {decided && (
-          <span className="ml-auto text-sm">
-            <span className="text-emerald-700 dark:text-emerald-400">✓</span> <strong>{outcome(item, cell.final_points)}</strong>
-            <span className="text-muted-foreground"> · {cell.decision && DECISION_LABEL[cell.decision]}</span>
-          </span>
-        )}
+        {decided && <span className="ml-auto text-sm text-emerald-700 dark:text-emerald-400">✓ 확정</span>}
       </CardHeader>
 
       <CardContent className="grid gap-4 md:grid-cols-[1fr_18rem]">
@@ -68,7 +63,7 @@ export default function CellCard({
 
         <div className="flex flex-col gap-3 text-sm">
           {cell.route === "human" ? (
-            <SplitOpinion
+            <JudgeCards
               item={item}
               cell={cell}
               disabled={decide.isPending}
@@ -76,53 +71,22 @@ export default function CellCard({
               onPick={(points) => decide.mutate({ action: "set", points })}
             />
           ) : (
-            <div>
-              {cell.recommended_points !== null && (
-                <p title={cell.primary?.conf != null ? `첫 판단 확신도 ${Math.round(cell.primary.conf * 100)}%` : undefined}>
-                  추천 <strong>{outcome(item, cell.recommended_points)}</strong>
-                </p>
-              )}
-              {why && <p className="text-muted-foreground">{why}</p>}
-            </div>
+            why && <p className="text-muted-foreground">{why}</p>
           )}
 
           {pending ? (
             <p className="text-muted-foreground">AI가 다시 보는 중입니다. 끝나면 고를 수 있습니다.</p>
           ) : (
-            <div className="flex flex-col gap-2">
-              {!decided &&
-                (cell.recommended_points !== null ? (
-                  <Button
-                    // a cell nobody needs to check is quiet: bulk confirm handles it
-                    variant={reason ? "default" : "secondary"}
-                    disabled={decide.isPending}
-                    onClick={() => decide.mutate({ action: "accept" })}
-                  >
-                    추천대로 확정
-                  </Button>
-                ) : (
-                  cell.route !== "human" && <p className="text-muted-foreground">추천 없음: 직접 고르세요.</p>
-                ))}
-              <div className="flex flex-wrap gap-1">
-                {otherOptions(item, cell).map((o) => {
-                  const recommended = o.points === cell.recommended_points;
-                  return (
-                    <Button
-                      key={o.label}
-                      size="sm"
-                      variant={cell.final_points === o.points ? "default" : "outline"}
-                      className={cn(recommended && !decided && "ring-2 ring-primary/40")}
-                      disabled={decide.isPending}
-                      onClick={() => decide.mutate({ action: "set", points: o.points })}
-                    >
-                      {o.label}
-                      {recommended && <span className="ml-1 text-[0.65rem] opacity-70">추천</span>}
-                    </Button>
-                  );
-                })}
-              </div>
+            <div className="flex flex-col items-start gap-2">
+              <PointPicker item={item} cell={cell} disabled={decide.isPending} onPick={(points) => decide.mutate({ action: "set", points })} />
               {decided && !locked && (
-                <Button size="sm" variant="ghost" disabled={decide.isPending} onClick={() => decide.mutate({ action: "clear" })}>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  className="text-muted-foreground"
+                  disabled={decide.isPending}
+                  onClick={() => decide.mutate({ action: "clear" })}
+                >
                   확정 취소
                 </Button>
               )}
