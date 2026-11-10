@@ -30,6 +30,17 @@ def test_term_format(client):
         assert client.post("/courses", json=COURSE | {"term": bad}).status_code == 422, bad
 
 
+def test_term_schedule(client, stranger):
+    assert client.get("/terms/2026-2").json() == {"term": "2026-2", "grades_due": None}
+    assert client.put("/terms/2026-2", json={"grades_due": "2026-12-24"}).status_code == 200
+    assert client.put("/terms/2026-2", json={"grades_due": "2026-12-28"}).json()["grades_due"] == "2026-12-28"
+    assert client.get("/terms/2026-2").json()["grades_due"] == "2026-12-28"
+    assert stranger.get("/terms/2026-2").json()["grades_due"] is None  # each grader's own calendar
+    client.put("/terms/2026-2", json={"grades_due": None})
+    assert client.get("/terms/2026-2").json()["grades_due"] is None
+    assert client.get("/terms/2026-3").status_code == 422
+
+
 def test_assignment_belongs_to_course(client, course_id):
     exam_id = client.post(f"/courses/{course_id}/exams", json={"name": "중간고사"}).json()["id"]
     body = make_body(course_id) | {"exam_id": exam_id, "number": 2}

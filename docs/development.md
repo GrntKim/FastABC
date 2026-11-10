@@ -32,7 +32,7 @@ backend/
     redact.py          식별 정보 제거
     progress.py        문항 진행 단계와 진행 수치 (채점 끝난 학생 수 포함)
     finalization.py    성적 확정: 스냅샷, 해시, 잠금
-    routers/           auth, courses, assignments, drafts, submissions, grading, review, finalizations
+    routers/           auth, courses, terms, assignments, drafts, submissions, grading, review, finalizations
   alembic/             마이그레이션
   scripts/             seed_demo.py, booth_reset.py, export_rubric.py, run_eval.py
   tests/               pytest (실제 API 호출 없음)
@@ -54,6 +54,7 @@ erDiagram
     users ||--o{ sessions : "logged in as"
     users ||--o{ courses : owns
     users ||--o{ finalizations : signs
+    users ||--o{ term_schedules : "keeps calendar"
     courses ||--o{ exams : has
     courses ||--o{ assignments : has
     exams |o--o{ assignments : groups
@@ -167,8 +168,15 @@ erDiagram
         jsonb counts
         jsonb snapshot
         string snapshot_hash "sha256"
+        bool late "signed off past due"
         datetime reopened_at
         text reopen_reason
+    }
+    term_schedules {
+        int id PK
+        int owner_id FK
+        string term "unique per owner"
+        date grades_due
     }
 ```
 
@@ -223,6 +231,7 @@ class Judge(Protocol):
 - 학생별 항목 점수, 확정 종류, 총점을 담은 스냅샷을 정렬된 JSON으로 직렬화해 sha256 해시를 만들고, 칸 수와 함께 새 버전으로 저장합니다. 점수가 같으면 해시도 같습니다.
 - 최신 버전이 개정되지 않은 동안 문항은 잠깁니다. 칸 확정, 일괄 수용·취소, 답안 업로드, 재확정은 409를 받습니다(`finalization.ensure_unlocked`).
 - `POST /assignments/{id}/reopen`은 사유를 필수로 받아 최신 버전에 개정 시각과 사유를 남기고 잠금을 풉니다. 다시 확정하면 다음 버전이 됩니다.
+- **성적 입력 마감일은 막지 않는 경계입니다.** 채점자가 학기마다 학사일정의 마감일을 넣어 두면(`term_schedules`, 계정마다 따로) 과목 목록과 결과 탭에 남은 날짜가 보입니다. 마감일(그날까지 포함, 한국 시각)이 지난 뒤에는 확정 대화상자가 "그래도 확정하시겠습니까?"를 한 번 더 묻고, API는 `late_ok: true` 없이는 409를 줍니다. 그렇게 확정한 버전은 `late`로 남아 이력에 "마감 후 확정"으로 보입니다. 개정(정정)은 마감과 상관없이 할 수 있습니다.
 - 잠긴 동안 `export.csv`의 파일 이름은 `assignment_{id}_v{버전}_{해시 앞 8자}.csv`입니다.
 - 전자 서명(확정자 개인 키로 스냅샷 서명)은 후속 과제입니다.
 
@@ -235,6 +244,7 @@ class Judge(Protocol):
 | GET, POST | `/courses` | 내 과목 목록, 생성 |
 | GET, PUT, DELETE | `/courses/{id}` | 과목 조회(시험, 문항과 진행 단계 포함), 수정, 삭제 |
 | POST | `/courses/{id}/exams` | 시험 추가 |
+| GET, PUT | `/terms/{term}` | 이 학기 성적 입력 마감일 조회, 저장 (`null`이면 지움) |
 | PATCH, DELETE | `/exams/{id}` | 시험 이름 바꾸기, 삭제 (문항은 과목에 남음) |
 | GET | `/exams/{id}/results` | 시험 결과: 학생(학번) × 문항·가져온 점수, 합계 |
 | GET | `/exams/{id}/export.csv` | 시험 결과 CSV (학번, 이름, 열마다 점수, 합계) |
@@ -257,7 +267,7 @@ class Judge(Protocol):
 | POST | `/submissions/{id}/evidence` | 근거 찾기 (답안당 한 번) |
 | GET | `/assignments/{id}/results` | 학생별 항목 점수와 총점 |
 | GET | `/assignments/{id}/export.csv` | 점수 CSV 내보내기 (학번, 이름, 라벨, 항목별 점수, 총점) |
-| GET, POST | `/assignments/{id}/finalizations` | 확정 이력, 성적 확정 |
+| GET, POST | `/assignments/{id}/finalizations` | 확정 이력, 성적 확정 (마감 후엔 `late_ok` 필요) |
 | POST | `/assignments/{id}/reopen` | 개정 (사유 필수) |
 
 전체 스키마는 서버 실행 중 `http://localhost:8000/docs`에서 볼 수 있습니다.

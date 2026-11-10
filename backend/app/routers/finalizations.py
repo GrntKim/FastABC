@@ -11,6 +11,7 @@ from app.db import get_db
 from app.finalization import digest, is_locked, latest, snapshot
 from app.models import Finalization, GradeRoute, User
 from app.routers.grading import _status
+from app.routers.terms import grades_due, today
 from app.schemas import FinalizationOut, FinalizeIn, ReopenIn
 
 router = APIRouter(prefix="/assignments/{assignment_id}", tags=["finalizations"])
@@ -32,12 +33,17 @@ def list_finalizations(
 def finalize(
     assignment_id: int, body: FinalizeIn, db: Session = Depends(get_db), user: User = Depends(current_user)
 ) -> FinalizationOut:
-    """Signed off by the logged-in grader; `body.confirmed` is their statement of responsibility."""
+    """Signed off by the logged-in grader; `body.confirmed` is their statement of responsibility.
+    Past the term's due date it takes `late_ok` as well, and the sign-off is recorded as late."""
     assignment = own_assignment(db, user, assignment_id)
     if is_locked(db, assignment_id):
         raise HTTPException(status.HTTP_409_CONFLICT, "grades are already finalized")
     if _status(db, assignment_id).routes.get(GradeRoute.PENDING):
         raise HTTPException(status.HTTP_409_CONFLICT, "LLM re-judgment is still running")
+    due = grades_due(db, user, assignment.course.term)
+    late = due is not None and today() > due
+    if late and not body.late_ok:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"이 학기 성적 입력 마감일({due:%Y-%m-%d})이 지났습니다")
     snap, counts = snapshot(db, assignment)
     previous = latest(db, assignment_id)
     f = Finalization(
@@ -48,6 +54,7 @@ def finalize(
         counts=counts,
         snapshot=snap,
         snapshot_hash=digest(snap),
+        late=late,
     )
     db.add(f)
     db.commit()

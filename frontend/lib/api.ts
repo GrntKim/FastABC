@@ -22,6 +22,7 @@ export type UserOut = Schemas["UserOut"];
 export type ExamRef = Schemas["ExamRef"];
 export type ExamResults = Schemas["ExamResults"];
 export type ExamColumn = Schemas["ExamColumn"];
+export type TermScheduleOut = Schemas["TermScheduleOut"];
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 

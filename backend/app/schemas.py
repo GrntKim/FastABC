@@ -1,12 +1,16 @@
 """API request and response schemas."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.judges.base import GATE
 from app.models import ItemKind, ItemType
+
+# year, then the session: 1 and 2 are the semesters, 1S and 2W the summer and winter sessions.
+# Sorting the codes as text puts them in calendar order.
+TERM_PATTERN = r"^\d{4}-(1|1S|2|2W)$"
 
 
 class RubricItemIn(BaseModel):
@@ -81,7 +85,7 @@ class UserOut(BaseModel):
 class CourseIn(BaseModel):
     department: str = Field(min_length=1, max_length=100)
     # year and session: 1, 1S (summer session), 2, 2W (winter session); sorts in calendar order as text
-    term: str = Field(pattern=r"^\d{4}-(1|1S|2|2W)$")
+    term: str = Field(pattern=TERM_PATTERN)
     name: str = Field(min_length=1, max_length=200)
     section: str = Field(min_length=1, max_length=20)
 
@@ -306,6 +310,16 @@ class BulkClearOut(BaseModel):
 class FinalizeIn(BaseModel):
     # the signer is the logged-in grader
     confirmed: Literal[True]  # "I checked every cell and take responsibility for these grades"
+    late_ok: bool = False  # "grades are past due for this term; sign off anyway"
+
+
+class TermScheduleIn(BaseModel):
+    grades_due: date | None  # None clears it
+
+
+class TermScheduleOut(BaseModel):
+    term: str
+    grades_due: date | None
 
 
 class ReopenIn(BaseModel):
@@ -328,6 +342,7 @@ class FinalizationOut(BaseModel):
     finalized_at: datetime
     counts: dict[str, int]  # decision -> cells
     snapshot_hash: str
+    late: bool  # signed off after the term's grades were due
     reopened_at: datetime | None
     reopen_reason: str | None
 

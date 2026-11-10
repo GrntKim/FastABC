@@ -561,6 +561,7 @@ export interface paths {
         /**
          * Finalize
          * @description Signed off by the logged-in grader; `body.confirmed` is their statement of responsibility.
+         *     Past the term's due date it takes `late_ok` as well, and the sign-off is recorded as late.
          */
         post: operations["finalize_assignments__assignment_id__finalizations_post"];
         delete?: never;
@@ -583,6 +584,24 @@ export interface paths {
          * @description Unlock the grades for a revision. The signed-off version stays; finalizing again adds the next one.
          */
         post: operations["reopen_assignments__assignment_id__reopen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/terms/{term}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Schedule */
+        get: operations["get_schedule_terms__term__get"];
+        /** Set Schedule */
+        put: operations["set_schedule_terms__term__put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -930,6 +949,8 @@ export interface components {
             };
             /** Snapshot Hash */
             snapshot_hash: string;
+            /** Late */
+            late: boolean;
             /** Reopened At */
             reopened_at: string | null;
             /** Reopen Reason */
@@ -942,6 +963,11 @@ export interface components {
              * @constant
              */
             confirmed: true;
+            /**
+             * Late Ok
+             * @default false
+             */
+            late_ok: boolean;
         };
         /** GradeDecisionIn */
         GradeDecisionIn: {
@@ -1158,6 +1184,18 @@ export interface components {
             total: number | null;
             /** Max Points */
             max_points: number;
+        };
+        /** TermScheduleIn */
+        TermScheduleIn: {
+            /** Grades Due */
+            grades_due: string | null;
+        };
+        /** TermScheduleOut */
+        TermScheduleOut: {
+            /** Term */
+            term: string;
+            /** Grades Due */
+            grades_due: string | null;
         };
         /** UserOut */
         UserOut: {
@@ -2509,6 +2547,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FinalizationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_schedule_terms__term__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                term: string;
+            };
+            cookie?: {
+                fastabc_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermScheduleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_schedule_terms__term__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                term: string;
+            };
+            cookie?: {
+                fastabc_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TermScheduleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermScheduleOut"];
                 };
             };
             /** @description Validation Error */

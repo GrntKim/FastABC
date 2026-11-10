@@ -74,6 +74,21 @@ def test_reopen_and_revise(client, decided):
     assert [h["reopen_reason"] for h in history] == [None, "점수 수정", "이의 제기 반영"]
 
 
+def test_due_date_is_soft(client, decided):
+    aid = decided["aid"]
+    term = client.get(f"/assignments/{aid}").json()["course"]["term"]
+    client.put(f"/terms/{term}", json={"grades_due": "2000-01-31"})
+    r = client.post(f"/assignments/{aid}/finalizations", json=SIGN)
+    assert (r.status_code, r.json()["detail"]) == (409, "이 학기 성적 입력 마감일(2000-01-31)이 지났습니다")
+
+    f = client.post(f"/assignments/{aid}/finalizations", json=SIGN | {"late_ok": True}).json()
+    assert (f["version"], f["late"]) == (1, True)  # signed off anyway, and recorded as late
+
+    client.post(f"/assignments/{aid}/reopen", json={"reason": "x"})
+    client.put(f"/terms/{term}", json={"grades_due": "2999-12-31"})
+    assert client.post(f"/assignments/{aid}/finalizations", json=SIGN).json()["late"] is False
+
+
 def test_unknown_assignment(client):
     assert client.get("/assignments/999999/finalizations").status_code == 404
     assert client.post("/assignments/999999/finalizations", json=SIGN).status_code == 404

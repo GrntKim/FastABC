@@ -4,7 +4,7 @@ Status-like columns are plain strings validated by the StrEnums below (no native
 so adding a value does not need a migration).
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 from typing import Any
 
@@ -98,6 +98,19 @@ class Course(Base):
     exams: Mapped[list["Exam"]] = relationship(
         back_populates="course", cascade="all, delete-orphan", passive_deletes=True, order_by="Exam.created_at"
     )
+
+
+class TermSchedule(Base):
+    """A grader's academic calendar for one term: the date grades are due. A soft line: signing off
+    after it asks once more and is recorded as late, never refused."""
+
+    __tablename__ = "term_schedules"
+    __table_args__ = (UniqueConstraint("owner_id", "term"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    term: Mapped[str] = mapped_column(String(20))  # same codes as courses.term
+    grades_due: Mapped[date]  # the last day grades can be entered, inclusive
 
 
 class Exam(Base):
@@ -269,5 +282,6 @@ class Finalization(Base):
     counts: Mapped[dict[str, int]] = mapped_column(JSONB)  # decision -> cells
     snapshot: Mapped[Any] = mapped_column(JSONB)  # final points and decisions per student
     snapshot_hash: Mapped[str] = mapped_column(String(64))  # sha256 of the canonical snapshot JSON
+    late: Mapped[bool] = mapped_column(default=False, server_default=false())  # signed off after the term's grades were due
     reopened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     reopen_reason: Mapped[str | None] = mapped_column(Text)

@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { api, ApiError, type CourseSummary } from "@/lib/api";
 import { STAGE_LABEL, termLabel } from "@/lib/progress";
 import { useMe } from "@/lib/use-me";
+import { GradesDue } from "@/components/grades-due";
 import { GRADING_STEPS, StepList } from "@/components/step-list";
 import CourseForm from "./course-form";
 
@@ -67,6 +68,7 @@ export default function CoursesHome() {
             {termLabel(t)}
           </Button>
         ))}
+        {currentTerm && <GradesDue key={currentTerm} term={currentTerm} className="ml-2" />}
         <Button className="ml-auto" onClick={() => setAdding(true)}>
           과목 추가
         </Button>

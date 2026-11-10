@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
+import { dueStatus, GradesDue, useGradesDue } from "@/components/grades-due";
 import { progressSegments, SegmentBar, SegmentLegend, type Segment } from "@/components/segment-bar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,6 +56,7 @@ export default function ResultsTab({ assignment, onGoGrade }: { assignment: Assi
       <Card>
         <CardHeader className="flex flex-row items-center gap-2">
           <CardTitle>성적 확정</CardTitle>
+          {!locked && <GradesDue term={assignment.course.term} />}
           <span className="ml-auto">
             {locked ? (
               <Button variant="outline" onClick={() => setDialog("reopen")}>
@@ -88,6 +90,7 @@ export default function ResultsTab({ assignment, onGoGrade }: { assignment: Assi
             <p className="rounded-md border bg-muted/30 px-3 py-2">
               <strong title={`결과 해시 ${current.snapshot_hash}`}>v{current.version} 확정</strong> · {current.finalized_by} ·{" "}
               {when(current.finalized_at)}
+              {current.late && " · 마감 후 확정"}
               <span className="text-muted-foreground"> — 점수가 잠겼습니다. 고치려면 사유를 적고 개정하세요.</span>
             </p>
           ) : (
@@ -103,6 +106,7 @@ export default function ResultsTab({ assignment, onGoGrade }: { assignment: Assi
               {past.map((f) => (
                 <li key={f.id}>
                   <span title={`결과 해시 ${f.snapshot_hash}`}>v{f.version}</span> · {f.finalized_by} · {when(f.finalized_at)}
+                  {f.late && " · 마감 후 확정"}
                   {f.reopened_at && ` · ${when(f.reopened_at)} 개정: ${f.reopen_reason}`}
                 </li>
               ))}
@@ -115,6 +119,7 @@ export default function ResultsTab({ assignment, onGoGrade }: { assignment: Assi
 
       <FinalizeDialog
         assignmentId={assignment.id}
+        term={assignment.course.term}
         counts={counts}
         open={dialog === "finalize"}
         onOpenChange={(o) => setDialog(o ? "finalize" : null)}
@@ -160,18 +165,23 @@ function useSignOff<T>(path: string, done: string, onDone: () => void) {
 
 function FinalizeDialog({
   assignmentId,
+  term,
   counts,
   open,
   onOpenChange,
 }: {
   assignmentId: number;
+  term: string;
   counts: Record<string, number>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const me = useMe();
   const [confirmed, setConfirmed] = useState(false);
-  const save = useSignOff<{ confirmed: true }>(
+  const due = useGradesDue(term).data?.grades_due;
+  const late = due ? dueStatus(due) : null;
+  const past = late?.past ?? false;
+  const save = useSignOff<{ confirmed: true; late_ok: boolean }>(
     `/assignments/${assignmentId}/finalizations`,
     "성적을 확정했습니다",
     () => onOpenChange(false),
@@ -191,7 +201,7 @@ function FinalizeDialog({
           className="flex flex-col gap-3"
           onSubmit={(e) => {
             e.preventDefault();
-            if (confirmed) save.mutate({ confirmed: true });
+            if (confirmed) save.mutate({ confirmed: true, late_ok: past });
           }}
         >
           <p className="text-sm">
@@ -202,9 +212,16 @@ function FinalizeDialog({
             <input type="checkbox" className="mt-1" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
             모든 항목을 확인했고, 이 점수에 대한 책임은 채점자에게 있습니다.
           </label>
+          {past && (
+            // a soft line: past the due date the grader is asked once more, and the sign-off is marked late
+            <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm dark:border-amber-800 dark:bg-amber-950/40">
+              이 학기 성적 입력 마감일({late!.date})이 지났습니다. 그래도 확정하시겠습니까?
+              <span className="block text-xs text-muted-foreground">확정 기록에 &lsquo;마감 후 확정&rsquo;으로 남습니다.</span>
+            </p>
+          )}
           <DialogFooter>
             <Button type="submit" disabled={!confirmed || save.isPending}>
-              확정
+              {past ? "그래도 확정" : "확정"}
             </Button>
           </DialogFooter>
         </form>
