@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api, ApiError, type AssignmentOut, type GradingStatus, type RubricItemOut, type SubmissionOut } from "@/lib/api";
 import { itemName, KIND_HINT, KIND_LABEL, plain, TYPE_LABEL } from "@/lib/rubric";
+import BulkRead from "./bulk-read";
 import ReadAnswer from "./read-answer";
 
 const errorMessage = (e: unknown, fallback: string) => (e instanceof ApiError ? String(e.detail) : fallback);
@@ -42,7 +43,7 @@ export default function AdminPanel({
     <div className="flex flex-col gap-6 pt-2">
       {/* in working order: criteria, answers, then the grading run */}
       <RubricCard assignment={assignment} />
-      <SubmissionsCard assignmentId={assignment.id} onOpenStudent={onOpenStudent} />
+      <SubmissionsCard assignmentId={assignment.id} onOpenStudent={onOpenStudent} onGraded={onGradingStarted} />
       <GradingCard assignmentId={assignment.id} submissionCount={assignment.submission_count} onStarted={onGradingStarted} />
       <div className="flex justify-end">
         <Button
@@ -204,11 +205,19 @@ function GradingCard({
 
 const PREVIEW_ROWS = 5; // a long class list buries the grading card below it
 
-function SubmissionsCard({ assignmentId, onOpenStudent }: { assignmentId: number; onOpenStudent: (submissionId: number) => void }) {
+function SubmissionsCard({
+  assignmentId,
+  onOpenStudent,
+  onGraded,
+}: {
+  assignmentId: number;
+  onOpenStudent: (submissionId: number) => void;
+  onGraded: () => void; // answers added in bulk and graded: go grade them
+}) {
   const queryClient = useQueryClient();
   const fileInput = useRef<HTMLInputElement>(null);
   const [showAll, setShowAll] = useState(false);
-  const [reading, setReading] = useState(false);
+  const [reading, setReading] = useState<"one" | "many" | null>(null);
   const status = useQuery({
     queryKey: ["grading", assignmentId],
     queryFn: () => api<GradingStatus>(`/assignments/${assignmentId}/grading`),
@@ -248,8 +257,11 @@ function SubmissionsCard({ assignmentId, onOpenStudent }: { assignmentId: number
       <CardHeader className="flex flex-row items-center gap-2">
         <CardTitle>답안 {submissions.data && `(${submissions.data.length})`}</CardTitle>
         <div className="ml-auto flex gap-2">
-          <Button variant="outline" onClick={() => setReading(true)}>
+          <Button variant="outline" onClick={() => setReading("one")}>
             종이 답안·문서로 추가
+          </Button>
+          <Button variant="outline" onClick={() => setReading("many")}>
+            여러 파일로 추가
           </Button>
           <input
             ref={fileInput}
@@ -311,12 +323,21 @@ function SubmissionsCard({ assignmentId, onOpenStudent }: { assignmentId: number
           </Button>
         )}
       </CardContent>
-      {reading && (
+      {reading === "one" && (
         <ReadAnswer
           assignmentId={assignmentId}
           graded={(status.data?.total ?? 0) > 0}
-          onClose={() => setReading(false)}
+          onClose={() => setReading(null)}
           onGraded={onOpenStudent}
+        />
+      )}
+      {reading === "many" && (
+        <BulkRead
+          assignmentId={assignmentId}
+          graded={(status.data?.total ?? 0) > 0}
+          existing={new Set(submissions.data?.map((s) => s.student_ref))}
+          onClose={() => setReading(null)}
+          onGraded={onGraded}
         />
       )}
     </Card>
