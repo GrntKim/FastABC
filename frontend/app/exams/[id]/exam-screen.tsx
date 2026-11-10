@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { ExportButton } from "@/components/export-dialog";
+import { GradesDue } from "@/components/grades-due";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -61,6 +62,7 @@ export default function ExamScreen({ examId }: { examId: number }) {
             {` · 학생 ${r.students.length}명`}
             {average !== null && ` · 합계를 낸 ${totals.length}명 평균 ${average.toFixed(1)}점`}
           </p>
+          {!r.finalized && <GradesDue term={r.course.term} question={{ examName: r.exam.name }} className="self-start" />}
         </div>
         <div className="ml-auto flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setImporting(true)}>

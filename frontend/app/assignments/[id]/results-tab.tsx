@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { dueStatus, GradesDue, useGradesDue } from "@/components/grades-due";
+import { dueFor, dueStatus, GradesDue, useGradesDue } from "@/components/grades-due";
 import { progressSegments, SegmentBar, SegmentLegend, type Segment } from "@/components/segment-bar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,7 +56,7 @@ export default function ResultsTab({ assignment, onGoGrade }: { assignment: Assi
       <Card>
         <CardHeader className="flex flex-row items-center gap-2">
           <CardTitle>성적 확정</CardTitle>
-          {!locked && <GradesDue term={assignment.course.term} />}
+          {!locked && <GradesDue term={assignment.course.term} question={{ examName: assignment.exam_name }} />}
           <span className="ml-auto">
             {locked ? (
               <Button variant="outline" onClick={() => setDialog("reopen")}>
@@ -120,6 +120,7 @@ export default function ResultsTab({ assignment, onGoGrade }: { assignment: Assi
       <FinalizeDialog
         assignmentId={assignment.id}
         term={assignment.course.term}
+        examName={assignment.exam_name}
         counts={counts}
         open={dialog === "finalize"}
         onOpenChange={(o) => setDialog(o ? "finalize" : null)}
@@ -166,20 +167,22 @@ function useSignOff<T>(path: string, done: string, onDone: () => void) {
 function FinalizeDialog({
   assignmentId,
   term,
+  examName,
   counts,
   open,
   onOpenChange,
 }: {
   assignmentId: number;
   term: string;
+  examName: string | null;
   counts: Record<string, number>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const me = useMe();
   const [confirmed, setConfirmed] = useState(false);
-  const due = useGradesDue(term).data?.grades_due;
-  const late = due ? dueStatus(due) : null;
+  const due = dueFor(useGradesDue(term).data, examName);
+  const late = due ? { ...dueStatus(due.date), label: due.label } : null;
   const past = late?.past ?? false;
   const save = useSignOff<{ confirmed: true; late_ok: boolean }>(
     `/assignments/${assignmentId}/finalizations`,
@@ -215,7 +218,7 @@ function FinalizeDialog({
           {past && (
             // a soft line: past the due date the grader is asked once more, and the sign-off is marked late
             <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm dark:border-amber-800 dark:bg-amber-950/40">
-              이 학기 성적 입력 마감일({late!.date})이 지났습니다. 그래도 확정하시겠습니까?
+              {late!.label} 성적 입력 마감일({late!.date})이 지났습니다. 그래도 확정하시겠습니까?
               <span className="block text-xs text-muted-foreground">확정 기록에 &lsquo;마감 후 확정&rsquo;으로 남습니다.</span>
             </p>
           )}

@@ -14,6 +14,7 @@ export type SubmissionResult = Schemas["SubmissionResult"];
 export type CourseIn = Schemas["CourseIn"];
 export type CourseRef = Schemas["CourseRef"];
 export type CourseSummary = Schemas["CourseSummary"];
+export type CourseGroup = Schemas["CourseGroup"];
 export type CourseOut = Schemas["CourseOut"];
 export type ProgressOut = Schemas["ProgressOut"];
 export type RubricItemIn = Schemas["RubricItemIn"];

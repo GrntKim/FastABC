@@ -34,16 +34,17 @@ def finalize(
     assignment_id: int, body: FinalizeIn, db: Session = Depends(get_db), user: User = Depends(current_user)
 ) -> FinalizationOut:
     """Signed off by the logged-in grader; `body.confirmed` is their statement of responsibility.
-    Past the term's due date it takes `late_ok` as well, and the sign-off is recorded as late."""
+    Past the due date for its exam (midterm or final) it takes `late_ok` as well, and the sign-off is recorded as late."""
     assignment = own_assignment(db, user, assignment_id)
     if is_locked(db, assignment_id):
         raise HTTPException(status.HTTP_409_CONFLICT, "grades are already finalized")
     if _status(db, assignment_id).routes.get(GradeRoute.PENDING):
         raise HTTPException(status.HTTP_409_CONFLICT, "LLM re-judgment is still running")
-    due = grades_due(db, user, assignment.course.term)
-    late = due is not None and today() > due
+    due = grades_due(db, user, assignment)
+    late = due is not None and today() > due[1]
     if late and not body.late_ok:
-        raise HTTPException(status.HTTP_409_CONFLICT, f"이 학기 성적 입력 마감일({due:%Y-%m-%d})이 지났습니다")
+        label, day = due
+        raise HTTPException(status.HTTP_409_CONFLICT, f"{label} 성적 입력 마감일({day:%Y-%m-%d})이 지났습니다")
     snap, counts = snapshot(db, assignment)
     previous = latest(db, assignment_id)
     f = Finalization(

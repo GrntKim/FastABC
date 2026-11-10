@@ -561,7 +561,7 @@ export interface paths {
         /**
          * Finalize
          * @description Signed off by the logged-in grader; `body.confirmed` is their statement of responsibility.
-         *     Past the term's due date it takes `late_ok` as well, and the sign-off is recorded as late.
+         *     Past the due date for its exam (midterm or final) it takes `late_ok` as well, and the sign-off is recorded as late.
          */
         post: operations["finalize_assignments__assignment_id__finalizations_post"];
         delete?: never;
@@ -599,7 +599,10 @@ export interface paths {
         };
         /** Get Schedule */
         get: operations["get_schedule_terms__term__get"];
-        /** Set Schedule */
+        /**
+         * Set Schedule
+         * @description Both dates at once; leaving both empty clears the term.
+         */
         put: operations["set_schedule_terms__term__put"];
         post?: never;
         delete?: never;
@@ -775,6 +778,29 @@ export interface components {
             secondary: components["schemas"]["JudgeView"] | null;
             evidence: components["schemas"]["JudgeView"] | null;
         };
+        /**
+         * CourseGroup
+         * @description A course's questions under one exam, for the course list: which exam period, and how far along.
+         */
+        CourseGroup: {
+            /** Exam Id */
+            exam_id: number | null;
+            /** Name */
+            name: string | null;
+            /**
+             * Period
+             * @enum {string}
+             */
+            period: "midterm" | "final" | "other";
+            /** Assignment Count */
+            assignment_count: number;
+            /** Attention */
+            attention: number;
+            /** Stages */
+            stages: {
+                [key: string]: number;
+            };
+        };
         /** CourseIn */
         CourseIn: {
             /** Department */
@@ -813,6 +839,8 @@ export interface components {
             stages: {
                 [key: string]: number;
             };
+            /** Groups */
+            groups: components["schemas"]["CourseGroup"][];
             /** Assignments */
             assignments: components["schemas"]["AssignmentSummary"][];
             /** Exams */
@@ -858,6 +886,8 @@ export interface components {
             stages: {
                 [key: string]: number;
             };
+            /** Groups */
+            groups: components["schemas"]["CourseGroup"][];
         };
         /** EvidenceOut */
         EvidenceOut: {
@@ -1187,15 +1217,19 @@ export interface components {
         };
         /** TermScheduleIn */
         TermScheduleIn: {
-            /** Grades Due */
-            grades_due: string | null;
+            /** Midterm Due */
+            midterm_due?: string | null;
+            /** Final Due */
+            final_due?: string | null;
         };
         /** TermScheduleOut */
         TermScheduleOut: {
+            /** Midterm Due */
+            midterm_due?: string | null;
+            /** Final Due */
+            final_due?: string | null;
             /** Term */
             term: string;
-            /** Grades Due */
-            grades_due: string | null;
         };
         /** UserOut */
         UserOut: {

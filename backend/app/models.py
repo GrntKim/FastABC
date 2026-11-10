@@ -101,8 +101,8 @@ class Course(Base):
 
 
 class TermSchedule(Base):
-    """A grader's academic calendar for one term: the date grades are due. A soft line: signing off
-    after it asks once more and is recorded as late, never refused."""
+    """A grader's academic calendar for one term: when midterm and final grades are due. A soft line:
+    signing off after it asks once more and is recorded as late, never refused."""
 
     __tablename__ = "term_schedules"
     __table_args__ = (UniqueConstraint("owner_id", "term"),)
@@ -110,7 +110,10 @@ class TermSchedule(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     term: Mapped[str] = mapped_column(String(20))  # same codes as courses.term
-    grades_due: Mapped[date]  # the last day grades can be entered, inclusive
+    # the last day grades can be entered, inclusive. Midterm: questions of an exam named like 중간고사;
+    # final: everything else (기말고사, quizzes, questions outside an exam), and midterms when unset
+    midterm_due: Mapped[date | None]
+    final_due: Mapped[date | None]
 
 
 class Exam(Base):

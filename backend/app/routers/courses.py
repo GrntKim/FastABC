@@ -11,7 +11,15 @@ from app.db import get_db
 from app.models import Course, User
 from app.progress import progress
 from app.routers.assignments import summary
-from app.schemas import CourseIn, CourseOut, CourseSummary, ExamRef
+from app.routers.terms import period
+from app.schemas import (
+    AssignmentSummary,
+    CourseGroup,
+    CourseIn,
+    CourseOut,
+    CourseSummary,
+    ExamRef,
+)
 
 router = APIRouter(prefix="/courses", tags=["courses"])
 
@@ -30,11 +38,28 @@ def _check_unique(db: Session, user: User, body: CourseIn, exclude_id: int | Non
         raise HTTPException(status.HTTP_409_CONFLICT, "the same course section already exists")
 
 
+def _group(exam_id: int | None, name: str | None, assignments: list[AssignmentSummary]) -> CourseGroup:
+    return CourseGroup(
+        exam_id=exam_id,
+        name=name,
+        period=period(name),
+        assignment_count=len(assignments),
+        attention=sum(a.progress.attention for a in assignments),
+        stages=dict(Counter(a.progress.stage for a in assignments)),
+    )
+
+
 def _outs(db: Session, courses: list[Course]) -> list[CourseOut]:
     stats = progress(db, [a.id for c in courses for a in c.assignments])
     outs = []
     for c in courses:
         assignments = [summary(a, stats[a.id]) for a in c.assignments]
+        by_exam: dict[int | None, list[AssignmentSummary]] = {}
+        for a in assignments:
+            by_exam.setdefault(a.exam_id, []).append(a)
+        groups = [_group(e.id, e.name, by_exam.get(e.id, [])) for e in c.exams]
+        if None in by_exam:
+            groups.append(_group(None, None, by_exam[None]))
         outs.append(CourseOut(
             id=c.id,
             department=c.department,
@@ -46,6 +71,7 @@ def _outs(db: Session, courses: list[Course]) -> list[CourseOut]:
             submission_count=sum(a.submission_count for a in assignments),
             attention=sum(a.progress.attention for a in assignments),
             stages=dict(Counter(a.progress.stage for a in assignments)),
+            groups=groups,
             assignments=assignments,
             exams=[ExamRef.model_validate(e) for e in c.exams],
         ))

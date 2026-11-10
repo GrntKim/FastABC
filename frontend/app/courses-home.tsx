@@ -7,7 +7,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { api, ApiError, type CourseSummary } from "@/lib/api";
+import { api, ApiError, type CourseGroup, type CourseSummary } from "@/lib/api";
 import { STAGE_LABEL, termLabel } from "@/lib/progress";
 import { useMe } from "@/lib/use-me";
 import { GradesDue } from "@/components/grades-due";
@@ -20,6 +20,7 @@ export default function CoursesHome() {
   const courses = useQuery({ queryKey: ["courses"], queryFn: () => api<CourseSummary[]>("/courses") });
   const [term, setTerm] = useState<string | null>(null);
   const [department, setDepartment] = useState<string | null>(null);
+  const [period, setPeriod] = useState<Period | null>(null);
   const [adding, setAdding] = useState(false);
 
   if (courses.error) {
@@ -32,8 +33,12 @@ export default function CoursesHome() {
   const currentTerm = term ?? terms[0] ?? null;
   const inTerm = courses.data.filter((c) => c.term === currentTerm);
   const departments = [...new Set(inTerm.map((c) => c.department))];
-  const shown = inTerm.filter((c) => !department || c.department === department);
-  const attention = inTerm.reduce((sum, c) => sum + c.attention, 0);
+  // midterm and final always: picking one with nothing in it says so; "the rest" only when there is some
+  const periods = PERIODS.filter((p) => p.value !== "other" || inTerm.some((c) => c.groups.some((g) => g.period === "other")));
+  // the exam period picks which exams each card shows; courses without one drop out
+  const groupsOf = (c: CourseSummary) => c.groups.filter((g) => !period || g.period === period);
+  const shown = inTerm.filter((c) => (!department || c.department === department) && (!period || groupsOf(c).length > 0));
+  const attentionCourses = shown.filter((c) => groupsOf(c).some((g) => g.attention > 0)).length;
   const courseForm = adding && (
     <CourseForm
       open={adding}
@@ -63,6 +68,7 @@ export default function CoursesHome() {
             onClick={() => {
               setTerm(t);
               setDepartment(null);
+              setPeriod(null);
             }}
           >
             {termLabel(t)}
@@ -74,23 +80,41 @@ export default function CoursesHome() {
         </Button>
       </div>
 
-      {attention > 0 && (
+      {attentionCourses > 0 && (
         <p className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-800 dark:bg-amber-950/40">
-          이번 학기에 확인할 곳이 남은 과목이 <strong>{inTerm.filter((c) => c.attention > 0).length}개</strong> 있습니다. 표시된 과목부터 이어서 채점하세요.
+          {period ? `${PERIOD_LABEL[period]} 시험에` : "이번 학기에"} 확인할 곳이 남은 과목이 <strong>{attentionCourses}개</strong> 있습니다. 표시된 과목부터
+          이어서 채점하세요.
         </p>
       )}
 
-      {departments.length > 1 && (
-        <div className="flex flex-wrap gap-1">
-          <Button size="xs" variant={department ? "ghost" : "secondary"} onClick={() => setDepartment(null)}>
-            전체 학과
+      <div className="flex flex-wrap items-center gap-1">
+        <Button size="xs" variant={period ? "ghost" : "secondary"} onClick={() => setPeriod(null)}>
+          전체 시험
+        </Button>
+        {periods.map((p) => (
+          <Button key={p.value} size="xs" variant={period === p.value ? "secondary" : "ghost"} onClick={() => setPeriod(p.value)}>
+            {p.name}
           </Button>
-          {departments.map((d) => (
-            <Button key={d} size="xs" variant={department === d ? "secondary" : "ghost"} onClick={() => setDepartment(d)}>
-              {d}
+        ))}
+        {departments.length > 1 && <span className="mx-2 h-4 w-px bg-border" aria-hidden />}
+        {departments.length > 1 && (
+          <>
+            <Button size="xs" variant={department ? "ghost" : "secondary"} onClick={() => setDepartment(null)}>
+              전체 학과
             </Button>
-          ))}
-        </div>
+            {departments.map((d) => (
+              <Button key={d} size="xs" variant={department === d ? "secondary" : "ghost"} onClick={() => setDepartment(d)}>
+                {d}
+              </Button>
+            ))}
+          </>
+        )}
+      </div>
+
+      {shown.length === 0 && (
+        <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+          {period ? `이 학기에 ${PERIOD_LABEL[period]} 시험이 있는 과목이 없습니다. 과목 화면에서 시험을 추가하세요.` : "표시할 과목이 없습니다."}
+        </p>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -107,14 +131,11 @@ export default function CoursesHome() {
                 <p className="text-muted-foreground">
                   문항 {c.assignment_count} · 답안 {c.submission_count}
                 </p>
-                <div className="flex flex-wrap gap-1">
-                  {Object.entries(c.stages).map(([stage, count]) => (
-                    <Badge key={stage} variant="outline">
-                      {STAGE_LABEL[stage] ?? stage} {count}
-                    </Badge>
+                <ul className="flex flex-col gap-1.5">
+                  {groupsOf(c).map((g) => (
+                    <GroupRow key={g.exam_id ?? "none"} group={g} />
                   ))}
-                  {c.attention > 0 && <Badge>확인할 곳 있음</Badge>}
-                </div>
+                </ul>
               </CardContent>
             </Card>
           </Link>
@@ -123,6 +144,35 @@ export default function CoursesHome() {
 
       {courseForm}
     </div>
+  );
+}
+
+type Period = CourseGroup["period"];
+
+const PERIODS: { value: Period; name: string }[] = [
+  { value: "midterm", name: "중간" },
+  { value: "final", name: "기말" },
+  { value: "other", name: "그 밖 (퀴즈·과제 등)" },
+];
+const PERIOD_LABEL: Record<Period, string> = { midterm: "중간", final: "기말", other: "그 밖의" };
+
+/** One exam of a course card: its name, where its questions stand, and whether anything needs a look. */
+function GroupRow({ group: g }: { group: CourseGroup }) {
+  const stages = Object.keys(STAGE_LABEL).filter((s) => g.stages[s]);
+  return (
+    <li className="flex flex-wrap items-center gap-1">
+      <span className="mr-1 min-w-16 text-xs font-medium">{g.name ?? "시험 밖 문항"}</span>
+      {g.assignment_count === 0 ? (
+        <span className="text-xs text-muted-foreground">문항 없음</span>
+      ) : (
+        stages.map((s) => (
+          <Badge key={s} variant="outline">
+            {STAGE_LABEL[s]} {g.stages[s]}
+          </Badge>
+        ))
+      )}
+      {g.attention > 0 && <Badge>확인할 곳 있음</Badge>}
+    </li>
   );
 }
 

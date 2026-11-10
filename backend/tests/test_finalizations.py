@@ -2,6 +2,7 @@ import re
 
 import pytest
 
+from app.models import Assignment, Exam
 from tests.test_grading import grading  # noqa: F401  (fixture)
 from tests.test_review import graded  # noqa: F401  (fixture)
 from tests.test_submissions import upload
@@ -77,15 +78,31 @@ def test_reopen_and_revise(client, decided):
 def test_due_date_is_soft(client, decided):
     aid = decided["aid"]
     term = client.get(f"/assignments/{aid}").json()["course"]["term"]
-    client.put(f"/terms/{term}", json={"grades_due": "2000-01-31"})
+    client.put(f"/terms/{term}", json={"final_due": "2000-01-31"})
     r = client.post(f"/assignments/{aid}/finalizations", json=SIGN)
-    assert (r.status_code, r.json()["detail"]) == (409, "이 학기 성적 입력 마감일(2000-01-31)이 지났습니다")
+    assert (r.status_code, r.json()["detail"]) == (409, "기말 성적 입력 마감일(2000-01-31)이 지났습니다")
 
     f = client.post(f"/assignments/{aid}/finalizations", json=SIGN | {"late_ok": True}).json()
     assert (f["version"], f["late"]) == (1, True)  # signed off anyway, and recorded as late
 
     client.post(f"/assignments/{aid}/reopen", json={"reason": "x"})
-    client.put(f"/terms/{term}", json={"grades_due": "2999-12-31"})
+    client.put(f"/terms/{term}", json={"final_due": "2999-12-31"})
+    assert client.post(f"/assignments/{aid}/finalizations", json=SIGN).json()["late"] is False
+
+
+def test_midterm_questions_follow_the_midterm_due_date(client, db, decided):
+    aid = decided["aid"]
+    a = client.get(f"/assignments/{aid}").json()
+    exam = client.post(f"/courses/{a['course']['id']}/exams", json={"name": "중간고사"}).json()["id"]
+    db.get(Assignment, aid).exam = db.get(Exam, exam)  # questions cannot be edited once graded
+    db.flush()
+
+    term = a["course"]["term"]
+    client.put(f"/terms/{term}", json={"midterm_due": "2000-01-31", "final_due": "2999-12-31"})
+    r = client.post(f"/assignments/{aid}/finalizations", json=SIGN)
+    assert (r.status_code, r.json()["detail"]) == (409, "중간고사 성적 입력 마감일(2000-01-31)이 지났습니다")
+
+    client.put(f"/terms/{term}", json={"midterm_due": "2999-12-31", "final_due": "2000-01-31"})
     assert client.post(f"/assignments/{aid}/finalizations", json=SIGN).json()["late"] is False
 
 

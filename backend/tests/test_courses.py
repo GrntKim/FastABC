@@ -31,14 +31,30 @@ def test_term_format(client):
 
 
 def test_term_schedule(client, stranger):
-    assert client.get("/terms/2026-2").json() == {"term": "2026-2", "grades_due": None}
-    assert client.put("/terms/2026-2", json={"grades_due": "2026-12-24"}).status_code == 200
-    assert client.put("/terms/2026-2", json={"grades_due": "2026-12-28"}).json()["grades_due"] == "2026-12-28"
-    assert client.get("/terms/2026-2").json()["grades_due"] == "2026-12-28"
-    assert stranger.get("/terms/2026-2").json()["grades_due"] is None  # each grader's own calendar
-    client.put("/terms/2026-2", json={"grades_due": None})
-    assert client.get("/terms/2026-2").json()["grades_due"] is None
+    empty = {"term": "2026-2", "midterm_due": None, "final_due": None}
+    assert client.get("/terms/2026-2").json() == empty
+    assert client.put("/terms/2026-2", json={"final_due": "2026-12-24"}).status_code == 200
+    both = {"midterm_due": "2026-10-30", "final_due": "2026-12-28"}
+    assert client.put("/terms/2026-2", json=both).json() == {"term": "2026-2"} | both
+    assert client.get("/terms/2026-2").json() == {"term": "2026-2"} | both
+    assert stranger.get("/terms/2026-2").json() == empty  # each grader's own calendar
+    client.put("/terms/2026-2", json={"midterm_due": None, "final_due": None})
+    assert client.get("/terms/2026-2").json() == empty
     assert client.get("/terms/2026-3").status_code == 422
+
+
+def test_groups_by_exam_period(client, course_id):
+    exams = {n: client.post(f"/courses/{course_id}/exams", json={"name": n}).json()["id"] for n in ("중간고사", "기말고사", "퀴즈 1")}
+    client.post("/assignments", json=make_body(course_id) | {"exam_id": exams["중간고사"], "number": 1})
+    client.post("/assignments", json=make_body(course_id) | {"exam_id": exams["중간고사"], "number": 2})
+    client.post("/assignments", json=make_body(course_id))  # outside any exam
+    groups = next(c for c in client.get("/courses").json() if c["id"] == course_id)["groups"]
+    assert [(g["name"], g["period"], g["assignment_count"], g["stages"]) for g in groups] == [
+        ("중간고사", "midterm", 2, {"setup": 2}),
+        ("기말고사", "final", 0, {}),
+        ("퀴즈 1", "other", 0, {}),
+        (None, "other", 1, {"setup": 1}),
+    ]
 
 
 def test_assignment_belongs_to_course(client, course_id):

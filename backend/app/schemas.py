@@ -156,12 +156,24 @@ class AssignmentOut(AssignmentSummary):
     items: list[RubricItemOut]
 
 
+class CourseGroup(BaseModel):
+    """A course's questions under one exam, for the course list: which exam period, and how far along."""
+
+    exam_id: int | None  # None: questions outside any exam
+    name: str | None
+    period: Literal["midterm", "final", "other"]
+    assignment_count: int
+    attention: int
+    stages: dict[str, int]  # stage -> assignment count
+
+
 class CourseSummary(CourseRef):
     created_at: datetime
     assignment_count: int
     submission_count: int  # summed over assignments
     attention: int  # cells to look at, over all assignments
     stages: dict[str, int]  # stage -> assignment count
+    groups: list[CourseGroup]  # per exam in the order they were added, questions outside an exam last
 
 
 class ExamIn(BaseModel):
@@ -314,12 +326,12 @@ class FinalizeIn(BaseModel):
 
 
 class TermScheduleIn(BaseModel):
-    grades_due: date | None  # None clears it
+    midterm_due: date | None = None  # None: midterms follow the final due date
+    final_due: date | None = None
 
 
-class TermScheduleOut(BaseModel):
+class TermScheduleOut(TermScheduleIn):
     term: str
-    grades_due: date | None
 
 
 class ReopenIn(BaseModel):
