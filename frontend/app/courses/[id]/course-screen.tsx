@@ -87,8 +87,12 @@ export default function CourseScreen({ courseId }: { courseId: number }) {
         <Button variant="outline" className="ml-auto" onClick={() => setExamForm({})}>
           시험 추가
         </Button>
-        <Link href={`/courses/${courseId}/assignments/new`} className={buttonVariants()}>
-          문항 추가
+        {/* with exams, questions are added from each exam; this one is for a question outside them */}
+        <Link
+          href={`/courses/${courseId}/assignments/new`}
+          className={c.exams.length > 0 ? buttonVariants({ variant: "ghost" }) : buttonVariants()}
+        >
+          {c.exams.length > 0 ? "시험 없이 문항 추가" : "문항 추가"}
         </Link>
       </div>
 
@@ -133,9 +137,9 @@ export default function CourseScreen({ courseId }: { courseId: number }) {
                   </Button>
                   <Link
                     href={`/courses/${courseId}/assignments/new?exam=${exam.id}`}
-                    className={`ml-auto ${buttonVariants({ size: "sm", variant: "ghost" })}`}
+                    className={`ml-auto ${buttonVariants({ size: "sm" })}`}
                   >
-                    + 이 시험에 문항 추가
+                    + 문항 추가
                   </Link>
                   <Link href={`/exams/${exam.id}`} className={buttonVariants({ size: "sm", variant: "outline" })}>
                     시험 결과 →

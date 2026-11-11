@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -179,19 +179,26 @@ export default function AssignmentForm({
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <div className="grid gap-3 sm:grid-cols-[10rem_5rem_1fr]">
-            <select
-              className="h-9 rounded-md border bg-card px-2 text-sm"
-              aria-label="시험"
-              value={examId ?? ""}
-              onChange={(e) => setExamId(e.target.value ? Number(e.target.value) : null)}
-            >
-              <option value="">시험 없음</option>
-              {course.data?.exams.map((exam) => (
-                <option key={exam.id} value={exam.id}>
-                  {exam.name}
-                </option>
-              ))}
-            </select>
+            {assignmentId ? (
+              <select
+                className="h-9 rounded-md border bg-card px-2 text-sm"
+                aria-label="시험"
+                value={examId ?? ""}
+                onChange={(e) => setExamId(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">시험 없음</option>
+                {course.data?.exams.map((exam) => (
+                  <option key={exam.id} value={exam.id}>
+                    {exam.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              // a new question belongs where it was started from ("+ 문항 추가" of an exam), nothing to choose
+              <p className="flex h-9 items-center rounded-md bg-muted px-3 text-sm" aria-label="시험">
+                {examId === null ? "시험 없음" : (course.data?.exams.find((e) => e.id === examId)?.name ?? "…")}
+              </p>
+            )}
             <Input
               type="number"
               min={1}
@@ -230,7 +237,7 @@ export default function AssignmentForm({
           />
           <div className="flex flex-wrap items-center gap-2">
             <Button disabled={!problem.trim() || !rubricText.trim() || draft.isPending} onClick={() => draft.mutate()}>
-              {draft.isPending ? "항목으로 나누는 중… (10~20초)" : items ? "다시 나누기" : "항목으로 나누기"}
+              {draft.isPending ? "나누는 중…" : items ? "다시 나누기" : "항목으로 나누기"}
             </Button>
             {!items && (
               <Button variant="ghost" onClick={() => setItems([GATE_ITEM, { ...NEW_ITEM.credit }])}>
@@ -238,6 +245,7 @@ export default function AssignmentForm({
               </Button>
             )}
           </div>
+          {draft.isPending && <DraftProgress />}
         </CardContent>
       </Card>
 
@@ -329,6 +337,25 @@ export default function AssignmentForm({
           {assignmentId ? "수정 저장" : "문항 저장"}
         </Button>
       </div>
+    </div>
+  );
+}
+
+/** The 10–20 s wait for the AI draft as a bar that fills toward the usual time and holds short of the end. */
+function DraftProgress() {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const start = Date.now();
+    const timer = setInterval(() => setElapsed((Date.now() - start) / 1000), 250);
+    return () => clearInterval(timer);
+  }, []);
+  const value = 95 * (1 - Math.exp(-elapsed / 8));
+  return (
+    <div className="flex flex-col gap-1.5" role="status">
+      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+        <div className="h-full rounded-full bg-primary transition-[width] duration-300 ease-linear" style={{ width: `${value}%` }} />
+      </div>
+      <p className="text-xs text-muted-foreground">AI가 채점 기준을 항목으로 나누는 중 · {Math.floor(elapsed)}초 (보통 10~20초)</p>
     </div>
   );
 }

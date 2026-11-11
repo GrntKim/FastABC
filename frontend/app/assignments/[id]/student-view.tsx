@@ -1,9 +1,10 @@
 "use client";
 
 import { useIsMutating, useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { progressSegments, SegmentBar, SegmentLegend } from "@/components/segment-bar";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { api, type AssignmentOut, type CellOut, type RubricItemOut, type SubmissionOut } from "@/lib/api";
@@ -217,6 +218,14 @@ export default function StudentView({
                 <Button size="sm" variant={doneHere ? "default" : "outline"} onClick={() => go(list.indexOf(nextAttention))}>
                   다음 확인 필요 학생 ({studentName(nextAttention, hidden)}) →
                 </Button>
+              ) : index === list.length - 1 ? (
+                // the last student (or the only one): back to the list rather than around to the first again
+                <Link
+                  href={assignment.exam_id ? `/exams/${assignment.exam_id}` : `/courses/${assignment.course_id}`}
+                  className={buttonVariants({ size: "sm", variant: doneHere ? "default" : "outline" })}
+                >
+                  {assignment.exam_id ? `${assignment.exam_name} 결과로` : "과목으로"} →
+                </Link>
               ) : (
                 <Button size="sm" variant="outline" onClick={() => go(index + 1)}>
                   다음 학생 →
