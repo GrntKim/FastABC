@@ -7,6 +7,7 @@ LMS or an OMR sheet) as imported columns: FastABC does not score multiple choice
 import csv
 import io
 
+import httpx
 from fastapi import (
     APIRouter,
     Depends,
@@ -22,15 +23,21 @@ from sqlalchemy.orm import Session
 
 from app.auth import current_user, own_course, own_exam
 from app.db import get_db
+from app.finalization import is_locked
+from app.grading import get_reader
 from app.models import Exam, ImportedPart, ImportedScore, User
 from app.progress import Stage, progress
+from app.reading import MAX_BYTES as MAX_READ_BYTES
+from app.reading import AnswerReader, UnreadableFile, read_exam
 from app.routers.review import submission_results
 from app.routers.submissions import MAX_UPLOAD_BYTES, _decode
 from app.schemas import (
     CourseRef,
+    ExamAnswerOut,
     ExamCell,
     ExamColumn,
     ExamIn,
+    ExamReadingOut,
     ExamRef,
     ExamResults,
     ExamStudent,
@@ -152,6 +159,41 @@ def export_exam(exam_id: int, db: Session = Depends(get_db), user: User = Depend
         "﻿" + buf.getvalue(),  # BOM so Excel reads UTF-8 Korean
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="exam_{exam_id}.csv"'},
+    )
+
+
+@router.post("/exams/{exam_id}/readings")
+def read_answer_sheet(
+    exam_id: int,
+    file: UploadFile,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+    reader: AnswerReader = Depends(get_reader),
+) -> ExamReadingOut:
+    """One student's sheet for the whole exam -> the answer to each numbered question, for the grader to
+    check. Nothing is saved: each answer then goes to its question like any single answer."""
+    exam = own_exam(db, user, exam_id)
+    questions = sorted((a for a in exam.assignments if a.number is not None), key=lambda a: a.number)
+    if not questions:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "번호가 붙은 문항이 없습니다")
+    data = file.file.read(MAX_READ_BYTES + 1)
+    if len(data) > MAX_READ_BYTES:
+        raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "파일은 10 MB까지 읽습니다")
+    try:
+        answers, rest, method = read_exam(data, file.content_type or "", reader, {a.number: a.problem for a in questions})
+    except UnreadableFile as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+    except httpx.HTTPError as e:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"reader failed: {e}") from e
+    return ExamReadingOut(
+        method=method,
+        rest=rest,
+        answers=[
+            ExamAnswerOut(
+                assignment_id=a.id, number=a.number, title=a.title, text=answers.get(a.number, ""), locked=is_locked(db, a.id)
+            )
+            for a in questions
+        ],
     )
 
 

@@ -259,6 +259,22 @@ class ReadingOut(BaseModel):
     method: Literal["text", "ai"]  # taken from the PDF's own text, or transcribed by the LLM
 
 
+class ExamAnswerOut(BaseModel):
+    assignment_id: int
+    number: int
+    title: str
+    text: str  # empty: nothing found for this question on the sheet
+    locked: bool  # the question's grades are signed off: an answer cannot be added
+
+
+class ExamReadingOut(BaseModel):
+    """One student's whole answer sheet, split by question. Nothing is saved."""
+
+    method: Literal["text", "ai"]
+    answers: list[ExamAnswerOut]  # every numbered question of the exam, in order
+    rest: str  # text before the first question number (a header, or a sheet with no numbers at all)
+
+
 class GradingStatus(BaseModel):
     total: int  # cells (submission x rubric item)
     pending: int  # waiting for the LLM re-judgment

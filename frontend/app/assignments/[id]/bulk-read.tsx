@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { api, ApiError, json, type GradingStatus, type SubmissionOut } from "@/lib/api";
+import { parseFileName } from "@/lib/student";
 import { cn } from "@/lib/utils";
 
 type Status = "waiting" | "reading" | "read" | "failed" | "saving" | "saved";
@@ -30,16 +31,6 @@ const PARALLEL = 3; // readings at once: AI reads take seconds each, local PDFs 
 const MAX_FILES = 100;
 
 const errorMessage = (e: unknown, fallback: string) => (e instanceof ApiError && typeof e.detail === "string" ? e.detail : fallback);
-
-/** 20240001.pdf, 20240001_김민수.pdf, 김민수-20240001.jpg: the student id (and name) from the file name. */
-export function parseFileName(fileName: string): { studentId: string; name: string } {
-  const stem = fileName.replace(/\.[^.]+$/, "").trim();
-  const idFirst = stem.match(/^(\d{5,12})(?:[\s_\-.]+(.+))?$/);
-  if (idFirst) return { studentId: idFirst[1], name: (idFirst[2] ?? "").trim() };
-  const idLast = stem.match(/^(.+?)[\s_\-.]+(\d{5,12})$/);
-  if (idLast) return { studentId: idLast[2], name: idLast[1].trim() };
-  return { studentId: "", name: "" };
-}
 
 const STATUS_TEXT: Record<Status, string> = {
   waiting: "대기",

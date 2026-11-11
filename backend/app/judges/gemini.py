@@ -229,6 +229,21 @@ READ_SYSTEM = """당신은 시험 답안지를 글자로 옮기는 전사자입�
 - 옮긴 글만 출력한다. 설명이나 머리말을 붙이지 않는다."""
 
 
+READ_EXAM_SYSTEM = READ_SYSTEM.replace(
+    "- 옮긴 글만 출력한다. 설명이나 머리말을 붙이지 않는다.",
+    "- 시험 전체 답안지다. 학생이 쓴 답을 문항 번호별로 나눠 옮긴다. 답이 없는 문항은 빼고, 어느 문항인지 알 수 없는 글은 옮기지 않는다.",
+)
+
+
+class ExamAnswer(BaseModel):
+    number: int
+    text: str
+
+
+class ExamTranscript(BaseModel):
+    answers: list[ExamAnswer]
+
+
 class GeminiReader:
     """Image or scanned PDF -> the answer's text, transcribed as written (no corrections)."""
 
@@ -248,3 +263,19 @@ class GeminiReader:
             store=False,
         )
         return interaction.output_text or ""
+
+    def read_exam(self, data: bytes, mime_type: str, questions: dict[int, str]) -> dict[int, str]:
+        kind = "document" if mime_type == "application/pdf" else "image"
+        listed = "\n".join(f"{n}번. {problem}" for n, problem in sorted(questions.items()))
+        interaction = self.client.interactions.create(
+            model=self.model,
+            system_instruction=READ_EXAM_SYSTEM,
+            input=[
+                {"type": kind, "data": base64.b64encode(data).decode(), "mime_type": mime_type},
+                {"type": "text", "text": f"이 시험의 문항입니다.\n{listed}\n\n답안지에서 학생이 쓴 답을 문항 번호별로 옮겨 주세요."},
+            ],
+            response_format={"type": "text", "mime_type": "application/json", "schema": ExamTranscript.model_json_schema()},
+            store=False,
+        )
+        transcript = ExamTranscript.model_validate_json(interaction.output_text or '{"answers": []}')
+        return {a.number: a.text for a in transcript.answers}

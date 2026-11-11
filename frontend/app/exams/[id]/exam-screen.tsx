@@ -15,12 +15,19 @@ import { api, API_URL, ApiError, type ExamColumn, type ExamResults } from "@/lib
 import { STAGE_LABEL, STAGE_VARIANT, termLabel } from "@/lib/progress";
 import { formatPoints } from "@/lib/rubric";
 import { cn } from "@/lib/utils";
+import SheetUpload, { answeredBy } from "./sheet-upload";
 
 /** One exam: every question's result per student, added up, with points imported from elsewhere beside them. */
 export default function ExamScreen({ examId }: { examId: number }) {
   const queryClient = useQueryClient();
-  const results = useQuery({ queryKey: ["exam", examId], queryFn: () => api<ExamResults>(`/exams/${examId}/results`) });
+  const results = useQuery({
+    queryKey: ["exam", examId],
+    queryFn: () => api<ExamResults>(`/exams/${examId}/results`),
+    // while a question is still being judged, its column fills in on its own
+    refetchInterval: (q) => (q.state.data?.columns.some((c) => c.stage === "grading") ? 3000 : false),
+  });
   const [importing, setImporting] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const removeImport = useMutation({
     mutationFn: (partId: number) => api(`/imports/${partId}`, { method: "DELETE" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["exam", examId] }),
@@ -65,6 +72,14 @@ export default function ExamScreen({ examId }: { examId: number }) {
           {!r.finalized && <GradesDue term={r.course.term} question={{ examName: r.exam.name }} className="self-start" />}
         </div>
         <div className="ml-auto flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            disabled={!questions.some((q) => q.number !== null)}
+            title="학생마다 시험 전체 답안지를 올리면 문항별로 나눠 넣습니다"
+            onClick={() => setUploading(true)}
+          >
+            답안지 올리기
+          </Button>
           <Button variant="outline" onClick={() => setImporting(true)}>
             다른 곳에서 채점한 점수 가져오기
           </Button>
@@ -129,6 +144,14 @@ export default function ExamScreen({ examId }: { examId: number }) {
         학번으로 문항별 결과를 묶습니다. 답안이 없는 문항은 0점으로 더하고, 확정하지 않은 문항이 있는 학생은 합계를 비워 둡니다.
       </p>
 
+      {uploading && (
+        <SheetUpload
+          examId={examId}
+          questions={questions.filter((q) => q.number !== null)}
+          answered={answeredBy(r)}
+          onClose={() => setUploading(false)}
+        />
+      )}
       {importing && <ImportDialog examId={examId} onClose={() => setImporting(false)} />}
     </div>
   );

@@ -67,3 +67,13 @@ export function maskName(name: string): string {
   if (chars.length === 2) return `${chars[0]}*`;
   return chars[0] + "*".repeat(chars.length - 2) + chars[chars.length - 1];
 }
+
+/** 20240001.pdf, 20240001_김민수.pdf, 김민수-20240001.jpg: the student id (and name) from the file name. */
+export function parseFileName(fileName: string): { studentId: string; name: string } {
+  const stem = fileName.replace(/\.[^.]+$/, "").trim();
+  const idFirst = stem.match(/^(\d{5,12})(?:[\s_\-.]+(.+))?$/);
+  if (idFirst) return { studentId: idFirst[1], name: (idFirst[2] ?? "").trim() };
+  const idLast = stem.match(/^(.+?)[\s_\-.]+(\d{5,12})$/);
+  if (idLast) return { studentId: idLast[2], name: idLast[1].trim() };
+  return { studentId: "", name: "" };
+}

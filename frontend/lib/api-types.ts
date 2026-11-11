@@ -193,6 +193,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/exams/{exam_id}/readings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read Answer Sheet
+         * @description One student's sheet for the whole exam -> the answer to each numbered question, for the grader to
+         *     check. Nothing is saved: each answer then goes to its question like any single answer.
+         */
+        post: operations["read_answer_sheet_exams__exam_id__readings_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/exams/{exam_id}/imports": {
         parameters: {
             query?: never;
@@ -719,6 +740,11 @@ export interface components {
             /** Max Points */
             max_points: number;
         };
+        /** Body_read_answer_sheet_exams__exam_id__readings_post */
+        Body_read_answer_sheet_exams__exam_id__readings_post: {
+            /** File */
+            file: string;
+        };
         /** Body_read_file_assignments__assignment_id__readings_post */
         Body_read_file_assignments__assignment_id__readings_post: {
             /** File */
@@ -894,6 +920,19 @@ export interface components {
             /** Requested */
             requested: number;
         };
+        /** ExamAnswerOut */
+        ExamAnswerOut: {
+            /** Assignment Id */
+            assignment_id: number;
+            /** Number */
+            number: number;
+            /** Title */
+            title: string;
+            /** Text */
+            text: string;
+            /** Locked */
+            locked: boolean;
+        };
         /** ExamCell */
         ExamCell: {
             /** Points */
@@ -926,6 +965,21 @@ export interface components {
         ExamIn: {
             /** Name */
             name: string;
+        };
+        /**
+         * ExamReadingOut
+         * @description One student's whole answer sheet, split by question. Nothing is saved.
+         */
+        ExamReadingOut: {
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "text" | "ai";
+            /** Answers */
+            answers: components["schemas"]["ExamAnswerOut"][];
+            /** Rest */
+            rest: string;
         };
         /** ExamRef */
         ExamRef: {
@@ -1715,6 +1769,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_answer_sheet_exams__exam_id__readings_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exam_id: number;
+            };
+            cookie?: {
+                fastabc_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_read_answer_sheet_exams__exam_id__readings_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExamReadingOut"];
                 };
             };
             /** @description Validation Error */

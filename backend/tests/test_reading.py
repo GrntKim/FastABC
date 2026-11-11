@@ -5,6 +5,7 @@ from pypdf import PdfWriter
 
 from app.grading import get_reader
 from app.main import app as fastapi_app
+from app.reading import clean, split_by_number
 from tests.test_assignments import make_body
 
 TEXT = "Backprop uses the chain rule to compute gradients layer by layer"
@@ -47,6 +48,10 @@ class FakeReader:
     def read(self, data: bytes, mime_type: str) -> str:
         self.calls.append(mime_type)
         return "  손으로 쓴 답안입니다.\n둘째 줄  "
+
+    def read_exam(self, data: bytes, mime_type: str, questions: dict[int, str]) -> dict[int, str]:
+        self.calls.append(f"exam {mime_type} {sorted(questions)}")
+        return {1: " 첫 문항 답 ", 9: "없는 문항"}  # a number the exam does not have is dropped
 
 
 @pytest.fixture
@@ -99,3 +104,54 @@ def test_add_one_checked_answer(client, aid):
 def test_reading_needs_your_question(stranger, client, aid, reader):
     assert stranger.post(f"/assignments/{aid}/readings", files={"file": ("a", b"x", "image/png")}).status_code == 404
     assert stranger.post(f"/assignments/{aid}/submissions", json={"student_id": "1", "answer": "a"}).status_code == 404
+
+
+def test_split_by_question_number():
+    sheet = "학번 2024 이름 홍길동\n1번. 해시와 솔트\n1. 입력 검증\n2. 최소 권한\n2번\n위 1번 답처럼 쓴다\n[3번] 대칭키"
+    answers, rest = split_by_number(sheet, [1, 2, 3])
+    # "1." lists and a "1번" inside a line are part of the answer, not new questions
+    assert answers == {1: "해시와 솔트\n1. 입력 검증\n2. 최소 권한", 2: "위 1번 답처럼 쓴다", 3: "대칭키"}
+    assert rest == "학번 2024 이름 홍길동"
+    assert split_by_number("3번 c\n1번 a", [1, 3]) == ({3: "c\n1번 a"}, "")  # numbers only rise
+    assert split_by_number("문항 2: 답", [2]) == ({2: "답"}, "")
+    assert split_by_number("번호 없는 답안", [1, 2]) == ({}, "번호 없는 답안")
+
+
+def test_pdf_spaces_are_spaces():
+    assert clean("사용자\x01입력을\tSQL  문에\n 다음 줄 ") == "사용자 입력을 SQL 문에\n다음 줄"
+
+
+@pytest.fixture
+def exam(client, course_id) -> dict:
+    exam_id = client.post(f"/courses/{course_id}/exams", json={"name": "중간고사"}).json()["id"]
+    ids = [client.post("/assignments", json=make_body(course_id) | {"exam_id": exam_id, "number": n}).json()["id"] for n in (1, 2)]
+    return {"id": exam_id, "questions": ids}
+
+
+def read_sheet(client, exam_id: int, data: bytes, mime: str):
+    return client.post(f"/exams/{exam_id}/readings", files={"file": ("sheet", data, mime)})
+
+
+def test_whole_sheet_pdf_is_split_locally(client, exam, reader, monkeypatch):
+    monkeypatch.setattr("app.reading.pdf_text", lambda data: "학번 20240001\n1번 첫 답\n2번 둘째 답")
+    r = read_sheet(client, exam["id"], text_pdf(), "application/pdf")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert (body["method"], body["rest"], reader.calls) == ("text", "학번 20240001", [])
+    assert [(a["assignment_id"], a["number"], a["text"], a["locked"]) for a in body["answers"]] == [
+        (exam["questions"][0], 1, "첫 답", False),
+        (exam["questions"][1], 2, "둘째 답", False),
+    ]
+
+
+def test_whole_sheet_photo_goes_to_the_reader(client, exam, reader):
+    r = read_sheet(client, exam["id"], b"\x89PNG fake", "image/png")
+    assert reader.calls == ["exam image/png [1, 2]"]
+    assert [(a["number"], a["text"]) for a in r.json()["answers"]] == [(1, "첫 문항 답"), (2, "")]
+    assert r.json()["method"] == "ai"
+
+
+def test_sheet_needs_numbered_questions(client, course_id, reader, stranger, exam):
+    empty = client.post(f"/courses/{course_id}/exams", json={"name": "기말고사"}).json()["id"]
+    assert read_sheet(client, empty, text_pdf(), "application/pdf").status_code == 400
+    assert read_sheet(stranger, exam["id"], text_pdf(), "application/pdf").status_code == 404
