@@ -2,15 +2,22 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, ApiError, type AssignmentOut, type GradingStatus } from "@/lib/api";
 import { termLabel } from "@/lib/progress";
-import AdminPanel from "./admin-panel";
+import InfoPanel from "./info-panel";
 import ResultsTab from "./results-tab";
 import StudentView from "./student-view";
 
+/** `?student=12` opens that answer on the grading tab (from a student's cell in the exam results). */
 export default function DetailScreen({ assignmentId }: { assignmentId: number }) {
+  const student = Number(useSearchParams().get("student")) || null;
+  return <Detail key={student ?? "list"} assignmentId={assignmentId} student={student} />;
+}
+
+function Detail({ assignmentId, student }: { assignmentId: number; student: number | null }) {
   const assignment = useQuery({
     queryKey: ["assignment", assignmentId],
     queryFn: () => api<AssignmentOut>(`/assignments/${assignmentId}`),
@@ -20,8 +27,8 @@ export default function DetailScreen({ assignmentId }: { assignmentId: number })
     queryFn: () => api<GradingStatus>(`/assignments/${assignmentId}/grading`),
     refetchInterval: (q) => (q.state.data && !q.state.data.done ? 2000 : false),
   });
-  const [tab, setTab] = useState<string | null>(null);
-  const [focus, setFocus] = useState<number | null>(null); // a student to open on the grading tab
+  const [tab, setTab] = useState<string | null>(student ? "grade" : null);
+  const focus = student; // a student to open on the grading tab
 
   if (assignment.error) {
     const e = assignment.error;
@@ -30,7 +37,9 @@ export default function DetailScreen({ assignmentId }: { assignmentId: number })
   if (!assignment.data || !status.data) return <p className="text-muted-foreground">불러오는 중…</p>;
   const a = assignment.data;
   const graded = status.data.total > 0;
-  const defaultTab = !graded ? "admin" : ["done", "finalized"].includes(a.progress.stage) ? "results" : "grade";
+  const defaultTab = !graded ? "info" : ["done", "finalized"].includes(a.progress.stage) ? "results" : "grade";
+  // the grading and results tabs open once there is something graded; until then a link to them shows the info
+  const shown = graded ? (tab ?? defaultTab) : "info";
 
   return (
     <div className="flex flex-col gap-4">
@@ -58,7 +67,7 @@ export default function DetailScreen({ assignmentId }: { assignmentId: number })
           {a.assessment && <span className="text-sm text-muted-foreground">{a.assessment}</span>}
         </div>
         {/* the question is what every answer is read against; the grading tab prints it on the exam paper */}
-        {(tab ?? defaultTab) !== "grade" && (
+        {shown !== "grade" && (
           <section className="rounded-xl border-l-4 border-l-primary bg-card px-4 py-3 shadow-xs ring-1 ring-foreground/10">
             <p className="text-xs font-medium text-primary">문제</p>
             <p className="whitespace-pre-wrap text-[1.05rem] leading-7">{a.problem}</p>
@@ -66,11 +75,11 @@ export default function DetailScreen({ assignmentId }: { assignmentId: number })
         )}
       </header>
 
-      {/* setup until graded, grading while cells are open, results once every cell is decided */}
-      <Tabs value={tab ?? defaultTab} onValueChange={(v) => setTab(String(v))}>
+      {/* the question and its answers until graded, grading while cells are open, results once every cell is decided */}
+      <Tabs value={shown} onValueChange={(v) => setTab(String(v))}>
         <div className="flex items-center gap-2">
           <TabsList>
-            <TabsTrigger value="admin">준비</TabsTrigger>
+            <TabsTrigger value="info">정보</TabsTrigger>
             <TabsTrigger value="grade" disabled={!graded}>
               채점
             </TabsTrigger>
@@ -89,15 +98,8 @@ export default function DetailScreen({ assignmentId }: { assignmentId: number })
         </div>
         <TabsContent value="grade">{graded && <StudentView key={focus ?? "list"} assignment={a} focus={focus} onGoResults={() => setTab("results")} />}</TabsContent>
         <TabsContent value="results">{graded && <ResultsTab assignment={a} onGoGrade={() => setTab("grade")} />}</TabsContent>
-        <TabsContent value="admin">
-          <AdminPanel
-            assignment={a}
-            onGradingStarted={() => setTab("grade")}
-            onOpenStudent={(id) => {
-              setFocus(id);
-              setTab("grade");
-            }}
-          />
+        <TabsContent value="info">
+          <InfoPanel assignment={a} onGradingStarted={() => setTab("grade")} />
         </TabsContent>
       </Tabs>
     </div>

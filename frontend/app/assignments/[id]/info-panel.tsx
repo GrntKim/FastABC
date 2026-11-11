@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -12,21 +12,14 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api, ApiError, type AssignmentOut, type GradingStatus, type RubricItemOut, type SubmissionOut } from "@/lib/api";
 import { itemName, KIND_HINT, KIND_LABEL, plain, TYPE_LABEL } from "@/lib/rubric";
-import BulkRead from "./bulk-read";
-import ReadAnswer from "./read-answer";
 
 const errorMessage = (e: unknown, fallback: string) => (e instanceof ApiError ? String(e.detail) : fallback);
 
-/** Setup work: rubric, answer upload, grading run, deletion. */
-export default function AdminPanel({
-  assignment,
-  onGradingStarted,
-  onOpenStudent,
-}: {
-  assignment: AssignmentOut;
-  onGradingStarted: () => void;
-  onOpenStudent: (submissionId: number) => void; // an answer added and graded on its own
-}) {
+/**
+ * What the question is and what came in: rubric, the answers it holds, the grading run, deletion.
+ * Answers are added for the whole exam (exam results → 답안 올리기), not here.
+ */
+export default function InfoPanel({ assignment, onGradingStarted }: { assignment: AssignmentOut; onGradingStarted: () => void }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const remove = useMutation({
@@ -43,8 +36,10 @@ export default function AdminPanel({
     <div className="flex flex-col gap-6 pt-2">
       {/* in working order: criteria, answers, then the grading run */}
       <RubricCard assignment={assignment} />
-      <SubmissionsCard assignmentId={assignment.id} onOpenStudent={onOpenStudent} />
-      <GradingCard assignmentId={assignment.id} submissionCount={assignment.submission_count} onStarted={onGradingStarted} />
+      <SubmissionsCard assignment={assignment} />
+      {assignment.submission_count > 0 && (
+        <GradingCard assignmentId={assignment.id} submissionCount={assignment.submission_count} onStarted={onGradingStarted} />
+      )}
       <div className="flex justify-end">
         <Button
           variant="destructive"
@@ -205,15 +200,11 @@ function GradingCard({
 
 const PREVIEW_ROWS = 5; // a long class list buries the grading card below it
 
-function SubmissionsCard({ assignmentId, onOpenStudent }: { assignmentId: number; onOpenStudent: (submissionId: number) => void }) {
+/** The answers this question holds, and where each came from. Adding them is the exam's job. */
+function SubmissionsCard({ assignment }: { assignment: AssignmentOut }) {
   const queryClient = useQueryClient();
-  const fileInput = useRef<HTMLInputElement>(null);
+  const assignmentId = assignment.id;
   const [showAll, setShowAll] = useState(false);
-  const [reading, setReading] = useState<"one" | "many" | null>(null);
-  const status = useQuery({
-    queryKey: ["grading", assignmentId],
-    queryFn: () => api<GradingStatus>(`/assignments/${assignmentId}/grading`),
-  });
   const submissions = useQuery({
     queryKey: ["submissions", assignmentId],
     queryFn: () => api<SubmissionOut[]>(`/assignments/${assignmentId}/submissions`),
@@ -222,74 +213,54 @@ function SubmissionsCard({ assignmentId, onOpenStudent }: { assignmentId: number
     for (const key of ["submissions", "assignment", "grading", "cells", "results"]) {
       queryClient.invalidateQueries({ queryKey: [key, assignmentId] });
     }
+    if (assignment.exam_id) queryClient.invalidateQueries({ queryKey: ["exam", assignment.exam_id] });
   };
-  const upload = useMutation({
-    mutationFn: (file: File) => {
-      const form = new FormData();
-      form.append("file", file);
-      return api<SubmissionOut[]>(`/assignments/${assignmentId}/submissions/csv`, { method: "POST", body: form });
-    },
-    onSuccess: (created) => {
-      toast.success(`답안 ${created.length}개를 올렸습니다`);
-      refresh();
-    },
-    onError: (e) => toast.error(errorMessage(e, "업로드하지 못했습니다")),
-    onSettled: () => {
-      if (fileInput.current) fileInput.current.value = "";
-    },
-  });
   const remove = useMutation({
     mutationFn: (id: number) => api(`/submissions/${id}`, { method: "DELETE" }),
     onSuccess: refresh,
     onError: (e) => toast.error(errorMessage(e, "삭제하지 못했습니다")),
   });
+  const list = submissions.data ?? [];
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center gap-2">
-        <CardTitle>답안 {submissions.data && `(${submissions.data.length})`}</CardTitle>
-        <div className="ml-auto flex gap-2">
-          <Button variant="outline" onClick={() => setReading("one")}>
-            종이 답안·문서로 추가
-          </Button>
-          <Button variant="outline" onClick={() => setReading("many")}>
-            여러 파일로 추가
-          </Button>
-          <input
-            ref={fileInput}
-            type="file"
-            accept=".csv,text/csv"
-            className="hidden"
-            onChange={(e) => e.target.files?.[0] && upload.mutate(e.target.files[0])}
-          />
-          <Button variant="outline" disabled={upload.isPending} onClick={() => fileInput.current?.click()}>
-            {upload.isPending ? "올리는 중…" : "CSV 올리기"}
-          </Button>
-        </div>
+        <CardTitle>답안 {submissions.data && `(${list.length})`}</CardTitle>
+        {assignment.exam_id !== null && assignment.progress.stage !== "finalized" && (
+          <Link
+            href={`/exams/${assignment.exam_id}?upload=1`}
+            className={`ml-auto ${buttonVariants({ variant: list.length ? "outline" : "default" })}`}
+          >
+            {assignment.exam_name}에서 답안 올리기 →
+          </Link>
+        )}
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         <p className="text-sm text-muted-foreground">
-          열: 학번, 답안, 선택 이름 (영문 <code>student_id</code>, <code>answer</code>, <code>name</code>도 됨). AI에는 이름·학번
-          등 식별 정보를 지운 답안만 보냅니다. 채점 화면에서 이름을 가리고 채점할 수도 있습니다. UTF-8 또는 CP949.{" "}
-          <a href="/answers_template.csv" download className="underline underline-offset-2">
-            예시 CSV
-          </a>
+          {assignment.exam_id !== null
+            ? `답안은 시험 단위로 올립니다. ${assignment.exam_name} 결과의 "답안 올리기"에서 학생마다 시험 전체 답안지(PDF·사진)를 올리거나 카메라로 찍거나, 문항별 열이 있는 CSV를 올리면 문항별로 나눠 이 문항에 들어옵니다.`
+            : "시험에 넣지 않은 문항입니다. 문항·기준 수정에서 시험을 고르면 그 시험 결과에서 답안을 올릴 수 있습니다."}{" "}
+          AI에는 이름·학번 등 식별 정보를 지운 답안만 보냅니다.
         </p>
-        {submissions.data?.length ? (
+        {list.length ? (
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>학생</TableHead>
+                <TableHead>출처</TableHead>
                 <TableHead>AI에 보내는 답안 (식별 정보 제거됨)</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(showAll ? submissions.data : submissions.data.slice(0, PREVIEW_ROWS)).map((s) => (
+              {(showAll ? list : list.slice(0, PREVIEW_ROWS)).map((s) => (
                 <TableRow key={s.id}>
                   <TableCell className="align-top whitespace-nowrap">
                     {s.student_name ?? s.student_ref}
                     {s.student_name && <span className="ml-1.5 text-xs text-muted-foreground tabular-nums">{s.student_ref}</span>}
+                  </TableCell>
+                  <TableCell className="max-w-40 truncate text-xs text-muted-foreground" title={s.source_filename ?? undefined}>
+                    {s.source_filename ?? "CSV·입력"}
                   </TableCell>
                   <TableCell className="max-w-xl truncate">{s.clean_text || <span className="text-muted-foreground">(빈 답안)</span>}</TableCell>
                   <TableCell className="text-right">
@@ -307,31 +278,14 @@ function SubmissionsCard({ assignmentId, onOpenStudent }: { assignmentId: number
             </TableBody>
           </Table>
         ) : (
-          <p className="text-muted-foreground">아직 올린 답안이 없습니다.</p>
+          <p className="text-muted-foreground">아직 들어온 답안이 없습니다.</p>
         )}
-        {(submissions.data?.length ?? 0) > PREVIEW_ROWS && (
+        {list.length > PREVIEW_ROWS && (
           <Button size="sm" variant="ghost" className="self-start" onClick={() => setShowAll(!showAll)}>
-            {showAll ? "접기" : `${submissions.data!.length}건 모두 보기`}
+            {showAll ? "접기" : `${list.length}건 모두 보기`}
           </Button>
         )}
       </CardContent>
-      {reading === "one" && (
-        <ReadAnswer
-          assignmentId={assignmentId}
-          graded={(status.data?.total ?? 0) > 0}
-          onClose={() => setReading(null)}
-          onGraded={onOpenStudent}
-        />
-      )}
-      {reading === "many" && (
-        <BulkRead
-          assignmentId={assignmentId}
-          graded={(status.data?.total ?? 0) > 0}
-          existing={new Set(submissions.data?.map((s) => s.student_ref))}
-          onClose={() => setReading(null)}
-          onGraded={onOpenStudent}
-        />
-      )}
     </Card>
   );
 }

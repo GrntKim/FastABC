@@ -17,8 +17,8 @@ import CourseForm from "../../course-form";
 import ExamForm from "./exam-form";
 
 const ASSIGNMENT_STEPS: Step[] = [
-  { title: "문제와 채점 기준", body: "평소 쓰던 채점 기준 문장을 붙여 넣으면 AI가 항목으로 나눕니다. 확인하고 고친 뒤 저장합니다." },
-  { title: "답안 올리고 채점 시작", body: "답안 CSV를 올리고 채점을 시작하면, AI가 모든 항목을 판단해 확인할 곳을 표시합니다." },
+  { title: "시험과 문항", body: "시험(중간고사·퀴즈·과제)을 만들고 그 안에 문항을 추가합니다. 채점 기준 문장을 붙여 넣으면 AI가 항목으로 나눕니다." },
+  { title: "답안 올리고 채점 시작", body: "시험 결과에서 학생들의 답안지(PDF·사진·카메라)나 CSV를 올리면 문항별로 나눠 넣고, AI가 모든 항목을 판단해 확인할 곳을 표시합니다." },
   { title: "확인하고 성적 확정", body: "확인이 필요한 항목만 보고, 나머지는 한 번에 확정합니다. 끝나면 성적을 확정해 잠급니다." },
 ];
 
@@ -84,16 +84,10 @@ export default function CourseScreen({ courseId }: { courseId: number }) {
 
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-lg font-semibold">시험과 문항</h2>
-        <Button variant="outline" className="ml-auto" onClick={() => setExamForm({})}>
+        {/* every question lives in an exam (a homework is an exam of one question): questions are added from each exam */}
+        <Button variant={c.exams.length ? "outline" : "default"} className="ml-auto" onClick={() => setExamForm({})}>
           시험 추가
         </Button>
-        {/* with exams, questions are added from each exam; this one is for a question outside them */}
-        <Link
-          href={`/courses/${courseId}/assignments/new`}
-          className={c.exams.length > 0 ? buttonVariants({ variant: "ghost" }) : buttonVariants()}
-        >
-          {c.exams.length > 0 ? "시험 없이 문항 추가" : "문항 추가"}
-        </Link>
       </div>
 
       {c.assignments.length === 0 && c.exams.length === 0 ? (
@@ -101,11 +95,11 @@ export default function CourseScreen({ courseId }: { courseId: number }) {
           <p>아직 문항이 없습니다. 문항 하나는 이렇게 채점합니다.</p>
           <StepList steps={ASSIGNMENT_STEPS} />
           <p className="text-sm text-muted-foreground">
-            중간고사처럼 여러 문항을 묶으려면 먼저 시험을 추가하세요. 시험 결과에서 학생별 합계를 보고, 객관식·계산 문항처럼 다른 곳에서 채점한 점수도 가져와 더할 수 있습니다.
+            문항은 시험 안에 만듭니다. 과제처럼 문항이 하나여도 시험으로 묶습니다. 시험 결과에서 답안을 올리고 학생별 합계를 보며, 객관식·계산 문항처럼 다른 곳에서 채점한 점수도 가져와 더할 수 있습니다.
           </p>
-          <Link href={`/courses/${courseId}/assignments/new`} className={`self-start ${buttonVariants()}`}>
-            첫 문항 만들기
-          </Link>
+          <Button className="self-start" onClick={() => setExamForm({})}>
+            첫 시험 만들기
+          </Button>
         </div>
       ) : (
         <>
@@ -215,7 +209,8 @@ function QuestionTable({ questions }: { questions: AssignmentSummary[] }) {
               <TableCell className="text-right">{p.submissions}</TableCell>
               <TableCell className="text-right">
                 <Link
-                  href={`/assignments/${a.id}`}
+                  // no answers yet: they come in through the exam
+                  href={p.stage === "setup" && !p.submissions && a.exam_id ? `/exams/${a.exam_id}?upload=1` : `/assignments/${a.id}`}
                   className={buttonVariants({ size: "sm", variant: p.attention ? "default" : "outline" })}
                 >
                   {nextAction(a)}

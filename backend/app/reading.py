@@ -90,6 +90,9 @@ def read_exam(
         text = pdf_text(data)
         if text is not None:
             answers, rest = split_by_number(text, questions)
+            if not answers and len(questions) == 1:
+                # a one-question exam (a homework, a quiz) needs no number on the sheet: all of it is the answer
+                answers, rest = {next(iter(questions)): text}, ""
             return answers, rest, "text"
     elif mime_type not in IMAGES:
         raise UnreadableFile("PDF나 PNG·JPEG·WEBP 이미지만 읽습니다")

@@ -2,17 +2,17 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { ExportButton } from "@/components/export-dialog";
 import { GradesDue } from "@/components/grades-due";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api, API_URL, ApiError, type ExamColumn, type ExamResults } from "@/lib/api";
-import { STAGE_LABEL, STAGE_VARIANT, termLabel } from "@/lib/progress";
+import { STAGE_ACTION, STAGE_DOT, STAGE_LABEL, termLabel } from "@/lib/progress";
 import { formatPoints } from "@/lib/rubric";
 import { cn } from "@/lib/utils";
 import SheetUpload, { answeredBy } from "./sheet-upload";
@@ -27,7 +27,8 @@ export default function ExamScreen({ examId }: { examId: number }) {
     refetchInterval: (q) => (q.state.data?.columns.some((c) => c.stage === "grading") ? 3000 : false),
   });
   const [importing, setImporting] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  // a question's info tab links here with ?upload=1: answers come in for the whole exam, here
+  const [uploading, setUploading] = useState(useSearchParams().get("upload") === "1");
   const removeImport = useMutation({
     mutationFn: (partId: number) => api(`/imports/${partId}`, { method: "DELETE" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["exam", examId] }),
@@ -72,18 +73,23 @@ export default function ExamScreen({ examId }: { examId: number }) {
           {!r.finalized && <GradesDue term={r.course.term} question={{ examName: r.exam.name }} className="self-start" />}
         </div>
         <div className="ml-auto flex flex-wrap gap-2">
+          {/* the main button is the next step: answers in until everything is signed off, then the export */}
           <Button
-            variant="outline"
+            variant={r.finalized ? "outline" : "default"}
             disabled={!questions.some((q) => q.number !== null)}
-            title="학생마다 시험 전체 답안지를 올리면 문항별로 나눠 넣습니다"
+            title="답안지 파일·카메라·CSV로 학생들의 답안을 올리면 문항별로 나눠 넣습니다"
             onClick={() => setUploading(true)}
           >
-            답안지 올리기
+            답안 올리기
           </Button>
           <Button variant="outline" onClick={() => setImporting(true)}>
             다른 곳에서 채점한 점수 가져오기
           </Button>
-          <ExportButton variant="default" csvHref={`${API_URL}/exams/${examId}/export.csv`} printPath={`/exams/${examId}/print`} />
+          <ExportButton
+            variant={r.finalized ? "default" : "outline"}
+            csvHref={`${API_URL}/exams/${examId}/export.csv`}
+            printPath={`/exams/${examId}/print`}
+          />
         </div>
       </header>
 
@@ -95,50 +101,73 @@ export default function ExamScreen({ examId }: { examId: number }) {
           </Link>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl bg-card px-2 shadow-xs ring-1 ring-foreground/10">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>학번</TableHead>
-                <TableHead>이름</TableHead>
-                {r.columns.map((c) => (
-                  <TableHead key={`${c.kind}-${c.id}`} className="text-right align-bottom">
-                    <ColumnHead column={c} onRemove={() => confirm(`가져온 '${c.title}' 점수를 지울까요?`) && removeImport.mutate(c.id)} />
-                  </TableHead>
-                ))}
-                <TableHead className="text-right align-bottom">
-                  합계 <span className="font-normal text-muted-foreground">/ {formatPoints(r.max_points)}</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {r.students.map((s) => (
-                <TableRow key={s.student_ref}>
-                  <TableCell className="tabular-nums">{s.student_ref}</TableCell>
-                  <TableCell>{s.student_name ?? <span className="text-muted-foreground">-</span>}</TableCell>
-                  {s.cells.map((cell, i) => (
-                    <TableCell key={i} className="text-right tabular-nums">
-                      {!cell.submitted ? (
-                        <span className="text-xs text-muted-foreground" title="이 학생의 답안(또는 가져온 점수)이 없어 0점으로 합산합니다">
-                          미제출
-                        </span>
-                      ) : cell.points === null ? (
-                        <span className="text-muted-foreground" title="아직 확정하지 않은 항목이 있습니다">
-                          –
-                        </span>
-                      ) : (
-                        formatPoints(cell.points)
-                      )}
-                    </TableCell>
+          // like the grading screen's question beside its answers: the questions as cards on the left, the students on the
+        // right; on a narrow screen the cards come first, above the students
+        <div className="grid items-start gap-4 lg:grid-cols-[17rem_minmax(0,1fr)]">
+          <div className="grid gap-3 sm:grid-cols-2 lg:sticky lg:top-4 lg:grid-cols-1">
+            {r.columns.map((c, i) => (
+              <ColumnCard
+                key={`${c.kind}-${c.id}`}
+                column={c}
+                answered={r.students.filter((st) => st.cells[i]?.submitted).length}
+                onRemove={() => confirm(`가져온 '${c.title}' 점수를 지울까요?`) && removeImport.mutate(c.id)}
+              />
+            ))}
+          </div>
+          <div className="overflow-x-auto rounded-xl bg-card px-2 shadow-xs ring-1 ring-foreground/10">
+            <Table className="text-sm [&_td]:py-1.5">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>학번</TableHead>
+                  <TableHead>이름</TableHead>
+                  {r.columns.map((c) => (
+                    <TableHead key={`${c.kind}-${c.id}`} className="text-right" title={c.title}>
+                      {c.kind === "question" && c.number !== null ? `${c.number}번` : c.title}
+                    </TableHead>
                   ))}
-                  <TableCell className={cn("text-right font-semibold tabular-nums", s.total === null && "font-normal text-muted-foreground")}>
-                    {s.total === null ? "채점 중" : formatPoints(s.total)}
-                  </TableCell>
+                  <TableHead className="text-right">
+                    합계 <span className="font-normal text-muted-foreground">/ {formatPoints(r.max_points)}</span>
+                  </TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {r.students.map((s) => (
+                  <TableRow key={s.student_ref}>
+                    <TableCell className="tabular-nums">{s.student_ref}</TableCell>
+                    <TableCell>{s.student_name ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                    {s.cells.map((cell, i) => (
+                      <TableCell key={i} className="text-right tabular-nums">
+                        {cell.submission_id ? (
+                          // a student's answer: open it on the question's grading tab
+                          <Link
+                            href={`/assignments/${r.columns[i].id}?student=${cell.submission_id}`}
+                            className={cn("hover:underline", cell.points === null && "text-muted-foreground")}
+                            title={cell.points === null ? "아직 확정하지 않은 항목이 있습니다 · 눌러서 채점" : "눌러서 이 답안 보기"}
+                          >
+                            {cell.points === null ? "–" : formatPoints(cell.points)}
+                          </Link>
+                        ) : !cell.submitted ? (
+                          <span className="text-xs text-muted-foreground" title="이 학생의 답안(또는 가져온 점수)이 없어 0점으로 합산합니다">
+                            미제출
+                          </span>
+                        ) : cell.points === null ? (
+                          <span className="text-muted-foreground" title="아직 확정하지 않은 항목이 있습니다">
+                            –
+                          </span>
+                        ) : (
+                          formatPoints(cell.points)
+                        )}
+                      </TableCell>
+                    ))}
+                    <TableCell className={cn("text-right font-semibold tabular-nums", s.total === null && "font-normal text-muted-foreground")}>
+                      {s.total === null ? "채점 중" : formatPoints(s.total)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          </div>
       )}
       <p className="text-xs text-muted-foreground">
         학번으로 문항별 결과를 묶습니다. 답안이 없는 문항은 0점으로 더하고, 확정하지 않은 문항이 있는 학생은 합계를 비워 둡니다.
@@ -157,29 +186,41 @@ export default function ExamScreen({ examId }: { examId: number }) {
   );
 }
 
-function ColumnHead({ column: c, onRemove }: { column: ExamColumn; onRemove: () => void }) {
+/** One column of the exam as a card: a question to open and grade, or points imported from elsewhere. */
+function ColumnCard({ column: c, answered, onRemove }: { column: ExamColumn; answered: number; onRemove: () => void }) {
   if (c.kind === "imported")
     return (
-      <div className="flex flex-col items-end gap-0.5">
-        <span className="text-foreground">
-          {c.title} <span className="font-normal text-muted-foreground">/ {formatPoints(c.max_points)}</span>
-        </span>
-        <span className="flex items-center gap-1 font-normal">
-          <Badge variant="outline">가져온 점수</Badge>
-          <button type="button" className="text-xs text-muted-foreground hover:text-destructive" onClick={onRemove}>
+      <div className="flex flex-col gap-1.5 rounded-xl border-l-4 border-l-muted-foreground/30 bg-card px-4 py-3 shadow-xs ring-1 ring-foreground/10">
+        <span className="text-xs font-medium text-muted-foreground">가져온 점수 · {formatPoints(c.max_points)}점</span>
+        <span className="text-base font-semibold leading-snug">{c.title}</span>
+        <span className="mt-auto flex items-center gap-2 text-xs text-muted-foreground">
+          학생 {answered}명
+          <button type="button" className="ml-auto hover:text-destructive hover:underline" onClick={onRemove}>
             지우기
           </button>
         </span>
       </div>
     );
+  const stage = c.stage ?? "setup";
   return (
-    <div className="flex flex-col items-end gap-0.5">
-      <Link href={`/assignments/${c.id}`} className="text-foreground hover:underline">
-        {c.number !== null && `${c.number}번 `}
-        {c.title} <span className="font-normal text-muted-foreground">/ {formatPoints(c.max_points)}</span>
-      </Link>
-      {c.stage && <Badge variant={STAGE_VARIANT[c.stage]}>{STAGE_LABEL[c.stage] ?? c.stage}</Badge>}
-    </div>
+    <Link
+      href={`/assignments/${c.id}`}
+      className="flex flex-col gap-1.5 rounded-xl border-l-4 border-l-primary bg-card px-4 py-3 shadow-xs ring-1 ring-foreground/10 transition-shadow hover:shadow-md hover:ring-primary/40"
+    >
+      <span className="text-xs font-medium text-primary">
+        {c.number !== null && `${c.number}번 · `}
+        {formatPoints(c.max_points)}점
+      </span>
+      <span className="text-base font-semibold leading-snug">{c.title}</span>
+      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <span className={cn("size-1.5 rounded-full", STAGE_DOT[stage])} aria-hidden />
+        {STAGE_LABEL[stage] ?? stage} · 답안 {answered}개
+      </span>
+      {/* grading happens inside the question: the card says so */}
+      <span className={cn("mt-1 self-start", buttonVariants({ size: "sm", variant: stage === "review" ? "default" : "outline" }))}>
+        {STAGE_ACTION[stage] ?? "열기"} →
+      </span>
+    </Link>
   );
 }
 

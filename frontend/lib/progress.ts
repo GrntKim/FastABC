@@ -17,6 +17,24 @@ export const STAGE_VARIANT: Record<string, "default" | "secondary" | "outline"> 
   finalized: "outline",
 };
 
+/** A quiet dot per stage, for places where a filled badge is too loud (exam result column heads). */
+export const STAGE_DOT: Record<string, string> = {
+  setup: "bg-muted-foreground/40",
+  grading: "bg-violet-500",
+  review: "bg-primary",
+  done: "bg-emerald-500",
+  finalized: "bg-emerald-700",
+};
+
+/** What a question's stage invites, as a short link label (exam result column heads). */
+export const STAGE_ACTION: Record<string, string> = {
+  setup: "채점 시작",
+  grading: "진행 보기",
+  review: "채점하기",
+  done: "성적 확정",
+  finalized: "결과 보기",
+};
+
 export function nextAction(a: AssignmentSummary): string {
   const p = a.progress;
   if (p.stage === "setup") return p.submissions ? "채점 시작하기" : "답안 올리기";

@@ -5,7 +5,7 @@ from pypdf import PdfWriter
 
 from app.grading import get_reader
 from app.main import app as fastapi_app
-from app.reading import clean, split_by_number
+from app.reading import clean, read_exam, split_by_number
 from tests.test_assignments import make_body
 
 TEXT = "Backprop uses the chain rule to compute gradients layer by layer"
@@ -137,6 +137,14 @@ def exam(client, course_id) -> dict:
 
 def read_sheet(client, exam_id: int, data: bytes, mime: str):
     return client.post(f"/exams/{exam_id}/readings", files={"file": ("sheet", data, mime)})
+
+
+def test_one_question_sheet_needs_no_number(monkeypatch):
+    monkeypatch.setattr("app.reading.pdf_text", lambda data: "학번 20240001\n해시와 솔트로 저장한다")
+    answers, rest, method = read_exam(b"%PDF", "application/pdf", FakeReader(), {1: "문제"})
+    assert (answers, rest, method) == ({1: "학번 20240001\n해시와 솔트로 저장한다"}, "", "text")
+    # with two questions the numbers are still needed
+    assert read_exam(b"%PDF", "application/pdf", FakeReader(), {1: "a", 2: "b"})[0] == {}
 
 
 def test_whole_sheet_pdf_is_split_locally(client, exam, reader, monkeypatch):

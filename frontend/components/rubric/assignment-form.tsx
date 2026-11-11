@@ -122,7 +122,7 @@ export default function AssignmentForm({
       queryClient.invalidateQueries({ queryKey: ["course", courseId] });
       queryClient.invalidateQueries({ queryKey: ["courses"] });
       queryClient.setQueryData(["assignment", a.id], a);
-      toast.success(assignmentId ? "문항을 수정했습니다." : "문항을 만들었습니다. 답안을 올리세요.");
+      toast.success(assignmentId ? "문항을 수정했습니다." : "문항을 만들었습니다. 답안은 시험 결과에서 올립니다.");
       router.push(`/assignments/${a.id}`);
     },
     onError: (e) => {
@@ -152,7 +152,7 @@ export default function AssignmentForm({
   // the next free number in the chosen exam, used when the grader leaves it empty
   const nextNumber =
     Math.max(0, ...(course.data?.assignments ?? []).filter((a) => a.exam_id === examId && a.id !== assignmentId).map((a) => a.number ?? 0)) + 1;
-  const ready = title.trim() && problem.trim() && scored >= 1;
+  const ready = title.trim() && problem.trim() && scored >= 1 && (examId !== null || !!assignmentId);
 
   return (
     <div className="flex flex-col gap-5">
@@ -179,14 +179,15 @@ export default function AssignmentForm({
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <div className="grid gap-3 sm:grid-cols-[10rem_5rem_1fr]">
-            {assignmentId ? (
+            {assignmentId || startExam === null ? (
               <select
                 className="h-9 rounded-md border bg-card px-2 text-sm"
                 aria-label="시험"
                 value={examId ?? ""}
                 onChange={(e) => setExamId(e.target.value ? Number(e.target.value) : null)}
               >
-                <option value="">시험 없음</option>
+                {/* every new question lives in an exam; only an old one outside them keeps the choice */}
+                {(examId === null || !course.data?.exams.length) && <option value="">{assignmentId ? "시험 없음" : "시험을 고르세요"}</option>}
                 {course.data?.exams.map((exam) => (
                   <option key={exam.id} value={exam.id}>
                     {exam.name}
@@ -194,7 +195,7 @@ export default function AssignmentForm({
                 ))}
               </select>
             ) : (
-              // a new question belongs where it was started from ("+ 문항 추가" of an exam), nothing to choose
+              // a new question belongs to the exam it was started from ("+ 문항 추가"), nothing to choose
               <p className="flex h-9 items-center rounded-md bg-muted px-3 text-sm" aria-label="시험">
                 {examId === null ? "시험 없음" : (course.data?.exams.find((e) => e.id === examId)?.name ?? "…")}
               </p>
@@ -213,7 +214,7 @@ export default function AssignmentForm({
           </div>
           {course.data && course.data.exams.length === 0 && (
             <p className="text-xs text-muted-foreground">
-              시험(중간고사 등)으로 묶으려면 과목 화면에서 시험을 먼저 추가하세요. 시험 결과에서 학생별 합계를 볼 수 있습니다.
+              문항은 시험 안에 만듭니다. 과목 화면에서 시험(중간고사·퀴즈·과제)을 먼저 추가하세요.
             </p>
           )}
           <Textarea rows={3} placeholder="학생에게 낸 문제 그대로" value={problem} onChange={(e) => setProblem(e.target.value)} />

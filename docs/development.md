@@ -195,7 +195,10 @@ erDiagram
 ## 채점 흐름
 
 1. **채점 기준 변환** (`POST /rubric-drafts`): LLM이 기준 문장을 판단 질문 목록으로 바꿉니다. 저장하지 않고 편집기로 돌려주며, 채점자가 고친 뒤 문항을 저장합니다.
-2. **업로드** (`POST /assignments/{id}/submissions/csv`): 열 이름은 `학번, 답안, 이름` 또는 `student_id, answer, name`입니다. 종이 답안·문서는 한 건씩 넣습니다. `POST /assignments/{id}/readings`가 파일을 글로 바꿔 돌려주고(저장 안 함), 채점자가 확인한 글을 `POST /assignments/{id}/submissions`로 저장합니다. 글자가 들어 있는 PDF(공백 제외 20자 이상)는 `pypdf`로 로컬에서 읽고, 스캔 PDF·사진·웹캠 사진은 `AnswerReader`(구현: `GeminiReader`, 조립: `grading.get_reader`)가 "보이는 그대로, 고치지 않고, 머리의 인적 사항과 인쇄된 문제는 빼고" 옮깁니다. 이 경로는 식별 정보 제거 전에 이미지가 외부로 나가므로 실제 답안은 유료 계정에서만 씁니다. 웹캠은 브라우저에서 안내 틀 안쪽만 잘라 보냅니다. 시험 전체 답안지(`exams/[id]/sheet-upload.tsx`)는 `/exams/{id}/readings`로 문항별로 나눠 읽고, 저장은 문항마다 같은 저장 API를 부른 뒤 답안이 들어간 문항마다 채점을 시작합니다(처음이면 전체, 아니면 `only_new`). PDF 글은 읽은 직후 탭·제어 문자를 공백으로 바꿉니다(`reading.clean`, 글꼴에 따라 띄어쓰기가 `\x01`로 나옴). 여러 파일(`bulk-read.tsx`)은 같은 두 API를 파일마다 부르며, 브라우저가 한 번에 3개씩 읽고(최대 100개), 파일 이름에서 학번·이름을 뽑고(`20240001_김민수.pdf`, `김민수-20240001.jpg`), 학번 없음·이미 올린 학번·묶음 안 중복을 저장 전에 표시합니다. 백엔드에 일괄 API는 따로 없습니다. `redact()`가 학번·이름을 지우고, `학번:`·`이름:` 같은 표시와 이메일·전화번호·학번 패턴을 정규식으로 지운 `clean_text`를 만듭니다.
+2. **업로드**: 답안은 시험 단위로 받습니다. 프론트엔드의 업로드 창은 시험 결과의 "답안 올리기"(`exams/[id]/sheet-upload.tsx`) 하나이고, 문항 화면의 "정보" 탭(`info-panel.tsx`)은 들어온 답안과 출처만 보여 줍니다. 모든 새 문항은 시험에 속합니다(새 문항 화면에서 시험을 고르지 않음, API는 시험 없는 문항도 받음).
+   - **답안지 파일·카메라**: `POST /exams/{id}/readings`가 학생 한 명의 시험 전체 답안지를 문항별로 나눠 돌려주고(저장 안 함), 채점자가 확인한 답을 문항마다 `POST /assignments/{id}/submissions`로 저장한 뒤 답안이 들어간 문항마다 채점을 시작합니다(처음이면 전체, 아니면 `only_new`). 글자가 들어 있는 PDF(공백 제외 20자 이상)는 `pypdf`로 로컬에서 읽고 번호로 나누며, 문항이 하나뿐인 시험은 번호가 없으면 파일 전체를 답으로 씁니다. 스캔 PDF·사진·카메라 사진은 `AnswerReader.read_exam`(구현: `GeminiReader`, 조립: `grading.get_reader`)이 "보이는 그대로, 고치지 않고, 머리의 인적 사항과 인쇄된 문제는 빼고" 문항별로 옮깁니다. 이 경로는 식별 정보 제거 전에 이미지가 외부로 나가므로 실제 답안은 유료 계정에서만 씁니다. 카메라는 브라우저에서 안내 틀 안쪽만 잘라 보내고(`components/camera.tsx`), 찍은 장마다 목록에 한 줄로 들어갑니다. 한 장만 저장하고 채점하면 그 학생의 첫 답안을 `/assignments/{id}?student={답안 id}`로 엽니다. PDF 글은 읽은 직후 탭·제어 문자를 공백으로 바꿉니다(`reading.clean`, 글꼴에 따라 띄어쓰기가 `\x01`로 나옴). 브라우저가 한 번에 3개씩 읽고(최대 100개), 파일 이름에서 학번·이름을 뽑고(`20240001_김민수.pdf`, `김민수-20240001.jpg`), 학번 없음·이미 올린 학번·묶음 안 중복을 저장 전에 표시합니다.
+   - **CSV** (`POST /exams/{id}/submissions/csv`): 열은 `학번`, 선택 `이름`, 문항마다 `1번`·`문항 2`·`3` 같은 열입니다(UTF-8 또는 CP949, 5 MB). 빈 칸은 미제출, 이미 답안이 있는 학생과 성적을 확정한 문항은 건너뛰고 그 수를 돌려주므로 같은 파일을 행을 늘려 다시 올려도 됩니다. 이 시험 문항이 아닌 열은 `ignored_columns`로 알립니다.
+   - 문항 단위 API(`POST /assignments/{id}/submissions/csv`, `/readings`)는 시드 스크립트와 호환을 위해 남아 있고 화면에서는 쓰지 않습니다. `redact()`가 학번·이름을 지우고, `학번:`·`이름:` 같은 표시와 이메일·전화번호·학번 패턴을 정규식으로 지운 `clean_text`를 만듭니다.
 3. **1차 판단** (`POST /assignments/{id}/grade`, `run_primary`): 판단 모델이 답안마다 모든 질문을 한 번에 판단합니다. 각 `Judgment`의 `confident`는 어댑터가 자기 임계값으로 정합니다. Jev는 예/아니오 확신도가 |2p−1|이고 임계값은 0.6이며, 수준과 선택형은 0.8입니다. 라우팅은 `confident`만 읽습니다.
    - 주제 확인에 "아니오"로 확신하면 나머지 칸은 `skip`(0점 추천)입니다.
    - 확신하면 `auto`가 되고, 답안의 10%(`SAMPLE_RATE`)를 골라 각각 `auto` 칸 하나를 `sampled`로 표시합니다(`draw_audits`). 항목마다 뽑으면 답안 절반에 점검이 붙어서 답안 단위로 바꿨습니다. 채점 한 번에 최소 한 답안은 뽑고, 나중에 더한 답안(`only_new`)끼리는 소수점 몫을 확률로 올려 한 건이면 열 번에 한 번 뽑습니다. 시드는 문항 id라 다시 채점해도 같은 칸이 뽑히고, 더한 답안의 추첨은 기존 답안의 점검을 바꾸지 않습니다.
@@ -263,7 +266,8 @@ class Judge(Protocol):
 | GET, POST | `/assignments` | 문항 목록, 생성 (채점 기준 포함) |
 | GET, PUT, DELETE | `/assignments/{id}` | 문항 조회, 수정(채점 전만), 삭제 |
 | POST | `/rubric-drafts` | 채점 기준 문장 → 판단 질문 초안 (저장 안 함) |
-| POST | `/assignments/{id}/submissions/csv` | 답안 CSV 업로드 (최대 5 MB, UTF-8 또는 CP949) |
+| POST | `/exams/{id}/submissions/csv` | 시험 전체 CSV(학번, 이름, 문항별 열) → 문항마다 답안 추가. 빈 칸·이미 있는 학생·확정된 문항은 건너뜀 |
+| POST | `/assignments/{id}/submissions/csv` | 문항 하나의 답안 CSV 업로드 (최대 5 MB, UTF-8 또는 CP949, 시드용) |
 | GET | `/assignments/{id}/submissions` | 답안 목록 (식별 정보 제거본) |
 | POST | `/assignments/{id}/readings` | PDF·사진 한 장을 글로 읽기 (저장 안 함, 10 MB·10쪽까지) |
 | POST | `/assignments/{id}/submissions` | 확인한 답안 한 건 저장 (학번, 이름, 답안, 파일 이름) |
@@ -291,14 +295,14 @@ class Judge(Protocol):
 | `/` | 과목 목록 (학기 탭, 중간·기말·그 외 시험 선택과 학과 필터, 과목마다 넓은 카드를 위아래로 쌓고 시험마다 "2026년 2학기 딥러닝개론 중간고사"처럼 전체 이름과 진행 단계를 한 줄씩(누르면 시험 결과), 학기 성적 입력 마감) |
 | `/courses/[id]` | 과목: 시험별 문항 목록, 진행 단계, 다음 행동 버튼 |
 | `/courses/[id]/assignments/new` | 문항 만들기: 시험·번호, 문제, 기준 문장 → 채점 항목 변환, 편집 (`?exam=`이면 그 시험에) |
-| `/exams/[id]` | 시험 결과: 학생별 문항 점수와 합계, 다른 곳에서 채점한 점수 가져오기, 내보내기(CSV·PDF) |
+| `/exams/[id]` | 시험 결과: 답안 올리기(답안지 파일·카메라·CSV, `?upload=1`이면 창을 연 채로), 학생별 문항 점수와 합계(칸을 누르면 그 답안의 채점 화면), 다른 곳에서 채점한 점수 가져오기, 내보내기(CSV·PDF) |
 | `/exams/[id]/print`, `/assignments/[id]/print` | A4 성적표 인쇄 화면 (`?kind=record` 보관용, `?kind=notice&names=hide\|mask` 공지용) |
-| `/assignments/[id]` | 문항: 준비(기준, 답안, 채점 실행) / 채점(학생별, 시험지 모양) / 결과(성적 확정, 내보내기) 탭 |
+| `/assignments/[id]` | 문항: 정보(기준, 들어온 답안, 채점 실행) / 채점(학생별, 시험지 모양) / 결과(성적 확정, 내보내기) 탭. `?student={답안 id}`면 그 학생을 채점 탭에서 엽니다 |
 | `/assignments/[id]/edit` | 문항 수정 (채점 전만) |
 | `/assignments/[id]/review` | 항목별 보기 |
 
 - API 타입은 백엔드를 띄운 상태에서 `pnpm --dir frontend gen:api`로 `lib/api-types.ts`를 다시 만듭니다.
-- 화면 용어는 `lib/rubric.ts`, 진행 단계는 `lib/progress.ts`에 모여 있습니다. 진행 단계는 탭 이름에 맞춰 준비(`setup`) / AI 판단 중(`grading`) / 채점 중(`review`) / 채점 끝(`done`) / 성적 확정(`finalized`)으로 보여 줍니다. 진행은 숫자 대신 세 구간 막대(`components/segment-bar.tsx`: 확정 / AI가 확신 · 한 번에 확정 가능 / 확인 필요)로 채점 탭, 과목 화면, 결과 탭, 항목별 보기에서 같게 보여 주고, 남은 일은 학생 단위로 셉니다. 결과 탭의 확정 요약은 채점자가 한 일(직접 확인 / AI 추천을 고침)을 먼저 보여 줍니다. 점수 확정은 항목마다 점수 선택 칸 한 줄(`components/point-picker.tsx`, 학생별·항목별 공용)로 합니다. 칸을 누르는 것이 곧 확정이고(`PATCH /grades`의 `set`, 수용·수정 구분은 백엔드가 추천과 비교해 기록), AI 추천 칸은 점선 표시만 하고 미리 채우지 않으며, 고른 칸이 그 자리에 채워져 남습니다. 과목이나 문항이 없을 때는 `components/step-list.tsx`로 다음 할 일을 세 단계로 보여 줍니다. 채점자 화면은 내부 경로 이름을 쓰지 않고 아래처럼 바꿔 보여 줍니다. 이유 칩 옆의 "?"(`components/help-tip.tsx`)에 마우스를 올리거나 초점을 주면 자세한 설명이 뜹니다.
+- 화면 용어는 `lib/rubric.ts`, 진행 단계는 `lib/progress.ts`에 모여 있습니다. 진행 단계는 준비(`setup`, 채점 전) / AI 판단 중(`grading`) / 채점 중(`review`) / 채점 끝(`done`) / 성적 확정(`finalized`)으로 보여 줍니다. 진행은 숫자 대신 세 구간 막대(`components/segment-bar.tsx`: 확정 / AI가 확신 · 한 번에 확정 가능 / 확인 필요)로 채점 탭, 과목 화면, 결과 탭, 항목별 보기에서 같게 보여 주고, 남은 일은 학생 단위로 셉니다. 결과 탭의 확정 요약은 채점자가 한 일(직접 확인 / AI 추천을 고침)을 먼저 보여 줍니다. 점수 확정은 항목마다 점수 선택 칸 한 줄(`components/point-picker.tsx`, 학생별·항목별 공용)로 합니다. 칸을 누르는 것이 곧 확정이고(`PATCH /grades`의 `set`, 수용·수정 구분은 백엔드가 추천과 비교해 기록), AI 추천 칸은 점선 표시만 하고 미리 채우지 않으며, 고른 칸이 그 자리에 채워져 남습니다. 과목이나 문항이 없을 때는 `components/step-list.tsx`로 다음 할 일을 세 단계로 보여 줍니다. 채점자 화면은 내부 경로 이름을 쓰지 않고 아래처럼 바꿔 보여 줍니다. 이유 칩 옆의 "?"(`components/help-tip.tsx`)에 마우스를 올리거나 초점을 주면 자세한 설명이 뜹니다.
 
   | 내부 (`grades.route`, `sampled`) | 채점자 화면 |
   |---|---|
