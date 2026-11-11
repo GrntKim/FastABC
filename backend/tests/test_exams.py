@@ -58,7 +58,7 @@ def test_results_add_up_per_student(client, db, graded, course_id):  # noqa: F81
     assert [c["title"] for c in r["columns"]] == [r["columns"][0]["title"], "객관식"]
     a, b, absent = r["students"]
     assert a["total"] == 15 and [c["points"] for c in a["cells"]] == [0, 15]
-    assert b["total"] is None and b["cells"][1] == {"points": None, "submitted": False}
+    assert b["total"] is None and b["cells"][1] == {"points": None, "submitted": False, "submission_id": None}
     assert absent["student_name"] == "박지훈" and absent["cells"][0]["submitted"] is False and absent["total"] == 10
     assert r["max_points"] == r["columns"][0]["max_points"] + 20
 
@@ -86,3 +86,38 @@ def test_others_cannot_see_exams(client, stranger, course_id):
         assert stranger.get(path).status_code == 404
     assert stranger.delete(f"/imports/{part['id']}").status_code == 404
     assert stranger.delete(f"/exams/{exam_id}").status_code == 404
+
+
+def exam_csv(client, exam_id: int, text: str):
+    return client.post(f"/exams/{exam_id}/submissions/csv", files={"file": ("exam.csv", text.encode(), "text/csv")})
+
+
+def test_whole_exam_csv_goes_to_each_question(client, course_id):
+    exam_id = new_exam(client, course_id)
+    q1, q2 = (client.post("/assignments", json=make_body(course_id) | {"exam_id": exam_id, "number": n}).json()["id"] for n in (1, 2))
+    sheet = '학번,이름,1번,문항 2,메모\n2024001,김민수,"첫 답, 쉼표 포함",둘째 답,x\n2024002,이서연,,둘째 답 2,y\n'
+    r = exam_csv(client, exam_id, sheet)
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert [(q["assignment_id"], q["created"]) for q in body["questions"]] == [(q1, 1), (q2, 2)]
+    assert (body["skipped_existing"], body["locked"], body["ignored_columns"]) == (0, [], ["메모"])
+    first = client.get(f"/assignments/{q1}/submissions").json()
+    assert [(s["student_ref"], s["student_name"], s["clean_text"]) for s in first] == [("2024001", "김민수", "첫 답, 쉼표 포함")]
+
+    # sent again with one more student: only the new answers go in
+    again = exam_csv(client, exam_id, sheet + "2024003,박지호,셋째,\n").json()
+    assert [q["created"] for q in again["questions"]] == [1, 0] and again["skipped_existing"] == 3
+
+    # the results point at each answer, to open it for grading
+    results = client.get(f"/exams/{exam_id}/results").json()
+    kim = next(s for s in results["students"] if s["student_ref"] == "2024001")
+    assert kim["cells"][0]["submission_id"] == first[0]["id"]
+
+
+def test_whole_exam_csv_checks(client, stranger, course_id):
+    exam_id = new_exam(client, course_id)
+    client.post("/assignments", json=make_body(course_id) | {"exam_id": exam_id, "number": 1})
+    assert exam_csv(client, exam_id, "이름,1번\n김,답\n").status_code == 400  # no 학번
+    assert exam_csv(client, exam_id, "학번,5번\n1,답\n").status_code == 400  # no question of this exam
+    assert exam_csv(client, exam_id, "학번,1번\n1,답\n1,답\n").status_code == 400  # same student twice
+    assert exam_csv(stranger, exam_id, "학번,1번\n1,답\n").status_code == 404

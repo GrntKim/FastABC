@@ -214,6 +214,7 @@ class ExamColumn(BaseModel):
 class ExamCell(BaseModel):
     points: float | None  # None: not decided yet, or no answer
     submitted: bool  # False: this student has no answer (or no imported score) for the column
+    submission_id: int | None = None  # questions only: the answer, to open it for grading
 
 
 class ExamStudent(BaseModel):
@@ -265,6 +266,21 @@ class ExamAnswerOut(BaseModel):
     title: str
     text: str  # empty: nothing found for this question on the sheet
     locked: bool  # the question's grades are signed off: an answer cannot be added
+
+
+class ExamCsvQuestion(BaseModel):
+    assignment_id: int
+    number: int
+    created: int  # answers added to this question
+
+
+class ExamCsvOut(BaseModel):
+    """What a whole-exam CSV added. Skipped cells are not errors, so a sheet can be sent again with more rows."""
+
+    questions: list[ExamCsvQuestion]  # every question with a column in the CSV that is not signed off
+    skipped_existing: int  # cells of students who already had an answer for that question
+    locked: list[int]  # numbers of signed-off questions whose column was left alone
+    ignored_columns: list[str]  # columns that are neither 학번, 이름 nor a question of this exam
 
 
 class ExamReadingOut(BaseModel):

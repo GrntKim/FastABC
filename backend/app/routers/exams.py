@@ -6,6 +6,7 @@ LMS or an OMR sheet) as imported columns: FastABC does not score multiple choice
 
 import csv
 import io
+import re
 
 import httpx
 from fastapi import (
@@ -18,6 +19,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -25,17 +27,20 @@ from app.auth import current_user, own_course, own_exam
 from app.db import get_db
 from app.finalization import is_locked
 from app.grading import get_reader
-from app.models import Exam, ImportedPart, ImportedScore, User
+from app.models import Exam, ExtractionStatus, ImportedPart, ImportedScore, Submission, User
 from app.progress import Stage, progress
 from app.reading import MAX_BYTES as MAX_READ_BYTES
 from app.reading import AnswerReader, UnreadableFile, read_exam
 from app.routers.review import submission_results
-from app.routers.submissions import MAX_UPLOAD_BYTES, _decode
+from app.redact import redact
+from app.routers.submissions import COLUMN_ALIASES, MAX_UPLOAD_BYTES, _decode, _next_label_number
 from app.schemas import (
     CourseRef,
     ExamAnswerOut,
     ExamCell,
     ExamColumn,
+    ExamCsvOut,
+    ExamCsvQuestion,
     ExamIn,
     ExamReadingOut,
     ExamRef,
@@ -48,6 +53,8 @@ router = APIRouter(tags=["exams"])
 
 # Korean headers as LMS and OMR exports usually have them
 IMPORT_ALIASES = {"학번": "student_id", "이름": "name", "성명": "name", "점수": "points", "score": "points"}
+# a question's column in a whole-exam CSV: "1번", "문항 1", "1"
+QUESTION_COLUMN = re.compile(r"^(?:문항\s*)?(\d{1,3})\s*번?$")
 
 
 def _conflict() -> HTTPException:
@@ -110,12 +117,14 @@ def _results(db: Session, exam: Exam) -> ExamResults:
     # student_ref -> name, and column index -> points (None: undecided)
     names: dict[str, str | None] = {}
     points: dict[str, dict[int, float | None]] = {}
+    answers: dict[tuple[str, int], int] = {}  # (student_ref, column) -> submission id
     for col, a in enumerate(questions):
         by_id = {s.id: s for s in a.submissions}
         for r in submission_results(db, a):
             s = by_id[r.submission_id]
             names[s.student_ref] = names.get(s.student_ref) or s.student_name
             points.setdefault(s.student_ref, {})[col] = r.total
+            answers[s.student_ref, col] = s.id
     for offset, part in enumerate(exam.imports):
         for score in part.scores:
             names[score.student_ref] = names.get(score.student_ref) or score.student_name
@@ -124,7 +133,9 @@ def _results(db: Session, exam: Exam) -> ExamResults:
     students = []
     for ref in sorted(points, key=lambda r: (len(r), r)):
         got = points[ref]
-        cells = [ExamCell(points=got.get(i), submitted=i in got) for i in range(len(columns))]
+        cells = [
+            ExamCell(points=got.get(i), submitted=i in got, submission_id=answers.get((ref, i))) for i in range(len(columns))
+        ]
         undecided = any(c.submitted and c.points is None for c in cells)
         total = None if undecided else sum(c.points or 0 for c in cells)
         students.append(ExamStudent(student_ref=ref, student_name=names.get(ref), cells=cells, total=total))
@@ -195,6 +206,81 @@ def read_answer_sheet(
             for a in questions
         ],
     )
+
+
+@router.post("/exams/{exam_id}/submissions/csv", status_code=status.HTTP_201_CREATED)
+def upload_exam_csv(
+    exam_id: int, file: UploadFile, db: Session = Depends(get_db), user: User = Depends(current_user)
+) -> ExamCsvOut:
+    """One row per student: 학번, optional 이름, and a column per question ("1번", "2번", … or "문항 1").
+    Each answer goes to its question as if uploaded there. A blank cell is no answer; a student who already
+    has an answer for the question, or a signed-off question, is skipped rather than refused."""
+    exam = own_exam(db, user, exam_id)
+    numbered = {a.number: a for a in exam.assignments if a.number is not None}
+    data = file.file.read(MAX_UPLOAD_BYTES + 1)
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "CSV는 5 MB까지 올립니다")
+    reader = csv.DictReader(io.StringIO(_decode(data), newline=""))
+    if not reader.fieldnames:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "CSV가 비어 있습니다")
+
+    id_column = name_column = None
+    columns, ignored = {}, []  # header -> question
+    for header in reader.fieldnames:
+        key = header.strip().lower()
+        role = COLUMN_ALIASES.get(key, key)
+        match = QUESTION_COLUMN.match(key)
+        if role == "student_id":
+            id_column = header
+        elif role == "name":
+            name_column = header
+        elif match and int(match.group(1)) in numbered:
+            columns[header] = numbered[int(match.group(1))]
+        else:
+            ignored.append(header)
+    if id_column is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "학번 열이 없습니다")
+    if not columns:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "이 시험의 문항 열(1번, 2번…)이 없습니다")
+
+    rows, seen = [], set()
+    for line, row in enumerate(reader, start=2):
+        student_id = (row.get(id_column) or "").strip()
+        if not student_id:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"{line}번째 줄: 학번이 비어 있습니다")
+        if student_id in seen:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"{line}번째 줄: 학번 {student_id}이 두 번 나옵니다")
+        seen.add(student_id)
+        name = (row.get(name_column) or "").strip() or None if name_column else None
+        rows.append((student_id, name, row))
+
+    added, skipped, locked = [], 0, []
+    for header, a in sorted(columns.items(), key=lambda c: c[1].number):
+        if is_locked(db, a.id):
+            locked.append(a.number)
+            continue
+        have = set(db.scalars(select(Submission.student_ref).where(Submission.assignment_id == a.id)))
+        label, created = _next_label_number(db, a.id), 0
+        for student_id, name, row in rows:
+            text = row.get(header) or ""
+            if not text.strip():
+                continue
+            if student_id in have:
+                skipped += 1
+                continue
+            db.add(Submission(
+                assignment_id=a.id,
+                student_ref=student_id,
+                student_name=name,
+                label=f"S{label + created:03d}",
+                raw_text=text,
+                clean_text=redact(text, [student_id, name]),
+                extraction_status=ExtractionStatus.OK,
+            ))
+            created += 1
+        added.append(ExamCsvQuestion(assignment_id=a.id, number=a.number, created=created))
+    db.commit()
+    return ExamCsvOut(questions=added, skipped_existing=skipped, locked=locked, ignored_columns=ignored)
 
 
 def _parse_scores(text: str, max_points: float) -> list[dict]:

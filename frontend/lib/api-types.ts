@@ -214,6 +214,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/exams/{exam_id}/submissions/csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Exam Csv
+         * @description One row per student: 학번, optional 이름, and a column per question ("1번", "2번", … or "문항 1").
+         *     Each answer goes to its question as if uploaded there. A blank cell is no answer; a student who already
+         *     has an answer for the question, or a signed-off question, is skipped rather than refused.
+         */
+        post: operations["upload_exam_csv_exams__exam_id__submissions_csv_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/exams/{exam_id}/imports": {
         parameters: {
             query?: never;
@@ -755,6 +777,11 @@ export interface components {
             /** File */
             file: string;
         };
+        /** Body_upload_exam_csv_exams__exam_id__submissions_csv_post */
+        Body_upload_exam_csv_exams__exam_id__submissions_csv_post: {
+            /** File */
+            file: string;
+        };
         /** BulkAcceptOut */
         BulkAcceptOut: {
             /** Accepted */
@@ -939,6 +966,8 @@ export interface components {
             points: number | null;
             /** Submitted */
             submitted: boolean;
+            /** Submission Id */
+            submission_id?: number | null;
         };
         /**
          * ExamColumn
@@ -960,6 +989,29 @@ export interface components {
             max_points: number;
             /** Stage */
             stage: string | null;
+        };
+        /**
+         * ExamCsvOut
+         * @description What a whole-exam CSV added. Skipped cells are not errors, so a sheet can be sent again with more rows.
+         */
+        ExamCsvOut: {
+            /** Questions */
+            questions: components["schemas"]["ExamCsvQuestion"][];
+            /** Skipped Existing */
+            skipped_existing: number;
+            /** Locked */
+            locked: number[];
+            /** Ignored Columns */
+            ignored_columns: string[];
+        };
+        /** ExamCsvQuestion */
+        ExamCsvQuestion: {
+            /** Assignment Id */
+            assignment_id: number;
+            /** Number */
+            number: number;
+            /** Created */
+            created: number;
         };
         /** ExamIn */
         ExamIn: {
@@ -1806,6 +1858,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExamReadingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_exam_csv_exams__exam_id__submissions_csv_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exam_id: number;
+            };
+            cookie?: {
+                fastabc_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_exam_csv_exams__exam_id__submissions_csv_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExamCsvOut"];
                 };
             };
             /** @description Validation Error */
