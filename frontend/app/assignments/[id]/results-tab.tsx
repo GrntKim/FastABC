@@ -118,7 +118,7 @@ export default function ResultsTab({ assignment, onGoGrade }: { assignment: Assi
         </CardContent>
       </Card>
 
-      {(open === 0 || locked) && <ResultsPanel assignmentId={assignment.id} />}
+      {(open === 0 || locked) && <ResultsPanel assignmentId={assignment.id} signed={locked} />}
 
       <FinalizeDialog
         assignmentId={assignment.id}

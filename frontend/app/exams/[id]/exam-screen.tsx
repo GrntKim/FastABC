@@ -43,6 +43,7 @@ export default function ExamScreen({ examId }: { examId: number }) {
   const r = results.data;
   const questions = r.columns.filter((c) => c.kind === "question");
   const finalized = questions.filter((c) => c.stage === "finalized").length;
+  const signedAny = finalized > 0; // a student's grading report needs at least one signed-off question
   const totals = r.students.map((s) => s.total).filter((t): t is number => t !== null);
   const average = totals.length ? totals.reduce((a, b) => a + b, 0) / totals.length : null;
 
@@ -89,6 +90,8 @@ export default function ExamScreen({ examId }: { examId: number }) {
             variant={r.finalized ? "default" : "outline"}
             csvHref={`${API_URL}/exams/${examId}/export.csv`}
             printPath={`/exams/${examId}/print`}
+            reportPath={`/exams/${examId}/report`}
+            reportReady={signedAny}
           />
         </div>
       </header>
@@ -128,6 +131,7 @@ export default function ExamScreen({ examId }: { examId: number }) {
                   <TableHead className="text-right">
                     합계 <span className="font-normal text-muted-foreground">/ {formatPoints(r.max_points)}</span>
                   </TableHead>
+                  {signedAny && <TableHead />}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -162,6 +166,18 @@ export default function ExamScreen({ examId }: { examId: number }) {
                     <TableCell className={cn("text-right font-semibold tabular-nums", s.total === null && "font-normal text-muted-foreground")}>
                       {s.total === null ? "채점 중" : formatPoints(s.total)}
                     </TableCell>
+                    {signedAny && (
+                      <TableCell className="text-right">
+                        {/* what goes back to this student when they ask why: the signed-off questions, item by item */}
+                        <Link
+                          href={`/exams/${examId}/report?student=${encodeURIComponent(s.student_ref)}`}
+                          target="_blank"
+                          className="text-xs text-primary underline-offset-4 hover:underline"
+                        >
+                          근거표
+                        </Link>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
