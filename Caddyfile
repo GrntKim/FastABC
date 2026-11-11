@@ -1,0 +1,11 @@
+# https for DOMAIN (certificate fetched and renewed by Caddy), the API under /api on the same site,
+# so the SameSite=Lax session cookie rides along and no CORS is involved
+{$DOMAIN} {
+	encode zstd gzip
+	handle_path /api/* {
+		reverse_proxy api:8000
+	}
+	handle {
+		reverse_proxy web:3000
+	}
+}

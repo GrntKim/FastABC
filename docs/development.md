@@ -37,7 +37,9 @@ backend/
   scripts/             seed_demo.py(--empty), make_answer_sheets.py, booth_reset.py, export_rubric.py, run_eval.py
   tests/               pytest (실제 API 호출 없음)
   notebooks/           판단기 응답 검증 노트북 (01 Jev, 02 Gemini)
+  Dockerfile           서버용 API 이미지 (시작 때 마이그레이션)
 frontend/
+  Dockerfile           서버용 웹 이미지 (API는 /api)
   app/                 Next.js App Router 화면
   components/          공용 컴포넌트, shadcn/ui
   lib/                 API 클라이언트, 생성된 타입(api-types.ts), 화면 용어
@@ -45,6 +47,9 @@ data/
   eval/                평가셋 (문항, 답안, 채점자 라벨)과 실행 기록(runs/)
   demo/                데모 답안 CSV
 docs/                  사용 시나리오, 개발 문서
+docker-compose.yml     로컬 개발용 DB
+compose.prod.yml       서버 한 대: DB, API, 웹, Caddy
+Caddyfile              https와 /api 넘기기
 ```
 
 ## 데이터 모델
@@ -222,6 +227,8 @@ class Judge(Protocol):
 - 비밀번호는 argon2id(`argon2-cffi`)로 해시합니다. 없는 이메일로 로그인해도 더미 해시를 검증해 응답 시간으로 가입 여부가 드러나지 않게 합니다.
 - 로그인하면 임의 토큰을 httpOnly, SameSite=Lax 쿠키(`fastabc_session`, 14일)로 줍니다. DB에는 토큰의 sha256만 저장하고, 로그아웃하면 세션 행을 지웁니다. https 뒤에서는 `COOKIE_SECURE=1`로 Secure를 켭니다.
 - 웹(:3000)과 API(:8000)는 같은 사이트(localhost)라 SameSite=Lax 쿠키가 오갑니다. 프론트엔드는 `credentials: "include"`로 요청하고, CORS는 `allow_credentials=True`에 허용 출처를 명시합니다.
+- 서버(`compose.prod.yml`)에서는 Caddy가 웹과 API를 한 도메인에 두고 API를 `/api` 아래로 넘깁니다(`NEXT_PUBLIC_API_URL=/api`는 빌드 때 번들에 들어감). 같은 출처라 쿠키가 그대로 오갑니다. API를 다른 도메인에 따로 두면, 특히 `*.run.app`처럼 공개 접미사 목록에 오른 주소에서는 서로 다른 사이트가 되어 Lax 쿠키가 실리지 않습니다.
+- 가입은 `SIGNUP_OPEN` 환경 변수로 닫을 수 있습니다(서버 기본값 0, 로컬 기본값 1). 닫히면 `/auth/signup`이 403을 주고 로그인 화면이 그 문구를 보여 줍니다. 데모 계정 로그인은 그대로 됩니다.
 - 모든 라우터는 `current_user` 의존성으로 로그인한 사용자를 받고, 과목·문항·답안·칸을 `auth.own_*`로 불러옵니다. 다른 사람의 것은 403이 아니라 404로 답해 id로 존재 여부를 알 수 없게 합니다. 채점 기준 변환도 유료 LLM 호출이라 로그인이 필요합니다.
 - 프론트엔드의 `proxy.ts`는 세션 쿠키가 없으면 첫 화면(`/`)은 소개 화면 `/welcome`으로, 그 밖의 주소는 `/login?next=…`으로 보냅니다. `/login`과 `/welcome`은 공개 화면이라 401을 받아도 로그인 화면으로 보내지 않습니다(`lib/api.ts`의 `PUBLIC_PATHS`). 쿠키가 만료됐으면 API의 401을 받은 쪽(`providers.tsx`의 전역 오류 처리)이 로그인 화면으로 보냅니다. 로그인한 채로 `/login`을 열면 폼 대신 "채점하러 가기"와 "다른 계정으로 로그인"(로그아웃 후 폼)을 보여 줍니다. 로그인 화면의 가입/로그인 구분은 화면 상태가 아니라 주소(`?mode=signup`)에서 읽습니다. 화면이 방문 사이에 살아 있어서, 상태로 두면 링크가 고른 쪽 대신 마지막에 열었던 쪽이 남기 때문입니다.
 - 계정을 도입하기 전의 과목은 마이그레이션이 데모 계정(`demo@fastabc.kr`, 김조교)에 넘깁니다. 그 전에 확정한 기록은 입력했던 이름만 남고 `finalized_by_id`는 비어 있습니다.

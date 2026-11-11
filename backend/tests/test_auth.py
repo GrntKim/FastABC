@@ -23,6 +23,12 @@ def test_signup_refuses_taken_email_and_short_password(anon):
     assert anon.post("/auth/signup", json=ACCOUNT | {"email": "not-an-email"}).status_code == 422
 
 
+def test_signup_can_be_shut(anon, monkeypatch):
+    monkeypatch.setattr("app.routers.auth.SIGNUP_OPEN", False)
+    r = anon.post("/auth/signup", json=ACCOUNT)
+    assert r.status_code == 403 and "set-cookie" not in r.headers
+
+
 def test_login_and_logout(anon, db):
     anon.post("/auth/signup", json=ACCOUNT)
     anon.post("/auth/logout")

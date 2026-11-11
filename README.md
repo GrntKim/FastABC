@@ -61,7 +61,7 @@ flowchart TD
 
 ## 시작하기
 
-로컬 실행만 지원합니다.
+로컬에서 실행하거나, 서버 한 대에 Docker로 올립니다([서버에 올리기](#서버에-올리기)).
 
 ### 준비물
 
@@ -118,6 +118,20 @@ cd backend && uv run python scripts/booth_reset.py --assignment <문항 id> --ye
 cd backend && uv run pytest              # 별도 DB fastabc_test, 외부 API 호출 없음
 cd frontend && pnpm exec tsc --noEmit && pnpm lint
 ```
+
+### 서버에 올리기
+
+Docker가 있는 리눅스 서버 한 대(메모리 2GB 이상, 80·443 포트 열림)와 그 서버를 가리키는 도메인이 있으면 됩니다. [compose.prod.yml](compose.prod.yml)이 DB, API, 웹, [Caddy](Caddyfile)를 띄웁니다. Caddy가 https 인증서를 받고 API를 같은 도메인의 `/api` 아래로 넘기므로, 로그인 쿠키가 그대로 오가고 CORS 설정이 필요 없습니다.
+
+```bash
+git clone <저장소> fastabc && cd fastabc
+cp .env.example .env    # API 키 + DOMAIN, POSTGRES_PASSWORD(영문·숫자만)
+docker compose -f compose.prod.yml up -d --build                # 시작할 때마다 DB 마이그레이션
+docker compose -f compose.prod.yml exec -e SIGNUP_OPEN=1 -e COOKIE_SECURE=0 \
+  api python scripts/seed_demo.py --empty                       # 데모 데이터 (선택)
+```
+
+서버에서는 가입이 닫혀 있습니다(`SIGNUP_OPEN=0`). 모르는 사람이 가입해 API 키를 쓰지 못하게 하려는 것으로, 데모 계정으로 로그인합니다. 열려면 `.env`에 `SIGNUP_OPEN=1`을 넣습니다. 시드 명령의 두 옵션은 시드가 서버 안에서 http로 가입·로그인하기 위한 것입니다. 코드를 고친 뒤에는 `git pull` 후 같은 `up -d --build`를 다시 실행합니다.
 
 ## 사용 기술
 

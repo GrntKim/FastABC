@@ -16,7 +16,7 @@ type Mode = "login" | "signup";
 const safeNext = (next: string | null) => (next && next.startsWith("/") && !next.startsWith("//") ? next : "/");
 
 function message(e: unknown, mode: Mode) {
-  if (e instanceof ApiError && typeof e.detail === "string" && (e.status === 401 || e.status === 409)) return e.detail;
+  if (e instanceof ApiError && typeof e.detail === "string" && [401, 403, 409].includes(e.status)) return e.detail;
   if (e instanceof ApiError && e.status === 422)
     return mode === "signup" ? "이메일 형식과 비밀번호(8자 이상)를 확인하세요" : "이메일과 비밀번호를 입력하세요";
   return "서버에 연결하지 못했습니다";
