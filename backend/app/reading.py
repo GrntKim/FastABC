@@ -56,23 +56,29 @@ def clean(text: str) -> str:
 
 # A question number opening a line: "1번", "[2번]", "3 번.", "문항 4". A bare "1." or "1)" is not one:
 # students number their own points that way inside an answer.
-MARK = re.compile(r"^[ \t]*\[?[ \t]*(?:문항[ \t]*(\d{1,3})|(\d{1,3})[ \t]*번)[ \t]*[\].:)]?", re.M)
+# "3번째로" opening a line is prose, not a question mark
+MARK = re.compile(r"^[ \t]*\[?[ \t]*(?:문항[ \t]*(\d{1,3})|(\d{1,3})[ \t]*번(?!째))[ \t]*[\].:)]?", re.M)
 
 
 def split_by_number(text: str, numbers: Iterable[int]) -> tuple[dict[int, str], str]:
-    """A whole sheet's text -> (answer per question number, whatever came before the first number).
-    Only numbers asked for count, in rising order, so a "2번" quoted inside answer 3 starts nothing."""
+    """A whole sheet's text -> (answer per question number, text that belongs to no question asked).
+    Numbers count only in rising order, so a "2번" quoted inside answer 3 starts nothing. Every rising
+    number ends the answer above it, even one the exam lacks (3번 on the sheet before 3번 is made), so
+    that answer never runs into 2번; it goes to the rest with the header, and the rest is not saved."""
     wanted, marks, last = set(numbers), [], 0
     for m in MARK.finditer(text):
         n = int(m.group(1) or m.group(2))
-        if n in wanted and n > last:
+        if n > last:
             marks.append((n, m.start(), m.end()))
             last = n
-    answers = {
-        n: text[end : marks[i + 1][1] if i + 1 < len(marks) else len(text)].strip()
-        for i, (n, _, end) in enumerate(marks)
-    }
-    return answers, (text[: marks[0][1]] if marks else text).strip()
+    answers, rest = {}, [text[: marks[0][1]] if marks else text]
+    for i, (n, start, end) in enumerate(marks):
+        stop = marks[i + 1][1] if i + 1 < len(marks) else len(text)
+        if n in wanted:
+            answers[n] = text[end:stop].strip()
+        else:
+            rest.append(text[start:stop])
+    return answers, "\n\n".join(r.strip() for r in rest if r.strip())
 
 
 def read_exam(

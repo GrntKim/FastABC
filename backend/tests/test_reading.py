@@ -117,6 +117,13 @@ def test_split_by_question_number():
     assert split_by_number("번호 없는 답안", [1, 2]) == ({}, "번호 없는 답안")
 
 
+def test_split_stops_at_a_question_the_exam_lacks():
+    # the sheet answers 3번 before the exam has it: 2번 ends there and 3번 stays out with the header
+    sheet = "머리말\n1번\n가\n2번\n나\n3번\n다"
+    assert split_by_number(sheet, [1, 2]) == ({1: "가", 2: "나"}, "머리말\n\n3번\n다")
+    assert split_by_number("1번\n가\n3번째로 나\n2번\n다", [1, 2]) == ({1: "가\n3번째로 나", 2: "다"}, "")
+
+
 def test_pdf_spaces_are_spaces():
     assert clean("사용자\x01입력을\tSQL  문에\n 다음 줄 ") == "사용자 입력을 SQL 문에\n다음 줄"
 
