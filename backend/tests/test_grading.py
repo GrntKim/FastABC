@@ -184,3 +184,34 @@ def test_grade_only_new_answers(client, db, grading):
     assert next(c for c in cells if c["grade_id"] == first["grade_id"])["final_points"] == 0  # kept
     assert next(c for c in cells if c["answer"] == "b" and c["item_key"] == "mentions_chain_rule")["route"] == "llm"
     assert client.post(f"/assignments/{aid}/grade", params={"only_new": True}).status_code == 400  # nothing new
+
+
+def test_secondary_calls_run_a_few_at_a_time(client, grading):
+    """Escalated answers are re-judged concurrently; each result still lands on its own cells."""
+    import threading
+    import time
+
+    class SlowSecondary(FakeSecondary):
+        def __init__(self, preds):
+            super().__init__(preds)
+            self.running = self.peak = 0
+            self.lock = threading.Lock()
+
+        def evaluate(self, problem, answer, questions):
+            with self.lock:
+                self.running += 1
+                self.peak = max(self.peak, self.running)
+            time.sleep(0.05)
+            with self.lock:
+                self.running -= 1
+            return super().evaluate(problem, answer, questions)
+
+    answers = [f"a{i}" for i in range(8)]
+    primary = FakePrimary({a: {"accuracy": (2, 0.5)} for a in answers})  # every answer escalates one cell
+    secondary = SlowSecondary({a: {"accuracy": 2 if i % 2 else 1} for i, a in enumerate(answers)})
+    aid = grading(primary, secondary, answers)
+    client.post(f"/assignments/{aid}/grade")
+
+    assert 1 < secondary.peak <= 4
+    routes = {c["label"]: c["route"] for c in client.get(f"/assignments/{aid}/cells").json() if c["item_key"] == "accuracy"}
+    assert routes == {f"S{i + 1:03d}": "llm" if i % 2 else "human" for i in range(8)}  # agreed vs split, per answer

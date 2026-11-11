@@ -7,6 +7,7 @@ the rest stay `pending` until the secondary judge has answered.
 import logging
 import random
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from functools import lru_cache
 
@@ -37,6 +38,8 @@ logger = logging.getLogger(__name__)
 
 # Share of auto cells flagged for a manual look, so graders keep checking the confident ones too
 SAMPLE_RATE = 0.1
+# Secondary calls at once: each takes seconds, so 40 answers in a row would take minutes
+SECONDARY_PARALLEL = 4
 
 
 @dataclass
@@ -169,49 +172,64 @@ def run_primary(db: Session, assignment: Assignment, judge: Judge, only_new: boo
 
 
 def escalate(session_factory: Callable[[], Session], assignment_id: int, judge: Judge) -> None:
-    """Background task: re-judge pending cells, one secondary call per submission."""
+    """Background task: re-judge pending cells, one secondary call per submission.
+
+    The calls run a few at a time (each takes seconds); results are written on this thread, one
+    submission per commit as each call returns, so status polling sees progress."""
     with session_factory() as db:
         assignment = db.get(Assignment, assignment_id)
         items = {item.id: item for item in assignment.items}
         questions = questions_for(assignment.items)
+        problem = assignment.problem
         # queried rather than assignment.submissions, which may predate an answer added in the same session
         submissions = db.scalars(select(Submission).where(Submission.assignment_id == assignment_id).order_by(Submission.id))
+        work: list[tuple[Submission, list[Grade], str, Questions]] = []
         for submission in submissions:
-            pending = db.scalars(
-                select(Grade).where(Grade.submission_id == submission.id, Grade.route == GradeRoute.PENDING)
-            ).all()
-            if not pending:
-                continue
-            primary = {
-                r.rubric_item_id: r
-                for r in db.scalars(
-                    select(JudgmentRecord).where(
-                        JudgmentRecord.submission_id == submission.id, JudgmentRecord.source == JudgeSource.PRIMARY
-                    )
-                )
-            }
-            escalated = {items[g.rubric_item_id].key: questions[items[g.rubric_item_id].key] for g in pending}
-            try:
-                second = judge.evaluate(assignment.problem, submission.clean_text, escalated)
-            except Exception:
-                logger.exception("secondary judge failed for submission %s", submission.id)
-                second = []
-            by_key = {j.question_id: j for j in second}
+            pending = list(
+                db.scalars(select(Grade).where(Grade.submission_id == submission.id, Grade.route == GradeRoute.PENDING))
+            )
+            if pending:
+                escalated = {items[g.rubric_item_id].key: questions[items[g.rubric_item_id].key] for g in pending}
+                work.append((submission, pending, submission.clean_text, escalated))
+        if not work:
+            return
 
-            for grade in pending:
-                item = items[grade.rubric_item_id]
-                p = primary[item.id]
-                # pending means the primary judge was not confident
-                first = Judgment(
-                    item.key, item.type, p.pred, conf=p.conf, raw=p.raw, skipped=p.skipped, confident=False
-                )
-                (rec,) = route([first], second)
-                if (s := by_key.get(item.key)) is not None:
-                    db.add(judgment_record(submission, item, s, JudgeSource.SECONDARY, judge))
-                if rec.route == Route.LLM:
-                    grade.route = GradeRoute.LLM
-                    grade.recommended_pred = rec.pred
-                    grade.recommended_points = item_points(item, rec.pred)
-                else:
-                    grade.route = GradeRoute.HUMAN
-            db.commit()  # per submission, so status polling sees progress
+        def ask(text: str, escalated: Questions, submission_id: int) -> list[Judgment]:
+            # only plain values cross threads: the session stays on this one
+            try:
+                return judge.evaluate(problem, text, escalated)
+            except Exception:
+                logger.exception("secondary judge failed for submission %s", submission_id)
+                return []
+
+        with ThreadPoolExecutor(max_workers=SECONDARY_PARALLEL) as pool:
+            futures = {pool.submit(ask, text, escalated, sub.id): (sub, pending) for sub, pending, text, escalated in work}
+            for future in as_completed(futures):
+                submission, pending = futures[future]
+                second = future.result()
+                by_key = {j.question_id: j for j in second}
+                primary = {
+                    r.rubric_item_id: r
+                    for r in db.scalars(
+                        select(JudgmentRecord).where(
+                            JudgmentRecord.submission_id == submission.id, JudgmentRecord.source == JudgeSource.PRIMARY
+                        )
+                    )
+                }
+                for grade in pending:
+                    item = items[grade.rubric_item_id]
+                    p = primary[item.id]
+                    # pending means the primary judge was not confident
+                    first = Judgment(
+                        item.key, item.type, p.pred, conf=p.conf, raw=p.raw, skipped=p.skipped, confident=False
+                    )
+                    (rec,) = route([first], second)
+                    if (s := by_key.get(item.key)) is not None:
+                        db.add(judgment_record(submission, item, s, JudgeSource.SECONDARY, judge))
+                    if rec.route == Route.LLM:
+                        grade.route = GradeRoute.LLM
+                        grade.recommended_pred = rec.pred
+                        grade.recommended_points = item_points(item, rec.pred)
+                    else:
+                        grade.route = GradeRoute.HUMAN
+                db.commit()  # per submission, so status polling sees progress
