@@ -34,7 +34,7 @@ backend/
     finalization.py    성적 확정: 스냅샷, 해시, 잠금
     routers/           auth, courses, terms, assignments, drafts, submissions, grading, review, finalizations
   alembic/             마이그레이션
-  scripts/             seed_demo.py, booth_reset.py, export_rubric.py, run_eval.py
+  scripts/             seed_demo.py(--empty), make_answer_sheets.py, booth_reset.py, export_rubric.py, run_eval.py
   tests/               pytest (실제 API 호출 없음)
   notebooks/           판단기 응답 검증 노트북 (01 Jev, 02 Gemini)
 frontend/
@@ -190,12 +190,12 @@ erDiagram
 ## 채점 흐름
 
 1. **채점 기준 변환** (`POST /rubric-drafts`): LLM이 기준 문장을 판단 질문 목록으로 바꿉니다. 저장하지 않고 편집기로 돌려주며, 채점자가 고친 뒤 문항을 저장합니다.
-2. **업로드** (`POST /assignments/{id}/submissions/csv`): 열 이름은 `학번, 답안, 이름` 또는 `student_id, answer, name`입니다. 종이 답안·문서는 한 건씩 넣습니다. `POST /assignments/{id}/readings`가 파일을 글로 바꿔 돌려주고(저장 안 함), 채점자가 확인한 글을 `POST /assignments/{id}/submissions`로 저장합니다. 글자가 들어 있는 PDF(공백 제외 20자 이상)는 `pypdf`로 로컬에서 읽고, 스캔 PDF·사진·웹캠 사진은 `AnswerReader`(구현: `GeminiReader`, 조립: `grading.get_reader`)가 "보이는 그대로, 고치지 않고, 머리의 인적 사항과 인쇄된 문제는 빼고" 옮깁니다. 이 경로는 식별 정보 제거 전에 이미지가 외부로 나가므로 실제 답안은 유료 계정에서만 씁니다. 웹캠은 브라우저에서 안내 틀 안쪽만 잘라 보냅니다. 여러 파일(`bulk-read.tsx`)은 같은 두 API를 파일마다 부르며, 브라우저가 한 번에 3개씩 읽고(최대 100개), 파일 이름에서 학번·이름을 뽑고(`20240001_김민수.pdf`, `김민수-20240001.jpg`), 학번 없음·이미 올린 학번·묶음 안 중복을 저장 전에 표시합니다. 백엔드에 일괄 API는 따로 없습니다. `redact()`가 학번·이름을 지우고, `학번:`·`이름:` 같은 표시와 이메일·전화번호·학번 패턴을 정규식으로 지운 `clean_text`를 만듭니다.
+2. **업로드** (`POST /assignments/{id}/submissions/csv`): 열 이름은 `학번, 답안, 이름` 또는 `student_id, answer, name`입니다. 종이 답안·문서는 한 건씩 넣습니다. `POST /assignments/{id}/readings`가 파일을 글로 바꿔 돌려주고(저장 안 함), 채점자가 확인한 글을 `POST /assignments/{id}/submissions`로 저장합니다. 글자가 들어 있는 PDF(공백 제외 20자 이상)는 `pypdf`로 로컬에서 읽고, 스캔 PDF·사진·웹캠 사진은 `AnswerReader`(구현: `GeminiReader`, 조립: `grading.get_reader`)가 "보이는 그대로, 고치지 않고, 머리의 인적 사항과 인쇄된 문제는 빼고" 옮깁니다. 이 경로는 식별 정보 제거 전에 이미지가 외부로 나가므로 실제 답안은 유료 계정에서만 씁니다. 웹캠은 브라우저에서 안내 틀 안쪽만 잘라 보냅니다. 시험 전체 답안지(`exams/[id]/sheet-upload.tsx`)는 `/exams/{id}/readings`로 문항별로 나눠 읽고, 저장은 문항마다 같은 저장 API를 부른 뒤 답안이 들어간 문항마다 채점을 시작합니다(처음이면 전체, 아니면 `only_new`). PDF 글은 읽은 직후 탭·제어 문자를 공백으로 바꿉니다(`reading.clean`, 글꼴에 따라 띄어쓰기가 `\x01`로 나옴). 여러 파일(`bulk-read.tsx`)은 같은 두 API를 파일마다 부르며, 브라우저가 한 번에 3개씩 읽고(최대 100개), 파일 이름에서 학번·이름을 뽑고(`20240001_김민수.pdf`, `김민수-20240001.jpg`), 학번 없음·이미 올린 학번·묶음 안 중복을 저장 전에 표시합니다. 백엔드에 일괄 API는 따로 없습니다. `redact()`가 학번·이름을 지우고, `학번:`·`이름:` 같은 표시와 이메일·전화번호·학번 패턴을 정규식으로 지운 `clean_text`를 만듭니다.
 3. **1차 판단** (`POST /assignments/{id}/grade`, `run_primary`): 판단 모델이 답안마다 모든 질문을 한 번에 판단합니다. 각 `Judgment`의 `confident`는 어댑터가 자기 임계값으로 정합니다. Jev는 예/아니오 확신도가 |2p−1|이고 임계값은 0.6이며, 수준과 선택형은 0.8입니다. 라우팅은 `confident`만 읽습니다.
    - 주제 확인에 "아니오"로 확신하면 나머지 칸은 `skip`(0점 추천)입니다.
    - 확신하면 `auto`가 되고, 그중 10%를 `sampled`로 표시합니다. 시드는 문항 id라 다시 채점해도 같은 칸이 뽑힙니다.
    - 확신하지 못하면 `pending`입니다.
-4. **재판단** (`escalate`, 백그라운드): `pending` 칸만 모아 LLM에 답안당 한 번 묻습니다. 판단이 같으면 `llm`(추천과 근거)이 되고, 다르거나 LLM이 실패하면 `human`(추천 없음)이 됩니다. 답안마다 커밋하므로 화면이 진행률을 폴링할 수 있습니다.
+4. **재판단** (`escalate`, 백그라운드): `pending` 칸만 모아 LLM에 답안당 한 번 묻습니다. 호출은 `SECONDARY_PARALLEL`(4)개씩 동시에 보내고 결과는 한 스레드에서 끝난 순서대로 씁니다(40명 3문항 117답안의 재판단이 약 1분, 차례로 하면 문항당 2분 반). 판단이 같으면 `llm`(추천과 근거)이 되고, 다르거나 LLM이 실패하면 `human`(추천 없음)이 됩니다. 답안마다 커밋하므로 화면이 진행률을 폴링할 수 있습니다.
 5. **근거 찾기** (`POST /submissions/{id}/evidence`): 채점자가 답안을 처음 열 때, 아직 LLM 출력이 없는 칸의 근거 문장만 가벼운 설정의 LLM에 묻습니다(`source = evidence`). 경로와 추천은 바꾸지 않으며, 두 번째 호출부터는 아무것도 하지 않습니다.
 6. **확정** (`PATCH /grades/{id}`): `accept`는 추천값을, `set`은 입력값을 확정합니다. 결과는 추천과 비교해 `accepted`, `modified`, `manual`로 기록됩니다. `POST /assignments/{id}/accept-confident`는 `auto`와 `skip` 칸 중 샘플이 아닌 칸만 수용합니다.
 7. **성적 확정** (아래 절).
@@ -250,6 +250,7 @@ class Judge(Protocol):
 | PATCH, DELETE | `/exams/{id}` | 시험 이름 바꾸기, 삭제 (문항은 과목에 남음) |
 | GET | `/exams/{id}/results` | 시험 결과: 학생(학번) × 문항·가져온 점수, 합계 |
 | GET | `/exams/{id}/export.csv` | 시험 결과 CSV (학번, 이름, 열마다 점수, 합계) |
+| POST | `/exams/{id}/readings` | 학생 한 명의 시험 전체 답안지 → 번호 붙은 문항별 답 (저장 안 함). 글자 PDF는 줄 맨 앞의 "1번"·"[2번]"·"문항 3" 표시로 코드가 나누고(번호는 오름차순만, 답 안의 "1." 목록은 무시, 첫 번호 앞 글은 `rest`), 스캔·사진은 LLM이 문항 목록을 받아 번호별로 옮김. 확정된 문항은 `locked` |
 | POST | `/exams/{id}/imports` | 객관식·계산 문항 등 다른 곳에서 채점한 점수 CSV 가져오기 (학번, 점수, 선택 이름) |
 | DELETE | `/imports/{id}` | 가져온 점수 지우기 |
 | GET, POST | `/assignments` | 문항 목록, 생성 (채점 기준 포함) |

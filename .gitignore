@@ -73,3 +73,6 @@ Thumbs.db
 # local-only agent instructions
 CLAUDE.md
 CLAUDE_LEGACY.md
+
+# demo answer sheets: regenerate with backend/scripts/make_answer_sheets.py
+data/demo/answer_sheets/

@@ -1,18 +1,25 @@
 """Load the usage-scenario demo (docs/scenario.md) into the dev DB, graded with the real judges.
 
-    uv run python scripts/seed_demo.py
+    uv run python scripts/seed_demo.py           # everything graded, ready to look around
+    uv run python scripts/seed_demo.py --empty   # questions 1 and 2 without answers, for the video
 
-Course 정보보호개론 (2026-2, 01), exam 중간고사 with two essay questions and imported multiple choice:
+Course 정보보호개론 (2026-2, 01), exam 중간고사 with three essay questions and imported multiple choice:
 - 1번 비밀번호 저장: 12 answers, every cell decided from the grader's own labels in data/eval,
   then signed off, so the course shows a finished question
 - 2번 SQL 인젝션: the 40 answers in data/demo/sql_injection.csv, graded and left for review
+- 3번 대칭키와 공개키 암호: 3번 of data/demo/midterm_answers.csv, graded and left for review
 - 객관식: points from data/demo/midterm_mc.csv, as if exported from the LMS
 Question 1 uses the first 12 students of question 2, so the exam results line up by 학번.
+
+With --empty, questions 1 and 2 are made with their rubrics but no answers, and 3번 is left for the
+video to make (its rubric sentence is `rubric_text` in data/demo/q3_crypto.json). The whole exam then
+goes in at once: data/demo/answer_sheets (scripts/make_answer_sheets.py) through 시험 결과 → 답안지 올리기.
 
 Everything belongs to the demo grader 김조교 (demo@fastabc.kr / demo1234), created on the first run.
 Synthetic answers only (fine for a free-tier LLM key). Each run creates both questions again.
 """
 
+import argparse
 import csv
 import io
 import json
@@ -117,22 +124,49 @@ def review_question(client: TestClient, course_id: int, exam_id: int) -> int:
     return aid
 
 
+def crypto_question(client: TestClient, course_id: int, exam_id: int) -> int:
+    question = json.loads((DATA / "demo/q3_crypto.json").read_text())
+    aid = create(client, course_id, exam_id, 3, question)
+    with open(DATA / "demo/midterm_answers.csv", encoding="utf-8-sig") as f:
+        rows = [r for r in csv.DictReader(f) if r["3번"].strip()]  # a blank answer is a missing one
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["학번", "이름", "답안"])
+    writer.writerows([r["학번"], r["이름"], r["3번"]] for r in rows)
+    upload_and_grade(client, aid, buf.getvalue().encode())
+    return aid
+
+
+def empty_questions(client: TestClient, course_id: int, exam_id: int) -> None:
+    for number, path in ((1, "eval/q1_password_storage/question.json"), (2, "eval/q2_sql_injection/question.json")):
+        aid = create(client, course_id, exam_id, number, json.loads((DATA / path).read_text()))
+        print(f"assignment {aid}: {number}번, no answers yet")
+
+
 def import_multiple_choice(client: TestClient, exam_id: int) -> None:
     files = {"file": ("midterm_mc.csv", (DATA / "demo/midterm_mc.csv").read_bytes(), "text/csv")}
     client.post(f"/exams/{exam_id}/imports", files=files, data={"title": "객관식", "max_points": 20}).raise_for_status()
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--empty", action="store_true", help="questions 1 and 2 without answers, for the video")
+    args = parser.parse_args()
+
     client = TestClient(app)
     log_in(client)
     course_id = get_course(client)
     exam_id = get_exam(client, course_id)
-    finished_question(client, course_id, exam_id)
-    aid = review_question(client, course_id, exam_id)
+    if args.empty:
+        empty_questions(client, course_id, exam_id)
+    else:
+        finished_question(client, course_id, exam_id)
+        aid = review_question(client, course_id, exam_id)
+        crypto_question(client, course_id, exam_id)
+        print(f"review: http://localhost:3000/assignments/{aid}")
     import_multiple_choice(client, exam_id)
     print(f"course: http://localhost:3000/courses/{course_id}")
     print(f"exam:   http://localhost:3000/exams/{exam_id}")
-    print(f"review: http://localhost:3000/assignments/{aid}")
 
 
 if __name__ == "__main__":

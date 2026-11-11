@@ -1,0 +1,112 @@
+{
+  "id": "q3_crypto",
+  "title": "대칭키와 공개키 암호",
+  "problem": "대칭키 암호와 공개키 암호의 차이를 설명하고, 각각 어디에 쓰는지 예를 드시오.",
+  "rubric_text": "암호화와 복호화에 같은 키를 쓴다는 대칭키 암호의 특징 2점, 공개키와 개인키 한 쌍을 쓴다는 공개키 암호의 특징 2점, 속도나 키 분배 측면의 비교 1점, 대칭키의 쓰임 예시 1점, 공개키의 쓰임 예시 1점, 공개키로 대칭키를 나눈 뒤 대칭키로 통신하는 혼합 방식(TLS 등) 설명 2점. 개인키를 상대와 나누거나 공개키를 비밀로 지켜야 한다고 주장하면 1점 감점",
+  "items": [
+    {
+      "key": "is_on_topic",
+      "label": "주제 관련성",
+      "type": "noul",
+      "kind": "gate",
+      "instructions": "`answer`가 `question`의 주제인 대칭키 암호와 공개키 암호의 차이나 쓰임을 설명하려고 시도한다.",
+      "criteria": {
+        "true": "`answer`가 대칭키 암호나 공개키 암호에 대해 설명하고 있다.",
+        "false": "`answer`가 대칭키·공개키 암호와 관련 없는 내용을 다루거나 답안 작성을 시도하지 않았다."
+      },
+      "points": null,
+      "points_map": null
+    },
+    {
+      "key": "symmetric_same_key",
+      "label": "대칭키: 같은 키",
+      "type": "noul",
+      "kind": "credit",
+      "instructions": "`answer`가 대칭키 암호는 암호화와 복호화에 같은 키를 쓴다고 설명한다.",
+      "criteria": {
+        "true": "대칭키 암호에서 암호화와 복호화에 같은 키(하나의 비밀키)를 쓴다는 내용이 있다.",
+        "false": "대칭키 암호가 같은 키를 쓴다는 내용이 없거나, 다른 키를 쓴다고 잘못 설명한다."
+      },
+      "points": 2.0,
+      "points_map": null
+    },
+    {
+      "key": "public_key_pair",
+      "label": "공개키: 키 쌍",
+      "type": "noul",
+      "kind": "credit",
+      "instructions": "`answer`가 공개키 암호는 공개키와 개인키 한 쌍을 쓰며, 한쪽으로 암호화한 것을 다른 쪽으로 복호화한다고 설명한다.",
+      "criteria": {
+        "true": "공개키와 개인키(서로 다른 두 키)의 쌍을 쓴다는 내용이 있다. 공개키는 알려도 되고 개인키는 본인만 갖는다는 설명도 포함한다.",
+        "false": "공개키 암호가 서로 다른 두 키의 쌍을 쓴다는 내용이 없다."
+      },
+      "points": 2.0,
+      "points_map": null
+    },
+    {
+      "key": "tradeoff",
+      "label": "속도·키 분배 비교",
+      "type": "noul",
+      "kind": "credit",
+      "instructions": "`answer`가 두 방식을 속도나 키 분배(키를 안전하게 나눠 갖는 문제) 측면에서 올바르게 비교한다.",
+      "criteria": {
+        "true": "대칭키가 빠르다, 공개키가 느리다, 대칭키는 키를 안전하게 전달하기 어렵다(키 분배 문제) 중 하나 이상을 올바르게 말한다.",
+        "false": "속도나 키 분배 측면의 비교가 없거나, 공개키가 더 빠르다처럼 반대로 말한다."
+      },
+      "points": 1.0,
+      "points_map": null
+    },
+    {
+      "key": "symmetric_use",
+      "label": "대칭키 쓰임 예시",
+      "type": "noul",
+      "kind": "credit",
+      "instructions": "`answer`가 대칭키 암호의 쓰임이나 대표 알고리즘을 예로 든다.",
+      "criteria": {
+        "true": "AES, DES 같은 대칭키 알고리즘이나 파일·디스크·통신 내용 암호화 같은 구체적인 쓰임을 하나 이상 든다.",
+        "false": "대칭키 암호의 구체적인 쓰임이나 알고리즘 예시가 없다."
+      },
+      "points": 1.0,
+      "points_map": null
+    },
+    {
+      "key": "public_use",
+      "label": "공개키 쓰임 예시",
+      "type": "noul",
+      "kind": "credit",
+      "instructions": "`answer`가 공개키 암호의 쓰임이나 대표 알고리즘을 예로 든다.",
+      "criteria": {
+        "true": "RSA, ECC 같은 공개키 알고리즘이나 전자서명, 인증서, 키 교환, SSH 인증 같은 구체적인 쓰임을 하나 이상 든다.",
+        "false": "공개키 암호의 구체적인 쓰임이나 알고리즘 예시가 없다."
+      },
+      "points": 1.0,
+      "points_map": null
+    },
+    {
+      "key": "hybrid",
+      "label": "혼합 방식 설명",
+      "type": "noul",
+      "kind": "credit",
+      "instructions": "`answer`가 공개키 암호로 대칭키(세션 키)를 안전하게 나눈 뒤 실제 데이터는 대칭키로 암호화하는 혼합 방식을 설명한다.",
+      "criteria": {
+        "true": "공개키로 대칭키나 세션 키를 교환·전달하고 데이터는 대칭키로 암호화한다는 흐름을 설명한다. TLS·HTTPS를 예로 든 경우도 포함한다.",
+        "false": "두 방식을 함께 쓰는 흐름이 없다. 두 방식을 각각 따로 설명하기만 한 경우도 포함한다."
+      },
+      "points": 2.0,
+      "points_map": null
+    },
+    {
+      "key": "misc_private_key_shared",
+      "label": "오개념: 키 공개 범위 혼동",
+      "type": "noul",
+      "kind": "deduction",
+      "instructions": "`answer`가 개인키를 상대에게 보내거나 공유해야 한다고, 또는 공개키를 비밀로 지켜야 한다고 주장한다.",
+      "criteria": {
+        "true": "개인키를 상대와 나누거나 보낸다는 주장, 또는 공개키를 비밀로 지켜야 한다는 주장이 있다.",
+        "false": "개인키 공유나 공개키 비밀 유지에 대한 잘못된 주장이 없다."
+      },
+      "points": 1.0,
+      "points_map": null
+    }
+  ]
+}
