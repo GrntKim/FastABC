@@ -391,6 +391,31 @@ class FinalizationOut(BaseModel):
     reopen_reason: str | None
 
 
+class ReportItem(BaseModel):
+    rubric_item_id: int
+    points: float | None  # what the grader confirmed
+    by_grader: bool  # the grader set the points rather than taking the recommendation
+    quotes: list[str]  # the answer's words behind the points, only where a judge reached the same points
+
+
+class StudentReport(BaseModel):
+    """One student's answer to a signed-off question, item by item: what goes back to the student."""
+
+    submission_id: int
+    student_ref: str
+    student_name: str | None
+    answer: str  # as graded (identifiers removed), so quotes can be marked in it
+    off_topic: bool  # judged unrelated to the question: every item 0
+    total: float | None
+    items: list[ReportItem]  # rubric order, the topic check left out
+
+
+class AssignmentReport(BaseModel):
+    finalization: FinalizationOut  # the sign-off the report stands on
+    max_points: float
+    students: list[StudentReport]
+
+
 class EvidenceOut(BaseModel):
     requested: int  # cells sent to the LLM in this call (0 when every cell already had evidence)
 

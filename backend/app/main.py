@@ -11,6 +11,7 @@ from app.routers import (
     exams,
     finalizations,
     grading,
+    reports,
     review,
     submissions,
     terms,
@@ -34,6 +35,7 @@ app.include_router(submissions.router)
 app.include_router(grading.router)
 app.include_router(review.router)
 app.include_router(finalizations.router)
+app.include_router(reports.router)
 app.include_router(terms.router)
 
 

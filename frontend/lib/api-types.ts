@@ -633,6 +633,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/assignments/{assignment_id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Report
+         * @description Every answer (or one student's) of a signed-off question, item by item, for the student to read.
+         */
+        get: operations["report_assignments__assignment_id__report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assignments/{assignment_id}/report/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fill Evidence
+         * @description Look up quotes for the answers no grader opened (bulk-confirmed ones), before printing reports.
+         *
+         *     Display only, like the lookup when a grader opens an answer: grades and the signed-off record stay as
+         *     they are. A few answers at a time; an answer whose lookup fails is printed without quotes.
+         */
+        post: operations["fill_evidence_assignments__assignment_id__report_evidence_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/terms/{term}": {
         parameters: {
             query?: never;
@@ -723,6 +766,14 @@ export interface components {
             problem: string;
             /** Items */
             items: components["schemas"]["RubricItemOut"][];
+        };
+        /** AssignmentReport */
+        AssignmentReport: {
+            finalization: components["schemas"]["FinalizationOut"];
+            /** Max Points */
+            max_points: number;
+            /** Students */
+            students: components["schemas"]["StudentReport"][];
         };
         /** AssignmentSummary */
         AssignmentSummary: {
@@ -1197,6 +1248,17 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** ReportItem */
+        ReportItem: {
+            /** Rubric Item Id */
+            rubric_item_id: number;
+            /** Points */
+            points: number | null;
+            /** By Grader */
+            by_grader: boolean;
+            /** Quotes */
+            quotes: string[];
+        };
         /** RubricDraftIn */
         RubricDraftIn: {
             /** Problem */
@@ -1265,6 +1327,26 @@ export interface components {
             name: string;
             /** Password */
             password: string;
+        };
+        /**
+         * StudentReport
+         * @description One student's answer to a signed-off question, item by item: what goes back to the student.
+         */
+        StudentReport: {
+            /** Submission Id */
+            submission_id: number;
+            /** Student Ref */
+            student_ref: string;
+            /** Student Name */
+            student_name: string | null;
+            /** Answer */
+            answer: string;
+            /** Off Topic */
+            off_topic: boolean;
+            /** Total */
+            total: number | null;
+            /** Items */
+            items: components["schemas"]["ReportItem"][];
         };
         /**
          * SubmissionIn
@@ -2761,6 +2843,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FinalizationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    report_assignments__assignment_id__report_get: {
+        parameters: {
+            query?: {
+                student_ref?: string | null;
+            };
+            header?: never;
+            path: {
+                assignment_id: number;
+            };
+            cookie?: {
+                fastabc_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignmentReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fill_evidence_assignments__assignment_id__report_evidence_post: {
+        parameters: {
+            query?: {
+                student_ref?: string | null;
+            };
+            header?: never;
+            path: {
+                assignment_id: number;
+            };
+            cookie?: {
+                fastabc_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvidenceOut"];
                 };
             };
             /** @description Validation Error */
