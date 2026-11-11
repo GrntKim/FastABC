@@ -120,13 +120,16 @@ def test_unknown_assignment(client):
 
 
 def test_sampled_cells_excluded_from_bulk_accept(client, grading, monkeypatch):
-    monkeypatch.setattr("app.grading.SAMPLE_RATE", 1.0)
-    aid = grading(FakePrimary(), FakeSecondary(), ["a"])
+    monkeypatch.setattr("app.grading.SAMPLE_RATE", 1.0)  # every answer gets its audit
+    aid = grading(FakePrimary(), FakeSecondary(), ["a", "b"])
     client.post(f"/assignments/{aid}/grade")
     cells = client.get(f"/assignments/{aid}/cells").json()
-    assert all(c["sampled"] for c in cells if c["route"] == "auto")
-    assert client.post(f"/assignments/{aid}/accept-confident").json() == {"accepted": 0}
-    r = client.patch(f"/grades/{cells[1]['grade_id']}", json={"action": "accept"})
+    sampled = [c for c in cells if c["sampled"]]
+    # one confident item per answer, not all of them
+    assert sorted(c["submission_id"] for c in sampled) == sorted({c["submission_id"] for c in cells})
+    quick = [c for c in cells if c["route"] in ("auto", "skip") and not c["sampled"]]
+    assert client.post(f"/assignments/{aid}/accept-confident").json() == {"accepted": len(quick)}
+    r = client.patch(f"/grades/{sampled[0]['grade_id']}", json={"action": "accept"})
     assert r.json()["decision"] == "accepted"  # still accepted one by one
 
 

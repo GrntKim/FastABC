@@ -10,7 +10,7 @@ from app.grading import Judges, get_judges
 from app.judges.base import Judgment
 from app.judges.jev import apply_gate, is_auto
 from app.main import app as fastapi_app
-from app.models import Grade, JudgmentRecord, RubricItem, Submission
+from app.models import Grade, GradeRoute, JudgmentRecord, RubricItem, Submission
 from tests.test_assignments import make_body
 
 CONFIDENT = {
@@ -215,3 +215,19 @@ def test_secondary_calls_run_a_few_at_a_time(client, grading):
     assert 1 < secondary.peak <= 4
     routes = {c["label"]: c["route"] for c in client.get(f"/assignments/{aid}/cells").json() if c["item_key"] == "accuracy"}
     assert routes == {f"S{i + 1:03d}": "llm" if i % 2 else "human" for i in range(8)}  # agreed vs split, per answer
+
+
+def test_audit_takes_one_item_from_a_tenth_of_the_answers(client, grading, db, monkeypatch):
+    monkeypatch.setattr("app.grading.SAMPLE_RATE", 0.1)
+    aid = grading(FakePrimary(), FakeSecondary(), [f"answer {i}" for i in range(40)])
+    client.post(f"/assignments/{aid}/grade")
+    sampled = [g for g in cells(db).values() if g.sampled]
+    assert len(sampled) == 4 and len({g.submission_id for g in sampled}) == 4
+    assert all(g.route == GradeRoute.AUTO for g in sampled)
+
+
+def test_a_small_class_still_gets_one_audit(client, grading, db, monkeypatch):
+    monkeypatch.setattr("app.grading.SAMPLE_RATE", 0.1)
+    aid = grading(FakePrimary(), FakeSecondary(), ["a", "b", "c"])
+    client.post(f"/assignments/{aid}/grade")
+    assert sum(g.sampled for g in cells(db).values()) == 1

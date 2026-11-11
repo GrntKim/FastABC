@@ -36,7 +36,8 @@ from app.scoring import item_points
 
 logger = logging.getLogger(__name__)
 
-# Share of auto cells flagged for a manual look, so graders keep checking the confident ones too
+# Share of answers that get one confident item flagged for a manual look, so graders keep checking the
+# confident ones too. Per answer rather than per item: per item, about half of all answers carried one.
 SAMPLE_RATE = 0.1
 # Secondary calls at once: each takes seconds, so 40 answers in a row would take minutes
 SECONDARY_PARALLEL = 4
@@ -143,10 +144,8 @@ def run_primary(db: Session, assignment: Assignment, judge: Judge, only_new: boo
     items = {item.key: item for item in assignment.items}
     questions = questions_for(assignment.items)
     pending = 0
-    rng = random.Random(assignment.id)  # same sample on re-grade
+    confident: dict[int, list[Grade]] = {}  # submission id -> its auto cells, the ones an audit draws from
     for submission in targets:
-        if only_new:
-            rng = random.Random(f"{assignment.id}-{submission.id}")  # an added answer's sample does not shift others
         judgments = judge.evaluate(assignment.problem, submission.clean_text, questions)
         for j in judgments:
             item = items[j.question_id]
@@ -161,14 +160,31 @@ def run_primary(db: Session, assignment: Assignment, judge: Judge, only_new: boo
             else:
                 grade = Grade(
                     route=GradeRoute.AUTO,
-                    sampled=rng.random() < SAMPLE_RATE,
                     recommended_pred=j.pred,
                     recommended_points=item_points(item, j.pred),
                 )
+                confident.setdefault(submission.id, []).append(grade)
             grade.submission_id, grade.rubric_item_id = submission.id, item.id
             db.add(grade)
+    # the same draw on a re-grade; answers added later draw among themselves and leave the others' audits alone
+    seed = assignment.id if not only_new else f"{assignment.id}-{min((s.id for s in targets), default=0)}"
+    draw_audits(list(confident.values()), random.Random(seed), at_least_one=not only_new)
     db.commit()
     return pending
+
+
+def draw_audits(answers: list[list[Grade]], rng: random.Random, at_least_one: bool) -> None:
+    """Flag one confident cell in about SAMPLE_RATE of the answers (each answer's list of auto cells).
+    A fractional count is rounded up by chance, so one added answer is drawn one time in ten; a whole
+    grading run audits at least one answer, so even a small class sees the audit at work."""
+    if SAMPLE_RATE <= 0 or not answers:
+        return
+    expected = SAMPLE_RATE * len(answers)
+    count = min(len(answers), int(expected) + (rng.random() < expected - int(expected)))
+    if at_least_one:
+        count = max(count, 1)
+    for cells in rng.sample(answers, count):
+        rng.choice(cells).sampled = True
 
 
 def escalate(session_factory: Callable[[], Session], assignment_id: int, judge: Judge) -> None:
