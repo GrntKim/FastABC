@@ -15,6 +15,7 @@ import { api, API_URL, ApiError, type ExamColumn, type ExamResults } from "@/lib
 import { STAGE_ACTION, STAGE_DOT, STAGE_LABEL, termLabel } from "@/lib/progress";
 import { formatPoints } from "@/lib/rubric";
 import { cn } from "@/lib/utils";
+import { ExamStats } from "./exam-stats";
 import SheetUpload, { answeredBy } from "./sheet-upload";
 
 /** One exam: every question's result per student, added up, with points imported from elsewhere beside them. */
@@ -44,8 +45,6 @@ export default function ExamScreen({ examId }: { examId: number }) {
   const questions = r.columns.filter((c) => c.kind === "question");
   const finalized = questions.filter((c) => c.stage === "finalized").length;
   const signedAny = finalized > 0; // a student's grading report needs at least one signed-off question
-  const totals = r.students.map((s) => s.total).filter((t): t is number => t !== null);
-  const average = totals.length ? totals.reduce((a, b) => a + b, 0) / totals.length : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -69,7 +68,6 @@ export default function ExamScreen({ examId }: { examId: number }) {
               `서술형 ${questions.length}문항 중 ${finalized}문항 성적 확정`
             )}
             {` · 학생 ${r.students.length}명`}
-            {average !== null && ` · 합계를 낸 ${totals.length}명 평균 ${average.toFixed(1)}점`}
           </p>
           {!r.finalized && <GradesDue term={r.course.term} question={{ examName: r.exam.name }} className="self-start" />}
         </div>
@@ -95,6 +93,8 @@ export default function ExamScreen({ examId }: { examId: number }) {
           />
         </div>
       </header>
+
+      <ExamStats results={r} />
 
       {r.columns.length === 0 ? (
         <div className="rounded-xl bg-card p-4 text-sm text-muted-foreground ring-1 ring-foreground/10">
