@@ -13,6 +13,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
+from app.accounts.models import User, AuthSession
 
 
 class ItemType(StrEnum):
@@ -51,32 +52,6 @@ class Decision(StrEnum):
     ACCEPTED = "accepted"
     MODIFIED = "modified"
     MANUAL = "manual"  # no recommendation was shown (human route)
-
-
-class User(Base):
-    """A grader account. Everything a grader makes hangs off their courses."""
-
-    __tablename__ = "users"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    email: Mapped[str] = mapped_column(String(254), unique=True)  # stored lowercased: the login id
-    name: Mapped[str] = mapped_column(String(100))  # shown on screen and recorded on sign-offs
-    password_hash: Mapped[str] = mapped_column(String(200))  # argon2id
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-
-class AuthSession(Base):
-    """A login. The cookie holds a random token; only its sha256 is stored, so a leaked table cannot log anyone in."""
-
-    __tablename__ = "sessions"
-
-    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-
-    user: Mapped[User] = relationship()
-
 
 class Course(Base):
     """A course section in one term: the grader's top-level grouping. Only its owner sees it."""
