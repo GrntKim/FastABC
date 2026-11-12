@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>로그인</h1>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<form method="post" action="/login">
+  <label>이메일 <input name="email" type="email" value="{{ email or '' }}" required></label>
+  <label>비밀번호 <input name="password" type="password" required></label>
+  <button>로그인</button>
+</form>
+{% endblock %}
