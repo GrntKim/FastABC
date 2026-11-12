@@ -57,8 +57,3 @@ def logout(db: Session = Depends(get_db),
     resp.delete_cookie(COOKIE, httponly=True, samesite="lax", secure=COOKIE_SECURE)
     
     return resp
-
-
-@router.get("/")
-def home(request: Request, user: User = Depends(page_user)):
-    return templates.TemplateResponse(request, "home.html", {"user": user})

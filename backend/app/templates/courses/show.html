@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ course.department }} · {{ course.name }} ({{ course.section }}분반)</h1>
+<p>{{ course.term | term_label }}</p>
+
+<h2>시험</h2>
+{% for exam in course.exams %}
+  <h3>{{ exam.name }}</h3>
+  <ul>
+    {% for a in exam.assignments %}
+      <li>{{ a.number }}번 {{ a.title }}</li>
+    {% endfor %}
+  </ul>
+{% endfor %}
+
+<h2>시험 추가</h2>
+<form method="post" action="/courses/{{ course.id }}/exams">
+  <input name="name" placeholder="시험 이름 (예: 중간고사)" maxlength="100" required>
+  <button>추가</button>
+</form>
+{% endblock %}
