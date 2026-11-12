@@ -59,6 +59,8 @@ def create_course(request: Request,
                   section: Annotated[str, Form()],
                   db: Session = Depends(get_db), user: User = Depends(page_user)):
     department, name, section = department.strip(), name.strip(), section.strip()
+    if section.isdigit():
+        section = f"{int(section):02d}"
     term = f"{year}-{session}"
     if not (department and name and section) or not TERM_RE.match(term):
         return _home(request, db, user, "학과·과목명·분반을 채우고 학기를 고르세요", 400)
