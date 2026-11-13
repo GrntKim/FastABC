@@ -2,13 +2,13 @@ from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 # from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from pathlib import Path
 
 from app.core.templates import APP_DIR
 from app.core.errors import LoginRequired
 
 from app.accounts.router import router as accounts_router
 from app.courses.router import router as courses_router
+from app.assignments.router import router as assignments_router
 
 import app.models
 
@@ -43,6 +43,7 @@ def to_login(request: Request, exc: LoginRequired):
 
 app.include_router(accounts_router)
 app.include_router(courses_router)
+app.include_router(assignments_router)
 
 # app.include_router(courses.router)
 # app.include_router(exams.router)

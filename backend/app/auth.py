@@ -1,16 +1,8 @@
-from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Assignment, Course, Exam, Grade, Submission, User
+from app.models import Assignment, Course, Grade, Submission, User
 from app.courses.deps import _not_found
-
-
-def own_assignment(db: Session, user: User, assignment_id: int) -> Assignment:
-    assignment = db.get(Assignment, assignment_id)
-    if assignment is None or assignment.course.owner_id != user.id:
-        raise _not_found("assignment")
-    return assignment
 
 
 def own_submission(db: Session, user: User, submission_id: int) -> Submission:
