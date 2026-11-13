@@ -75,7 +75,7 @@ def create_course(request: Request,
 def show_course(course_id: int, request: Request,
                 db: Session = Depends(get_db), user: User = Depends(page_user)):
     course = own_course(db, user, course_id)
-    loose = [a for a in course.assignments if a.exam_id is None]      # 시험 밖 문항
+    loose = [p for p in course.problems if p.exam_id is None]      # 시험 밖 문항
     return templates.TemplateResponse(
         request, "courses/show.html", {"user": user, "course": course, "loose": loose})
 

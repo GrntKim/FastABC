@@ -1,4 +1,4 @@
-"""Grading progress per assignment: what the grader still has to do."""
+"""Grading progress per problem: what the grader still has to do."""
 
 from dataclasses import dataclass
 from enum import StrEnum
@@ -41,16 +41,16 @@ class Progress:
         return Stage.DONE
 
 
-def progress(db: Session, assignment_ids: list[int]) -> dict[int, Progress]:
-    """One aggregate query for many assignments; unknown or empty ids get an empty Progress."""
-    result = {aid: Progress() for aid in assignment_ids}
-    if not assignment_ids:
+def progress(db: Session, problem_ids: list[int]) -> dict[int, Progress]:
+    """One aggregate query for many problems; unknown or empty ids get an empty Progress."""
+    result = {aid: Progress() for aid in problem_ids}
+    if not problem_ids:
         return result
 
     for aid, count in db.execute(
-        select(Submission.assignment_id, func.count())
-        .where(Submission.assignment_id.in_(assignment_ids))
-        .group_by(Submission.assignment_id)
+        select(Submission.problem_id, func.count())
+        .where(Submission.problem_id.in_(problem_ids))
+        .group_by(Submission.problem_id)
     ):
         result[aid].submissions = count
 
@@ -58,43 +58,43 @@ def progress(db: Session, assignment_ids: list[int]) -> dict[int, Progress]:
     needs_look = or_(Grade.route.in_([GradeRoute.HUMAN, GradeRoute.LLM]), Grade.sampled)
     rows = db.execute(
         select(
-            Submission.assignment_id,
+            Submission.problem_id,
             func.count(Grade.id),
             func.count(Grade.decision),
             func.sum(case((Grade.route == GradeRoute.PENDING, 1), else_=0)),
             func.sum(case((undecided & needs_look, 1), else_=0)),
         )
         .join(Submission, Grade.submission_id == Submission.id)
-        .where(Submission.assignment_id.in_(assignment_ids))
-        .group_by(Submission.assignment_id)
+        .where(Submission.problem_id.in_(problem_ids))
+        .group_by(Submission.problem_id)
     )
     for aid, cells, decided, pending, attention in rows:
         p = result[aid]
         p.cells, p.decided, p.pending, p.attention = cells, decided, pending or 0, attention or 0
 
     for aid, count in db.execute(
-        select(Submission.assignment_id, func.count(func.distinct(Grade.submission_id)))
+        select(Submission.problem_id, func.count(func.distinct(Grade.submission_id)))
         .join(Grade, Grade.submission_id == Submission.id)
-        .where(Submission.assignment_id.in_(assignment_ids))
-        .group_by(Submission.assignment_id)
+        .where(Submission.problem_id.in_(problem_ids))
+        .group_by(Submission.problem_id)
     ):
         result[aid].graded_submissions = count
 
     finished = (
-        select(Submission.assignment_id)
+        select(Submission.problem_id)
         .join(Grade, Grade.submission_id == Submission.id)
-        .where(Submission.assignment_id.in_(assignment_ids))
-        .group_by(Submission.assignment_id, Submission.id)
+        .where(Submission.problem_id.in_(problem_ids))
+        .group_by(Submission.problem_id, Submission.id)
         .having(func.count(Grade.id) == func.count(Grade.decision))
         .subquery()
     )
-    for aid, count in db.execute(select(finished.c.assignment_id, func.count()).group_by(finished.c.assignment_id)):
+    for aid, count in db.execute(select(finished.c.problem_id, func.count()).group_by(finished.c.problem_id)):
         result[aid].students_done = count
 
     # only the latest version can be open: a new one needs the previous one reopened
     for aid in db.scalars(
-        select(Finalization.assignment_id).where(
-            Finalization.assignment_id.in_(assignment_ids), Finalization.reopened_at.is_(None)
+        select(Finalization.problem_id).where(
+            Finalization.problem_id.in_(problem_ids), Finalization.reopened_at.is_(None)
         )
     ):
         result[aid].finalized = True

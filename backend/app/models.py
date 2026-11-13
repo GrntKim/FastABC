@@ -15,7 +15,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db import Base
 from app.accounts.models import User, AuthSession
 from app.courses.models import Course, Exam
-from app.assignments.models import Assignment, RubricItem
+from app.problems.models import Problem, Criterion
 
 
 class ItemType(StrEnum):
@@ -105,7 +105,7 @@ class Submission(Base):
     __table_args__ = (UniqueConstraint("assignment_id", "student_ref"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    assignment_id: Mapped[int] = mapped_column(ForeignKey("assignments.id", ondelete="CASCADE"))
+    problem_id: Mapped[int] = mapped_column("assignment_id", ForeignKey("assignments.id", ondelete="CASCADE"))
     student_ref: Mapped[str] = mapped_column(String(100))  # identifying: never sent to external APIs
     student_name: Mapped[str | None] = mapped_column(String(100))  # identifying: shown to the grader only
     label: Mapped[str] = mapped_column(String(20))  # anonymous label, shown when the grader hides names, e.g. "S001"
@@ -115,7 +115,7 @@ class Submission(Base):
     extraction_status: Mapped[str] = mapped_column(String(16))  # ExtractionStatus
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    assignment: Mapped[Assignment] = relationship(back_populates="submissions")
+    problem: Mapped[Problem] = relationship(back_populates="submissions")
     judgments: Mapped[list["JudgmentRecord"]] = relationship(cascade="all, delete-orphan", passive_deletes=True)
     grades: Mapped[list["Grade"]] = relationship(cascade="all, delete-orphan", passive_deletes=True)
 
@@ -127,7 +127,7 @@ class JudgmentRecord(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     submission_id: Mapped[int] = mapped_column(ForeignKey("submissions.id", ondelete="CASCADE"))
-    rubric_item_id: Mapped[int] = mapped_column(ForeignKey("rubric_items.id", ondelete="CASCADE"))
+    criterion_id: Mapped[int] = mapped_column("rubric_item_id", ForeignKey("rubric_items.id", ondelete="CASCADE"))
     source: Mapped[str] = mapped_column(String(16))  # JudgeSource
     model: Mapped[str] = mapped_column(String(50))
     pred: Mapped[Any] = mapped_column(JSONB, nullable=True)  # bool | int | str | null
@@ -148,7 +148,7 @@ class Grade(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     submission_id: Mapped[int] = mapped_column(ForeignKey("submissions.id", ondelete="CASCADE"))
-    rubric_item_id: Mapped[int] = mapped_column(ForeignKey("rubric_items.id", ondelete="CASCADE"))
+    criterion_id: Mapped[int] = mapped_column("rubric_item_id", ForeignKey("rubric_items.id", ondelete="CASCADE"))
     route: Mapped[str] = mapped_column(String(16))  # GradeRoute
     sampled: Mapped[bool] = mapped_column(default=False, server_default=false())  # random audit of an auto cell
     recommended_pred: Mapped[Any] = mapped_column(JSONB, nullable=True)
@@ -159,14 +159,14 @@ class Grade(Base):
 
 
 class Finalization(Base):
-    """A grader's sign-off on an assignment's final grades. Locks the grades until reopened; reopening and
+    """A grader's sign-off on a problem's final grades. Locks the grades until reopened; reopening and
     finalizing again adds the next version, so earlier versions stay as history."""
 
     __tablename__ = "finalizations"
     __table_args__ = (UniqueConstraint("assignment_id", "version"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    assignment_id: Mapped[int] = mapped_column(ForeignKey("assignments.id", ondelete="CASCADE"))
+    problem_id: Mapped[int] = mapped_column("assignment_id", ForeignKey("assignments.id", ondelete="CASCADE"))
     version: Mapped[int]
     finalized_by: Mapped[str] = mapped_column(String(100))  # the signer's name as it was then
     finalized_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))

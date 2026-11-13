@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>채점항목 추가</h1>
-<form method="post" action="/exams/{{ exam.id }}/questions">
+<form method="post" action="/exams/{{ exam.id }}/problems">
     <div id="items">
     {% for r in rows %}
     <fieldset>

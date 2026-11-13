@@ -24,9 +24,9 @@ def test_to_items():
     items, warnings = to_items(RubricDraft(topic=TOPIC, items=[noul(), score(), noul("misc_x", "오개념: x", "deduction", 1)]))
     assert warnings == []
     gate, chain, accuracy, misc = items
-    assert (gate["key"], gate["kind"], gate["criteria"]) == ("is_on_topic", "gate", {"true": "t", "false": "f"})
-    assert (chain["points"], chain["criteria"]) == (2, {"true": "참", "false": "거짓"})
-    assert accuracy["points_map"] == {"0": 0, "1": 1, "2": 2, "3": 4} and accuracy["criteria"][3] == "완전"
+    assert (gate["key"], gate["kind"], gate["descriptions"]) == ("is_on_topic", "gate", {"true": "t", "false": "f"})
+    assert (chain["points"], chain["descriptions"]) == (2, {"true": "참", "false": "거짓"})
+    assert accuracy["points_map"] == {"0": 0, "1": 1, "2": 2, "3": 4} and accuracy["descriptions"][3] == "완전"
     assert (misc["kind"], misc["points"]) == ("deduction", 1)
 
 
@@ -43,7 +43,7 @@ def test_to_items_repairs():
     items, warnings = to_items(draft)
     assert [i["key"] for i in items] == [
         "is_on_topic", "chain_rule", "chain_rule_2", "is_on_topic_2", "item_1st", "accuracy", "kind_of", "minus"]
-    assert (items[2]["points"], items[2]["criteria"]) == (1, None)  # no points -> 1, half-empty criteria dropped
+    assert (items[2]["points"], items[2]["descriptions"]) == (1, None)  # no points -> 1, half-empty criteria dropped
     assert items[5]["points_map"] == {"0": 0, "1": 2, "2": 2, "3": 3}  # missing level points -> level number
     assert (items[6]["type"], items[6]["points"]) == ("noul", 3)  # a single level is a yes/no item
     assert items[7]["kind"] == "credit"

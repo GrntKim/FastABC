@@ -8,7 +8,7 @@ from app.core.errors import LoginRequired
 
 from app.accounts.router import router as accounts_router
 from app.courses.router import router as courses_router
-from app.assignments.router import router as assignments_router
+from app.problems.router import router as problems_router
 
 import app.models
 
@@ -43,7 +43,7 @@ def to_login(request: Request, exc: LoginRequired):
 
 app.include_router(accounts_router)
 app.include_router(courses_router)
-app.include_router(assignments_router)
+app.include_router(problems_router)
 
 # app.include_router(courses.router)
 # app.include_router(exams.router)

@@ -13,9 +13,11 @@ import json
 from pathlib import Path
 
 from app.db import SessionLocal
-from app.models import Assignment
+from app.models import Problem
 
-ITEM_FIELDS = ("key", "label", "type", "kind", "instructions", "criteria", "points", "points_map")
+# eval question.json keeps the judge format's name "criteria" for what the app calls descriptions
+ITEM_FIELDS = {"key": "key", "label": "label", "type": "type", "kind": "kind", "instructions": "instructions",
+               "criteria": "descriptions", "points": "points", "points_map": "points_map"}
 
 
 def main() -> None:
@@ -28,14 +30,14 @@ def main() -> None:
     args = parser.parse_args()
 
     with SessionLocal() as db:
-        a = db.get(Assignment, args.assignment)
+        a = db.get(Problem, args.assignment)
         if a is None:
             raise SystemExit(f"assignment {args.assignment} not found")
-        items = [{f: getattr(i, f) for f in ITEM_FIELDS} for i in a.items]
+        items = [{k: getattr(i, attr) for k, attr in ITEM_FIELDS.items()} for i in a.criteria]
         question = {
             "id": args.id,
             "title": a.title,
-            "problem": a.problem,
+            "problem": a.text,
             "rubric_text": args.rubric_text,
             "items": items,
         }

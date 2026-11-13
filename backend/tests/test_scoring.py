@@ -1,13 +1,13 @@
 import pytest
 
-from app.models import RubricItem
+from app.models import Criterion
 from app.scoring import item_points, max_total, total
 
-GATE = RubricItem(kind="gate", type="noul")
-CREDIT = RubricItem(kind="credit", type="noul", points=2)
-SCORE = RubricItem(kind="credit", type="score", points_map={"0": 0, "1": 1, "2": 3})
-CHOICE = RubricItem(kind="credit", type="choice", points_map={"a": 1, "b": 0})
-DEDUCTION = RubricItem(kind="deduction", type="noul", points=1)
+GATE = Criterion(kind="gate", type="noul")
+CREDIT = Criterion(kind="credit", type="noul", points=2)
+SCORE = Criterion(kind="credit", type="score", points_map={"0": 0, "1": 1, "2": 3})
+CHOICE = Criterion(kind="credit", type="choice", points_map={"a": 1, "b": 0})
+DEDUCTION = Criterion(kind="deduction", type="noul", points=1)
 
 
 @pytest.mark.parametrize(

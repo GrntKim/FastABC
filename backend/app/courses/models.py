@@ -16,8 +16,8 @@ class Course(Base):
     section: Mapped[str] = mapped_column(String(20))  # e.g. "02"
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    assignments: Mapped[list["Assignment"]] = relationship(
-        back_populates="course", cascade="all, delete-orphan", passive_deletes=True, order_by="Assignment.created_at"
+    problems: Mapped[list["Problem"]] = relationship(
+        back_populates="course", cascade="all, delete-orphan", passive_deletes=True, order_by="Problem.created_at"
     )
     exams: Mapped[list["Exam"]] = relationship(
         back_populates="course", cascade="all, delete-orphan", passive_deletes=True, order_by="Exam.created_at"
@@ -34,7 +34,7 @@ class Exam(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     course: Mapped[Course] = relationship(back_populates="exams")
-    assignments: Mapped[list["Assignment"]] = relationship(back_populates="exam", order_by="Assignment.number")
+    problems: Mapped[list["Problem"]] = relationship(back_populates="exam", order_by="Problem.number")
     imports: Mapped[list["ImportedPart"]] = relationship(
         back_populates="exam", cascade="all, delete-orphan", passive_deletes=True, order_by="ImportedPart.created_at"
     )

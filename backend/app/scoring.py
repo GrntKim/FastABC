@@ -1,9 +1,9 @@
 """Scoring rules: judgments to points. Rules are code, not model output (CLAUDE.md design principle 3)."""
 
-from app.models import ItemKind, ItemType, RubricItem
+from app.models import ItemKind, ItemType, Criterion
 
 
-def item_points(item: RubricItem, pred: bool | int | str | None, gate_passed: bool = True) -> float | None:
+def item_points(item: Criterion, pred: bool | int | str | None, gate_passed: bool = True) -> float | None:
     """Points for one cell, or None if there is no judgment to score."""
     if item.kind == ItemKind.GATE:
         return 0.0
@@ -25,7 +25,7 @@ def total(points: list[float | None]) -> float | None:
     return max(0.0, sum(points))
 
 
-def max_total(items: list[RubricItem]) -> float:
+def max_total(items: list[Criterion]) -> float:
     total_max = 0.0
     for item in items:
         if item.kind != ItemKind.CREDIT:
@@ -37,7 +37,7 @@ def max_total(items: list[RubricItem]) -> float:
     return total_max
 
 
-def point_range(item: RubricItem) -> tuple[float, float]:
+def point_range(item: Criterion) -> tuple[float, float]:
     """Points a grader may give for one cell."""
     if item.kind == ItemKind.GATE:
         return 0.0, 0.0

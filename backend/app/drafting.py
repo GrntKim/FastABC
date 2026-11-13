@@ -64,7 +64,7 @@ def to_items(draft: RubricDraft) -> tuple[list[dict], list[str]]:
         "type": "noul",
         "kind": "gate",
         "instructions": draft.topic.instructions,
-        "criteria": {"true": draft.topic.criteria_true, "false": draft.topic.criteria_false},
+        "descriptions": {"true": draft.topic.criteria_true, "false": draft.topic.criteria_false},
     }]
     taken: set[str] = set()
     for d in draft.items:
@@ -83,7 +83,7 @@ def to_items(draft: RubricDraft) -> tuple[list[dict], list[str]]:
                 item |= {
                     "type": "score",
                     "kind": "credit",
-                    "criteria": levels,
+                    "descriptions": levels,
                     "points_map": {str(i): _fmt(p) for i, p in enumerate(points)},
                 }
         else:
@@ -91,6 +91,6 @@ def to_items(draft: RubricDraft) -> tuple[list[dict], list[str]]:
             if d.points <= 0:
                 warnings.append(f"'{d.label}': 배점이 없어 1점으로 정했습니다")
             criteria = {"true": d.criteria_true, "false": d.criteria_false} if d.criteria_true and d.criteria_false else None
-            item |= {"type": "noul", "kind": d.kind, "points": _fmt(points), "criteria": criteria}
+            item |= {"type": "noul", "kind": d.kind, "points": _fmt(points), "descriptions": criteria}
         items.append(item)
     return items, warnings
