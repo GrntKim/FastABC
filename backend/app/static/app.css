@@ -66,3 +66,13 @@ th, td { padding: 0.4rem 0.6rem; vertical-align: top; }
   .review { grid-template-columns: 1fr; }
   .student-list { position: static; max-height: 12rem; border-right: 0; }
 }
+
+/* criterion row: name and status on the left, the point buttons on the right */
+.criterion-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
+.picker { display: inline-flex; gap: 0.25rem; margin-left: auto; }
+.picker button { min-width: 3rem; padding: 0.3rem 0.6rem; margin: 0; font-size: 0.9rem;
+  background: transparent; color: var(--pico-color); border: 1px solid var(--pico-muted-border-color); }
+.picker button[data-recommended] { border: 2px dashed var(--pico-primary); }            /* the AI's suggestion: marked, never pre-filled */
+.picker button[aria-pressed="true"] { background: var(--pico-primary-background); color: var(--pico-primary-inverse);
+  border-color: var(--pico-primary-background); }                                         /* the grader's choice */
+.picker button:hover { border-color: var(--pico-primary); }
