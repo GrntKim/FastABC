@@ -76,3 +76,13 @@ th, td { padding: 0.4rem 0.6rem; vertical-align: top; }
 .picker button[aria-pressed="true"] { background: var(--pico-primary-background); color: var(--pico-primary-inverse);
   border-color: var(--pico-primary-background); }                                         /* the grader's choice */
 .picker button:hover { border-color: var(--pico-primary); }
+
+/* why a row needs a look: a chip by the name, and below the row the two judgments or the reason */
+.chip { display: inline-block; padding: 0.05rem 0.5rem; border-radius: 1rem; font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+.chip-human { background: var(--pico-del-color); color: #fff; }
+.chip-llm { background: var(--pico-primary-background); color: var(--pico-primary-inverse); }
+.chip-sampled { border: 1px solid var(--pico-muted-color); color: var(--pico-muted-color); }
+.criterion-row .judge-cards, .criterion-row .reason { flex-basis: 100%; margin: 0; }
+.judge-cards { display: flex; gap: 0.5rem; }
+.judge-cards > div { padding: 0.25rem 0.75rem; border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); font-size: 0.85rem; }
+.reason { font-size: 0.85rem; color: var(--pico-muted-color); }
