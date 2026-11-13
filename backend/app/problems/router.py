@@ -6,7 +6,7 @@ from app.problems.models import Problem
 from sqlalchemy.orm import Session
 from typing import Annotated
 import re
-
+from app.review.results import results
 from app.core.db import get_db
 from app.grading.engine import PRIMARY_MODEL
 from app.grading.router import route_counts
@@ -93,6 +93,13 @@ def create_problem(request: Request, exam_id: int,
 def show_problem(request: Request, problem_id: int, error: str | None = None, db: Session = Depends(get_db), user: User = Depends(page_user)):
     problem = own_problem(db, user, problem_id)
     shown = [c for c in problem.criteria if c.kind != "gate"]
+    result_criteria, rows, decision_counts, undecided, signoff = results(db, problem)
     return templates.TemplateResponse(
         request, "problems/show.html", {
-            "counts": route_counts(db, problem.id), "user": user, "problem": problem, "criteria": shown, "max_points": max_total(problem.criteria), "error": error})
+            "counts": route_counts(db, problem.id), "user": user, 
+            "problem": problem, "criteria": shown, 
+            "max_points": max_total(problem.criteria), "error": error,
+            "result_criteria": result_criteria, "rows": rows,
+            "decision_counts": decision_counts, "undecided": undecided,
+            "signoff": signoff
+        })

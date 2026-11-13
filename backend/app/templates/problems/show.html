@@ -41,4 +41,45 @@
 {% else %}
     {% include "grading/_progress.html" %}
 {% endif %}
+
+{% if counts %}
+    <h2>결과</h2>
+    {% if signoff and signoff.reopened_at is none %}
+        성적 확정됨 · v{{ signoff.version }} · {{ signoff.finalized_by }} · {{ signoff.finalized_at.strftime("%Y-%m-%d %H:%M") }} · {{ signoff.snapshot_hash[:8] }}
+        성적 확정 멘트
+    {% elif undecided %}
+        {{ undecided }}개 항목 미확정, <a href="/problems/{{ problem.id }}/review">이어서 채점하기</a>
+    {% else %}
+        직접 확인 {{ decision_counts.manual }}개 · AI 추천을 고친 {{ decision_counts.modified }}개 · 추천대로 {{ decision_counts.accepted }}개
+        <form method="post" action="/problems/{{ problem.id }}/finalize">
+            <label><input type="checkbox" name="confirmed" required>
+                점수를 확인했고, 확정의 책임은 채점자에게 있음을 인지하였습니다.
+            </label>
+            <button>확정하기</button>
+        </form>
+    {% endif %}
+
+    <table>
+        <thead>
+            <tr>
+                <th>라벨</th>
+                <th>이름</th>
+                {% for c in result_criteria %}<th>{{ c.label or c.key }}</th>{% endfor %}
+                <th>총점</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s, points, total_points in rows %}
+            <tr>
+                <td>{{ s.label }}</td>
+                <td><a href="/problems/{{ problem.id }}/review/{{ s.id }}">{{ s.student_name or s.student_ref }}</a></td>
+                {% for p in points %}
+                <td>{{ "-" if p is none else p }}</td>
+                {% endfor %}
+                <td>{{ "-" if total_points is none else total_points}}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
 {% endblock %}
