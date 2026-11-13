@@ -1,0 +1,27 @@
+{% set pending = counts.get('pending', 0) %}
+{% set names = {
+'auto': 'AI가 확신',
+'llm': 'AI가 다시 확인함',
+'human': 'AI 의견 갈림',
+'skip': '문제와 관련 없는 답안',
+'pending': 'AI가 다시 보는 중'
+} %}
+
+<div id="progress" {% if pending %}hx-get="/problems/{{ problem.id }}/progress" hx-trigger="every 2s"
+    hx-swap="outerHTML" {% endif %}>
+    <!-- 1. 상태 한 줄: pending이 있으면 "AI가 다시 보는 중… n개 항목", 없으면 "채점 준비 끝" -->
+    {% if pending %}
+        AI가 다시 보는 중... {{ pending }}개 항목
+    {% else %}
+        채점 준비 끝
+    {% endif %}
+
+    <!-- 2. 경로별 개수: names를 돌면서, counts에 있는 경로만 "이름 n개" -->
+    <ul>
+        {% for key, label in names.items() %}
+            {% if counts.get(key) %}
+                <li> {{ label }} {{ counts[key] }} </li>
+            {% endif %}
+        {% endfor %}
+    </ul>
+</div>

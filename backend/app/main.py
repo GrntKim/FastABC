@@ -10,6 +10,7 @@ from app.accounts.router import router as accounts_router
 from app.courses.router import router as courses_router
 from app.problems.router import router as problems_router
 from app.submissions.router import router as submissions_router
+from app.grading.router import router as grading_router
 
 import app.models
 
@@ -46,6 +47,7 @@ app.include_router(accounts_router)
 app.include_router(courses_router)
 app.include_router(problems_router)
 app.include_router(submissions_router)
+app.include_router(grading_router)
 
 # app.include_router(courses.router)
 # app.include_router(exams.router)

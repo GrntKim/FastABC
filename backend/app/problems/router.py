@@ -9,6 +9,7 @@ import re
 
 from app.core.db import get_db
 from app.grading.engine import PRIMARY_MODEL
+from app.grading.router import route_counts
 from app.problems.models import Criterion
 from app.accounts.models import User
 from app.courses.deps import own_exam
@@ -89,9 +90,9 @@ def create_problem(request: Request, exam_id: int,
 
 
 @router.get("/problems/{problem_id}")
-def show_problem(request: Request, problem_id: int, db: Session = Depends(get_db), user: User = Depends(page_user)):
+def show_problem(request: Request, problem_id: int, error: str | None = None, db: Session = Depends(get_db), user: User = Depends(page_user)):
     problem = own_problem(db, user, problem_id)
     shown = [c for c in problem.criteria if c.kind != "gate"]
     return templates.TemplateResponse(
         request, "problems/show.html", {
-            "user": user, "problem": problem, "criteria": shown, "max_points": max_total(problem.criteria)})
+            "counts": route_counts(db, problem.id), "user": user, "problem": problem, "criteria": shown, "max_points": max_total(problem.criteria), "error": error})

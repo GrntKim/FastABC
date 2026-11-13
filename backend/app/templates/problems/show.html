@@ -30,5 +30,15 @@
         {% endfor %}
     </tbody>
 </table>
+<h2>채점</h2>
 {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+{% if not problem.submissions %}
+    답안이 없습니다. <a href="/exams/{{ problem.exam_id }}">시험에서 답안 올리기</a>
+{% elif not counts %}
+    <form method="post" action="/problems/{{ problem.id }}/grade">
+        <button>답안 {{ problem.submissions | length }}개 채점 시작</button>
+    </form>
+{% else %}
+    {% include "grading/_progress.html" %}
+{% endif %}
 {% endblock %}
