@@ -13,7 +13,7 @@
     {% if pending %}
         AI가 다시 보는 중... {{ pending }}개 항목
     {% else %}
-        채점 준비 끝
+        채점 준비 끝 <a href="/problems/{{ problem.id }}/review">채점하러 가기</a>
     {% endif %}
 
     <!-- 2. 경로별 개수: names를 돌면서, counts에 있는 경로만 "이름 n개" -->

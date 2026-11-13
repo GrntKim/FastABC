@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<p><a href="/problems/{{ problem.id }}">← {{ problem.label }} {{ problem.title }}</a></p>
+
+<div class="review">
+  <nav class="student-list">
+    <ul>
+    {% for s, n, done in students %}
+      <li><a href="/problems/{{ problem.id }}/review/{{ s.id }}" {% if s.id == submission.id %}aria-current="page"{% endif %}>
+          {{ s.student_name or s.student_ref }}</a>
+          {% if n %}<mark>{{ n }}</mark>{% elif done %}✓{% endif %}</li>
+    {% endfor %}
+    </ul>
+  </nav>
+
+  <section>
+    <h2>{{ submission.student_name }} <small>{{ submission.student_ref }}</small></h2>
+    <div class="answer-sheet">{{ submission.raw_text }}</div>
+
+    {% for c, g in rows %}
+      <div class="criterion-row">
+        {% if g.recommended_points is not none %} 
+            {{ c.label or c.key }} · AI 추천: {{ g.recommended_points }} {% if g.decision %} · 확정: {{ g.final_points }}점 {% endif %}
+        {% endif %}
+      </div>
+    {% endfor %}
+  </section>
+</div>
+{% endblock %}
