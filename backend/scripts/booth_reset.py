@@ -1,65 +1,43 @@
-"""Clear the answers added at the booth, so the paper-to-grade demo can run again.
+"""Clear an exam's answers so the booth demo (CSV upload → grade → review → sign off) can run again.
 
-    uv run python scripts/booth_reset.py --exam 1             # list what would go, in every question of the exam
-    uv run python scripts/booth_reset.py --exam 1 --yes       # delete it
-    uv run python scripts/booth_reset.py --assignment 10      # one question only
+    uv run python scripts/booth_reset.py --exam 5          # show what would go
+    uv run python scripts/booth_reset.py --exam 5 --yes    # delete it
 
-Only answers that came from a file (answer sheet PDFs, photos, camera shots: they keep a file name)
-are removed, with their judgments and grades. CSV uploads stay. A signed-off question is left alone.
+Every answer of every problem in the exam goes, and with it (by the database's cascades) its judgments
+and grades; the problems' sign-offs go too, so the next run can sign off as version 1 again.
+Problems and their criteria stay.
 """
 
 import argparse
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 
-from app.db import SessionLocal
-from app.models import Assignment, Exam, Finalization, Submission
-
-
-def reset(db, assignment: Assignment, delete: bool) -> None:
-    signed = db.scalar(
-        select(Finalization.id).where(Finalization.assignment_id == assignment.id, Finalization.reopened_at.is_(None))
-    )
-    if signed is not None:
-        print(f"{assignment.title}: signed off, left alone (reopen it first, or use a demo question)")
-        return
-    booth = db.scalars(
-        select(Submission).where(Submission.assignment_id == assignment.id, Submission.source_filename.is_not(None))
-    ).all()
-    print(f"{assignment.title}: {len(booth)} answer(s) from files")
-    for s in booth:
-        print(f"  {s.label} {s.student_ref} {s.student_name or ''} ({s.source_filename})")
-    if delete:
-        for s in booth:
-            db.delete(s)  # judgments and grades go with it
+import app.models  # noqa: F401  registers every model
+from app.core.db import SessionLocal
+from app.models import Exam, Finalization, Submission
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    target = parser.add_mutually_exclusive_group(required=True)
-    target.add_argument("--exam", type=int, help="every question of this exam")
-    target.add_argument("--assignment", type=int, help="one question")
-    parser.add_argument("--yes", action="store_true", help="delete; without it, only list")
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--exam", type=int, required=True, help="exam id, as in /exams/<id>")
+    parser.add_argument("--yes", action="store_true", help="delete; without it, only show what would go")
     args = parser.parse_args()
 
     with SessionLocal() as db:
-        if args.exam is not None:
-            exam = db.get(Exam, args.exam)
-            if exam is None:
-                raise SystemExit(f"no exam {args.exam}")
-            questions = sorted(exam.assignments, key=lambda a: a.number or 0)
-        else:
-            assignment = db.get(Assignment, args.assignment)
-            if assignment is None:
-                raise SystemExit(f"no assignment {args.assignment}")
-            questions = [assignment]
-        for assignment in questions:
-            reset(db, assignment, args.yes)
-        if args.yes:
-            db.commit()
-            print("deleted")
-        else:
-            print("add --yes to delete")
+        exam = db.get(Exam, args.exam)
+        if exam is None:
+            raise SystemExit(f"no exam {args.exam}")
+        ids = [p.id for p in exam.problems]
+        answers = db.scalar(select(func.count()).where(Submission.problem_id.in_(ids)))
+        signoffs = db.scalar(select(func.count()).where(Finalization.problem_id.in_(ids)))
+        print(f"{exam.course.name} · {exam.name}: {len(ids)} problems, {answers} answers, {signoffs} sign-offs")
+        if not args.yes:
+            print("dry run: add --yes to delete")
+            return
+        db.execute(delete(Finalization).where(Finalization.problem_id.in_(ids)))
+        db.execute(delete(Submission).where(Submission.problem_id.in_(ids)))
+        db.commit()
+        print("cleared")
 
 
 if __name__ == "__main__":
