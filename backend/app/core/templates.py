@@ -12,5 +12,9 @@ def term_label(term: str) -> str:
     year, _, session = term.partition("-")
     return f"{year}년 {_SESSION_LABEL.get(session, session)}"
 
+def plain(text: str) -> str:
+    """판단 질문 표기를 채점자 말로: `answer` → 답안, `question` → 문제"""
+    return text.replace("`answer`", "답안").replace("`question`", "문제").replace("`", "")
 
+templates.env.filters["plain"] = plain
 templates.env.filters["term_label"] = term_label

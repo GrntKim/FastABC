@@ -8,10 +8,10 @@
   <h3>{{ exam.name }}</h3>
   <ul>
     {% for a in exam.problems %}
-      <a href="/exams<li>{{ a.number }}번 {{ a.title }}</li>
-      <a href="/exams/{{ exam.id }}/problems/new">채점항목 추가하기</a>
+      <a href="/problems/{{ a.id }}"><li>{{ a.number }}번 {{ a.title }}</li></a>
     {% endfor %}
   </ul>
+  <a href="/exams/{{ exam.id }}/problems/new">문항 추가하기</a>
 {% endfor %}
 
 <h2>시험 추가</h2>
