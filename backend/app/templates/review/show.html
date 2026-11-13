@@ -18,11 +18,7 @@
     <div class="answer-sheet">{{ submission.raw_text }}</div>
 
     {% for c, g in rows %}
-      <div class="criterion-row">
-        {% if g.recommended_points is not none %} 
-            {{ c.label or c.key }} · AI 추천: {{ g.recommended_points }} {% if g.decision %} · 확정: {{ g.final_points }}점 {% endif %}
-        {% endif %}
-      </div>
+        {% include "review/_row.html" %}
     {% endfor %}
   </section>
 </div>

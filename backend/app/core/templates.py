@@ -1,5 +1,6 @@
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
+from app.review.logic import point_options
 
 _SESSION_LABEL = {"1": "1학기", "1S": "여름 계절학기", "2": "2학기", "2W": "겨울 계절학기"}
 
@@ -18,3 +19,4 @@ def plain(text: str) -> str:
 
 templates.env.filters["plain"] = plain
 templates.env.filters["term_label"] = term_label
+templates.env.globals["point_options"] = point_options

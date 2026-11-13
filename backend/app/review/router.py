@@ -1,21 +1,21 @@
-from fastapi import APIRouter, Depends, Request, BackgroundTasks, HTTPException
-import httpx
+from fastapi import APIRouter, Depends, Request, HTTPException, Form
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from app.accounts.deps import page_user
-from app.core.db import get_db, get_session_factory
+from app.core.db import get_db
 from app.accounts.models import User
 from app.core.templates import templates
-from app.grading.models import Grade
-from app.grading.engine import Judges, get_judges, run_primary, escalate, has_confirmed_grades
 from app.submissions.models import Submission
 from app.problems.deps import own_problem
-from urllib.parse import quote
 from app.grading.models import Grade
+from app.review.deps import own_grade
+from app.problems.models import Criterion
+from app.review.logic import decide
+from typing import Annotated
 
 router = APIRouter()
+
 
 def needs_check(g: Grade) -> bool:
     return g.decision is None and (g.route in ("human", "llm") or g.sampled)
@@ -48,4 +48,20 @@ def get_review(request: Request, problem_id: int, submission_id: int, db: Sessio
     return templates.TemplateResponse(
         request, "review/show.html",
         {"user": user, "problem": problem, "submission": submission, "students": students, "rows": rows, "judgments": judgments}
+    )
+
+
+@router.post("/grades/{grade_id}")
+def post_grade(request: Request, grade_id: int, points: Annotated[str, Form()] = "", db: Session = Depends(get_db), user: User = Depends(page_user)):
+    grade = own_grade(db, user, grade_id)
+    criterion = db.get(Criterion, grade.criterion_id)
+    try:
+        val = float(points) if points else None
+        decide(db, criterion, grade, val)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return templates.TemplateResponse(
+        request, "review/_row.html",
+        {"c": criterion, "g": grade}
     )

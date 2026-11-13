@@ -1,0 +1,21 @@
+{% set options = point_options(c) %}
+<div class="criterion-row">
+    {{ c.label or c.key }}
+    {% if g.recommended_points is not none %} 
+    · AI 추천: {{ g.recommended_points }} 
+    {% endif %}
+    {% if g.decision %} · 확정: {{ g.final_points }}점 {% endif %}
+    <div class="picker">
+        {% for p in options %}
+            <button
+                hx-post="/grades/{{ g.id }}"
+                hx-vals='{"points": "{{ p }}"}'
+                hx-target="closest .criterion-row"
+                hx-swap="outerHTML"
+                {% if p == g.recommended_points %}data-recommended{% endif %}
+                {% if p == g.final_points %}aria-pressed="true"{% endif %}>
+                {{ p }}
+            </button>
+        {% endfor %}
+    </div>
+</div>

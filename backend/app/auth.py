@@ -12,14 +12,4 @@ def own_submission(db: Session, user: User, submission_id: int) -> Submission:
     return submission
 
 
-def own_grade(db: Session, user: User, grade_id: int) -> Grade:
-    owner = db.scalar(
-        select(Course.owner_id)
-        .join(Problem, Problem.course_id == Course.id)
-        .join(Submission, Submission.problem_id == Problem.id)
-        .join(Grade, Grade.submission_id == Submission.id)
-        .where(Grade.id == grade_id)
-    )
-    if owner != user.id:
-        raise _not_found("grade")
-    return db.get(Grade, grade_id)
+
