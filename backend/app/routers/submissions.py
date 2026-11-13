@@ -20,9 +20,7 @@ from app.schemas import ReadingOut, SubmissionIn, SubmissionOut
 router = APIRouter(tags=["submissions"])
 
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
-REQUIRED_COLUMNS = {"student_id", "answer"}
-# Korean headers as LMS exports and hand-made sheets usually have them
-COLUMN_ALIASES = {"학번": "student_id", "답안": "answer", "이름": "name", "성명": "name"}
+
 
 
 def _decode(data: bytes) -> str:
