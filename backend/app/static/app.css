@@ -1,0 +1,47 @@
+/* FastABC: a work tool, not a showcase. Pico (classless) styles the plain HTML; this file only
+   tightens it for dense screens and lays out a few rows. */
+
+:root {
+  --pico-font-size: 93.75%;          /* Pico grows text on wide screens; keep it at one size */
+  --pico-spacing: 0.75rem;
+  --pico-typography-spacing-vertical: 0.75rem;
+  --pico-form-element-spacing-vertical: 0.45rem;
+  --pico-form-element-spacing-horizontal: 0.7rem;
+}
+
+body > header, body > main { max-width: 1200px; }
+
+h1 { font-size: 1.45rem; }
+h2 { font-size: 1.15rem; margin-top: 1.75rem; }
+h3 { font-size: 1rem; }
+
+/* header: app name left, who is logged in and log out right */
+body > header { display: flex; align-items: center; gap: 0.75rem; padding-block: 0.75rem; border-bottom: 1px solid var(--pico-muted-border-color); }
+body > header > a:first-child { font-weight: 700; text-decoration: none; margin-right: auto; }
+body > header form { margin: 0; }
+body > header button { padding: 0.25rem 0.7rem; font-size: 0.85rem; }
+
+/* a form of bare inputs (add a course, add an exam, upload a file) reads as one row */
+form[method]:has(> input, > select) { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+form[method]:has(> input, > select) > * { width: auto; flex: 1 1 9rem; margin: 0; }
+form[method]:has(> input, > select) > :is(button, [type="file"]) { flex: 0 0 auto; }
+
+form[action="/login"] { max-width: 24rem; }
+
+/* new problem: number and title on one row, the problem below; one criterion per row */
+.problem-form { display: grid; grid-template-columns: 6rem 1fr; gap: 0 0.5rem; }
+.problem-form textarea { grid-column: 1 / -1; min-height: 6rem; }
+#criteria-form fieldset { display: grid; grid-template-columns: 1fr 6rem 6rem; gap: 0 0.5rem; margin-bottom: 0.25rem; }
+#criteria-form fieldset textarea { grid-column: 1 / -1; min-height: 2.75rem; }
+
+table { font-size: 0.9rem; }
+th, td { padding: 0.4rem 0.6rem; vertical-align: top; }
+
+[role="alert"] { color: var(--pico-del-color); font-weight: 600; }
+
+/* grading progress: a small panel; while it polls, a quiet pulse says it is still working */
+#progress { padding: 0.75rem 1rem; border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); }
+#progress ul { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; margin: 0.5rem 0 0; padding: 0; }
+#progress li { list-style: none; margin: 0; }
+#progress[hx-get] { animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.6; } }
