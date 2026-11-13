@@ -3,6 +3,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.accounts.deps import page_user
+from app.submissions.models import Submission
 from app.core.db import get_db
 from app.accounts.models import User
 from app.core.templates import templates
@@ -67,14 +68,17 @@ def post_grade(request: Request, grade_id: int, points: Annotated[str, Form()] =
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    submission = db.get(Submission, grade.submission_id)
+    judgments = {(j.criterion_id, j.source): j for j in submission.judgments} 
+
     return templates.TemplateResponse(
         request, "review/_row.html",
-        {"c": criterion, "g": grade}
+        {"c": criterion, "g": grade, "judgments": judgments}
     )
 
 
 @router.post("/submissions/{submission_id}/accept")
-def post_accept(request: Request, submission_id: int, db: Session = Depends(get_db), user: User = Depends(page_user)):
+def post_accept(submission_id: int, db: Session = Depends(get_db), user: User = Depends(page_user)):
     submission = own_submission(db, user, submission_id)
     n = accept_confident(db, submission)
     return RedirectResponse(f"/problems/{submission.problem_id}/review/{submission_id}?accepted={n}", status_code=303)

@@ -1,6 +1,12 @@
 {% set options = point_options(c) %}
+{% set first = judgments.get((c.id, "primary")) %}
+{% set second = judgments.get((c.id, "secondary")) %}
+
 <div class="criterion-row">
     {{ c.label or c.key }}
+    {% if g.route == "human" %}<span class="chip chip-human">AI 의견이 갈림</span>
+    {% elif g.route == "llm" %}<span class="chip chip-llm">AI가 다시 확인함</span>
+    {% elif g.sampled %}<span class="chip chip-sampled">무작위 점검</span>{% endif %}
     {% if g.recommended_points is not none %} 
     · AI 추천: {{ g.recommended_points }} 
     {% endif %}
@@ -9,7 +15,7 @@
         {% for p in options %}
             <button
                 hx-post="/grades/{{ g.id }}"
-                hx-vals='{"points": "{{ p }}"}'
+                hx-vals='{"points": "{{ '' if p == g.final_points else p }}"}'
                 hx-target="closest .criterion-row"
                 hx-swap="outerHTML"
                 {% if p == g.recommended_points %}data-recommended{% endif %}
@@ -18,4 +24,24 @@
             </button>
         {% endfor %}
     </div>
+    {% if not g.decision %}
+        {% if g.route == "human" %}
+            <div class="judge-cards">
+                <div>1차 판단: {{ "충족" if first.pred else "미충족" }}</div>
+                <div>
+                    {% if second %}
+                    재확인: {{ "충족" if second.pred else "미충족" }}
+                    {% endif %}
+                </div>
+            </div>
+            {% if second %} 
+                <p class="reason">{{ second.reasoning }}</p>
+            {% endif %}
+        {% elif g.route == "llm" %}
+            <p class="reason">{{ second.reasoning }}</p>
+        {% elif g.sampled %}
+            <p class="reason">AI가 확신한 칸 중 무작위로 골라 확인을 요청합니다.</p>
+        {% endif %}
+    {% endif %}
 </div>
+
