@@ -85,7 +85,7 @@ def create_problem(request: Request, exam_id: int,
                       judge_model=PRIMARY_MODEL, criteria=_criteria(criteria_in))
     db.add(problem)
     db.commit()
-    return RedirectResponse(f"/problems/{problem.id}", status_code=303)
+    return RedirectResponse(f"/exams/{exam.id}", status_code=303)
 
 
 @router.get("/problems/{problem_id}")

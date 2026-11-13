@@ -3,9 +3,10 @@
 <h1>내 과목</h1>
 <ul>
     {% for c in courses %}
-        <li><a href="/courses/{{ c.id }}">{{ c.term | term_label }} · {{ c.department }} · {{ c.name }} ({{ c.section }}분반)</a></li>
-  {% else %}
-        <li>아직 과목이 없습니다. 아래에서 추가하세요.</li>
+    <li><a href="/courses/{{ c.id }}">{{ c.term | term_label }} · {{ c.department }} · {{ c.name }} ({{ c.section }}분반)</a>
+    </li>
+    {% else %}
+    <li>아직 과목이 없습니다. 아래에서 추가하세요.</li>
     {% endfor %}
 </ul>
 

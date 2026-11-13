@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ exam.course.name }} · {{ exam.name }}</h1>
+<a href="/courses/{{ exam.course_id }}">과목으로</a>
+
+{% if added is not none %}
+    {% if locked %} · 성적 확정된 {{ locked }}번은 제외{% endif %}
+{% endif %}
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<ul>
+{% for p in exam.problems %}
+    <li><a href="/problems/{{ p.id }}">{{ p.number }}번 {{ p.title }} · 답안 {{ p.submissions | length }}개</a></li>
+{% else %}
+    <li>아직 문항이 없습니다.</li>
+{% endfor %}
+</ul>
+<a href="/exams/{{ exam.id }}/problems/new">문항 추가하기</a>
+
+<h2>답안 올리기</h2>
+<form method="post" action="/exams/{{ exam.id }}/submissions" enctype="multipart/form-data">
+    <input type="file" name="file" accept=".csv" required>
+    <button>추가</button>
+</form>
+{% endblock %}

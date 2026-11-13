@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from app.accounts.deps import page_user
-from app.courses.deps import own_course
+from app.courses.deps import own_course, own_exam
 from app.core.db import get_db
 from app.courses.models import Course, Exam
 from app.accounts.models import User
@@ -99,3 +99,20 @@ def add_exam(course_id: int, name: Annotated[str, Form()],
         db.rollback()
     # 3. RedirectResponse(f"/courses/{course.id}", 303)
     return RedirectResponse(f"/courses/{course.id}", status_code=303)
+
+
+@router.get("/exams/{exam_id}")
+def show_exam(
+    request: Request,
+    exam_id: int,
+    added: int | None = None,
+    skipped: int | None = None,
+    locked: str = "",
+    error: str | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(page_user)):
+    exam = own_exam(db, user, exam_id)
+    return templates.TemplateResponse(
+        request, "exams/show.html", 
+        {"user": user, "exam": exam, "added": added, "skipped": skipped, "locked": locked, "error": error}
+    )
