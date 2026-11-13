@@ -6,12 +6,12 @@ from app.accounts.deps import page_user
 from app.core.db import get_db
 from app.accounts.models import User
 from app.core.templates import templates
-from app.submissions.models import Submission
 from app.problems.deps import own_problem
+from app.submissions.deps import own_submission
 from app.grading.models import Grade
 from app.review.deps import own_grade
 from app.problems.models import Criterion
-from app.review.logic import decide
+from app.review.logic import decide, accept_confident, bulk_target
 from typing import Annotated
 
 router = APIRouter()
@@ -33,21 +33,27 @@ def show_review(problem_id: int, db: Session = Depends(get_db), user: User = Dep
 
 
 @router.get("/problems/{problem_id}/review/{submission_id}")
-def get_review(request: Request, problem_id: int, submission_id: int, db: Session = Depends(get_db), user: User = Depends(page_user)):
+def get_review(request: Request, problem_id: int, submission_id: int, accepted: int | None = None, db: Session = Depends(get_db), user: User = Depends(page_user)):
     problem = own_problem(db, user, problem_id)
-    submission = db.get(Submission, submission_id)
-    if not submission or submission.problem_id != problem.id:
+    submission = own_submission(db, user, submission_id)
+    if submission.problem_id != problem_id:
         raise HTTPException(status_code=404)
 
     subs = sorted(problem.submissions, key=lambda s: s.label)
+    i = subs.index(submission)
+    next_student = next((s for s in subs[i+1:] if any(needs_check(g) for g in s.grades)), None)
     students = [(s, sum(needs_check(g) for g in s.grades), all(g.decision for g in s.grades)) for s in subs]
     grades = {g.criterion_id: g for g in submission.grades}
     judgments = {(j.criterion_id, j.source): j for j in submission.judgments}
     rows = [(c, grades[c.id]) for c in problem.criteria if c.id in grades]
+    bulk = sum(bulk_target(g) for g in submission.grades)
 
     return templates.TemplateResponse(
         request, "review/show.html",
-        {"user": user, "problem": problem, "submission": submission, "students": students, "rows": rows, "judgments": judgments}
+        {"user": user, "problem": problem, "submission": submission, 
+         "students": students, "rows": rows, "judgments": judgments, 
+         "bulk": bulk, "next_student": next_student,
+         "accepted": accepted}
     )
 
 
@@ -65,3 +71,10 @@ def post_grade(request: Request, grade_id: int, points: Annotated[str, Form()] =
         request, "review/_row.html",
         {"c": criterion, "g": grade}
     )
+
+
+@router.post("/submissions/{submission_id}/accept")
+def post_accept(request: Request, submission_id: int, db: Session = Depends(get_db), user: User = Depends(page_user)):
+    submission = own_submission(db, user, submission_id)
+    n = accept_confident(db, submission)
+    return RedirectResponse(f"/problems/{submission.problem_id}/review/{submission_id}?accepted={n}", status_code=303)

@@ -3,7 +3,11 @@ from app.problems.models import Criterion
 from app.grading.models import Grade, Decision
 from app.finalization import ensure_unlocked
 from datetime import datetime, UTC
+from app.submissions.models import Submission
 
+
+def bulk_target(g) -> bool:
+    return g.decision is None and g.route in ("auto", "skip") and not g.sampled
 
 def point_options(criterion: Criterion) -> list[float]:
     if criterion.kind == "deduction":
@@ -35,3 +39,18 @@ def decide(db: Session, criterion: Criterion, grade: Grade, points: float | None
     
     grade.final_points, grade.decision, grade.decided_at = points, decision, datetime.now(UTC)
     db.commit()
+
+
+def accept_confident(db: Session, submission: Submission) -> int:
+    criteria_dict = {c.id: c for c in submission.problem.criteria}
+
+    num = 0
+    for g in submission.grades:
+        if not bulk_target(g):
+            continue
+        decide(db, criteria_dict[g.criterion_id], g, g.recommended_points)
+        num += 1
+
+    return num
+
+    

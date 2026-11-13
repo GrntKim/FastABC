@@ -3,23 +3,42 @@
 <p><a href="/problems/{{ problem.id }}">← {{ problem.label }} {{ problem.title }}</a></p>
 
 <div class="review">
-  <nav class="student-list">
-    <ul>
-    {% for s, n, done in students %}
-      <li><a href="/problems/{{ problem.id }}/review/{{ s.id }}" {% if s.id == submission.id %}aria-current="page"{% endif %}>
-          {{ s.student_name or s.student_ref }}</a>
-          {% if n %}<mark>{{ n }}</mark>{% elif done %}✓{% endif %}</li>
-    {% endfor %}
-    </ul>
-  </nav>
+    <nav class="student-list">
+        <ul>
+            {% for s, n, done in students %}
+            <li><a href="/problems/{{ problem.id }}/review/{{ s.id }}" {% if s.id==submission.id %}aria-current="page"
+                    {% endif %}>
+                    {{ s.student_name or s.student_ref }}</a>
+                {% if n %}<mark>{{ n }}</mark>{% elif done %}✓{% endif %}</li>
+            {% endfor %}
+        </ul>
+    </nav>
 
-  <section>
-    <h2>{{ submission.student_name }} <small>{{ submission.student_ref }}</small></h2>
-    <div class="answer-sheet">{{ submission.raw_text }}</div>
+    <section>
+        <h2>{{ submission.student_name }} <small>{{ submission.student_ref }}</small></h2>
+        <div class="answer-sheet">{{ submission.raw_text }}</div>
 
-    {% for c, g in rows %}
-        {% include "review/_row.html" %}
-    {% endfor %}
-  </section>
+        {% if accepted %}<p>{{ accepted }}개 항목을 추천대로 확정했습니다.</p>{% endif %}
+
+        {% for c, g in rows %}
+            {% include "review/_row.html" %}
+        {% endfor %}
+
+        {% if bulk %}
+        <form method="post" action="/submissions/{{ submission.id }}/accept">
+            <button>확인 필요 외 {{ bulk }}개 항목 추천대로 확정</button>
+        </form>
+        {% endif %}
+
+        {% if next_student %}
+        <a href="/problems/{{ problem.id }}/review/{{ next_student.id }}">
+            다음 확인 필요 학생
+        </a>
+        {% else %}
+        <a href="/problems/{{ problem.id }}">
+            문항으로
+        </a>
+        {% endif %}
+    </section>
 </div>
 {% endblock %}
