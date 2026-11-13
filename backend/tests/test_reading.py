@@ -3,7 +3,7 @@ import io
 import pytest
 from pypdf import PdfWriter
 
-from app.grading import get_reader
+from app.grading.engine import get_reader
 from app.main import app as fastapi_app
 from app.reading import clean, read_exam, split_by_number
 from tests.test_assignments import make_body

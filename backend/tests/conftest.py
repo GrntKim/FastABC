@@ -70,7 +70,7 @@ def stranger(anon):
 @pytest.fixture(autouse=True)
 def no_sampling(monkeypatch):
     """Random audit sampling off by default so counts are deterministic; tests opt in."""
-    monkeypatch.setattr("app.grading.SAMPLE_RATE", 0.0)
+    monkeypatch.setattr("app.grading.engine.SAMPLE_RATE", 0.0)
 
 
 @pytest.fixture

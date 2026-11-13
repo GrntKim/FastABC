@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import current_user, own_assignment, own_course
 from app.db import get_db
-from app.grading import PRIMARY_MODEL
+from app.grading.engine import PRIMARY_MODEL
 from app.models import Assignment, Course, Exam, Grade, RubricItem, Submission, User
 from app.progress import Progress, progress
 from app.schemas import AssignmentIn, AssignmentOut, AssignmentSummary, CourseRef, ProgressOut, RubricItemOut

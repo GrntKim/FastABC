@@ -1,5 +1,5 @@
 from app.drafting import DraftItem, DraftTopic, RubricDraft, to_items
-from app.grading import get_drafter
+from app.grading.engine import get_drafter
 from app.main import app as fastapi_app
 from tests.test_assignments import make_body
 

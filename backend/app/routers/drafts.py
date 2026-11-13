@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from app.auth import current_user
 from app.drafting import RubricDrafter, to_items
-from app.grading import get_drafter
+from app.grading.engine import get_drafter
 from app.schemas import RubricDraftIn, RubricDraftOut, RubricItemIn
 
 logger = logging.getLogger(__name__)

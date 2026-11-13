@@ -22,7 +22,7 @@ from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 
-from app.grading import PRIMARY_MODEL, make_judges
+from app.grading.engine import PRIMARY_MODEL, make_judges
 from app.judges.base import GATE, Judgment
 from app.judges.routing import needs_escalation
 

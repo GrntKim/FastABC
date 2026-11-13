@@ -37,7 +37,7 @@ import app.models  # noqa: F401  registers every model
 from app.core.db import SessionLocal
 from app.core.security import hash_password
 from app.finalization import digest, snapshot
-from app.grading import PRIMARY_MODEL, escalate, make_judges, run_primary
+from app.grading.engine import PRIMARY_MODEL, escalate, make_judges, run_primary
 from app.models import (
     Course,
     Criterion,

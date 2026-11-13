@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.auth import current_user, own_assignment, own_submission
 from app.db import get_db
 from app.finalization import ensure_unlocked
-from app.grading import get_reader
+from app.grading.engine import get_reader
 from app.models import ExtractionStatus, Grade, Submission, User
 from app.reading import MAX_BYTES, AnswerReader, UnreadableFile, read_answer
 from app.redact import redact

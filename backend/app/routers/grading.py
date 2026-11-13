@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.auth import current_user, own_assignment
 from app.db import get_db, get_session_factory
 from app.finalization import ensure_unlocked
-from app.grading import (
+from app.grading.engine import (
     Judges,
     escalate,
     get_judges,

@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 from app.auth import current_user, own_course, own_exam
 from app.db import get_db
 from app.finalization import is_locked
-from app.grading import get_reader
+from app.grading.engine import get_reader
 from app.models import Exam, ExtractionStatus, ImportedPart, ImportedScore, Submission, User
 from app.progress import Stage, progress
 from app.reading import MAX_BYTES as MAX_READ_BYTES

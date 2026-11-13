@@ -6,7 +6,7 @@ import httpx
 import pytest
 
 from app.db import get_session_factory
-from app.grading import Judges, get_judges
+from app.grading.engine import Judges, get_judges
 from app.judges.base import Judgment
 from app.judges.jev import apply_gate, is_auto
 from app.main import app as fastapi_app
@@ -218,7 +218,7 @@ def test_secondary_calls_run_a_few_at_a_time(client, grading):
 
 
 def test_audit_takes_one_item_from_a_tenth_of_the_answers(client, grading, db, monkeypatch):
-    monkeypatch.setattr("app.grading.SAMPLE_RATE", 0.1)
+    monkeypatch.setattr("app.grading.engine.SAMPLE_RATE", 0.1)
     aid = grading(FakePrimary(), FakeSecondary(), [f"answer {i}" for i in range(40)])
     client.post(f"/assignments/{aid}/grade")
     sampled = [g for g in cells(db).values() if g.sampled]
@@ -227,7 +227,7 @@ def test_audit_takes_one_item_from_a_tenth_of_the_answers(client, grading, db, m
 
 
 def test_a_small_class_still_gets_one_audit(client, grading, db, monkeypatch):
-    monkeypatch.setattr("app.grading.SAMPLE_RATE", 0.1)
+    monkeypatch.setattr("app.grading.engine.SAMPLE_RATE", 0.1)
     aid = grading(FakePrimary(), FakeSecondary(), ["a", "b", "c"])
     client.post(f"/assignments/{aid}/grade")
     assert sum(g.sampled for g in cells(db).values()) == 1

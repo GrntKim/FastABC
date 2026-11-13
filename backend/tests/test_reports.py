@@ -1,4 +1,4 @@
-from app.grading import Judges, get_judges
+from app.grading.engine import Judges, get_judges
 from app.main import app as fastapi_app
 from tests.test_finalizations import SIGN, decided  # noqa: F401  (fixture)
 from tests.test_grading import FakePrimary, FakeSecondary, grading  # noqa: F401  (fixture)

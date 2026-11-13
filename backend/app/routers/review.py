@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.auth import current_user, own_assignment, own_grade, own_submission
 from app.db import get_db
 from app.finalization import ensure_unlocked, latest
-from app.grading import Judges, get_judges, judgment_record, questions_for
+from app.grading.engine import Judges, get_judges, judgment_record, questions_for
 from app.models import (
     Assignment,
     Decision,

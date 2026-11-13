@@ -3,7 +3,7 @@ import io
 
 import pytest
 
-from app.grading import Judges, get_judges
+from app.grading.engine import Judges, get_judges
 from app.main import app as fastapi_app
 from app.models import Grade
 from tests.test_grading import FakePrimary, FakeSecondary, grading  # noqa: F401  (fixture)
@@ -120,7 +120,7 @@ def test_unknown_assignment(client):
 
 
 def test_sampled_cells_excluded_from_bulk_accept(client, grading, monkeypatch):
-    monkeypatch.setattr("app.grading.SAMPLE_RATE", 1.0)  # every answer gets its audit
+    monkeypatch.setattr("app.grading.engine.SAMPLE_RATE", 1.0)  # every answer gets its audit
     aid = grading(FakePrimary(), FakeSecondary(), ["a", "b"])
     client.post(f"/assignments/{aid}/grade")
     cells = client.get(f"/assignments/{aid}/cells").json()

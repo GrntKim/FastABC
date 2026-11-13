@@ -8,7 +8,7 @@ from typing import Annotated
 import re
 
 from app.core.db import get_db
-from app.grading import PRIMARY_MODEL
+from app.grading.engine import PRIMARY_MODEL
 from app.problems.models import Criterion
 from app.accounts.models import User
 from app.courses.deps import own_exam
