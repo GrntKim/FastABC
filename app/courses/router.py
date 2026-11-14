@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -10,7 +10,7 @@ from app.core.db import get_db
 from app.courses.models import Course, Exam
 from app.accounts.models import User
 from app.core.templates import templates
-import re
+import re, csv, io
 from typing import Annotated
 from app.review.results import exam_results
 
@@ -121,3 +121,31 @@ def show_exam(
          "skipped": skipped, "locked": locked, "error": error,
          "problems": problems, "exam_rows": exam_rows, "max_points": max_points
          })
+
+
+@router.get("/exams/{exam_id}/export.csv")
+def download_csv(
+    exam_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(page_user)):
+
+    exam = own_exam(db, user, exam_id)
+    problems, exam_rows, _ = exam_results(db, exam)
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    header_row = ["학번", "이름"] + [f"{p.number}번" for p in problems] + ["합계"]
+    writer.writerow(header_row)
+    for ref, name, cells, total in exam_rows:
+        row_cell = ["" if pts is None else f"{pts:g}" for _, pts in cells]
+        row_total = ["" if total is None  else f"{total:g}"]
+        row = [ref, name or ""] + row_cell + row_total
+        writer.writerow(row)
+
+    result = buf.getvalue().encode("utf-8-sig")
+
+    return Response(
+        content=result,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="exam_{exam.id}_results.csv"'}
+    )

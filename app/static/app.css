@@ -176,3 +176,9 @@ main > h1 + ul { margin-top: 1.25rem; margin-bottom: 1.5rem; }
   background: var(--pico-background-color); border-top: 1px solid var(--pico-muted-border-color); }
 .add-course h2 { margin: 0 0 0.5rem; padding: 0; border: 0; font-size: 0.95rem; color: var(--pico-muted-color); }
 .add-course form { margin: 0; }
+
+/* a download link that sits at the right end of a section heading */
+h2 > a.export { float: right; font-size: 0.8rem; font-weight: 600; padding: 0.2rem 0.7rem; margin-top: 0.1rem;
+  border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); text-decoration: none; }
+h2 > a.export::before { content: "↓ "; }
+h2 > a.export:hover { border-color: var(--pico-primary); }
