@@ -24,6 +24,9 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://fastabc:${POSTGRES_PASSWORD}@db:5432/fastabc
       COOKIE_SECURE: "1"
+      # trust Caddy's X-Forwarded-Proto so links built from the request (static files) stay https;
+      # the API port is not published, so only Caddy can reach it
+      FORWARDED_ALLOW_IPS: "*"
       SIGNUP_OPEN: ${SIGNUP_OPEN:-0}
     volumes:
       - ./data:/app/data:ro # seed_demo.py reads data/eval and data/demo
