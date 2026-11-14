@@ -12,6 +12,7 @@ from app.accounts.models import User
 from app.core.templates import templates
 import re
 from typing import Annotated
+from app.review.results import exam_results
 
 router = APIRouter()
 
@@ -110,9 +111,13 @@ def show_exam(
     locked: str = "",
     error: str | None = None,
     db: Session = Depends(get_db),
-    user: User = Depends(page_user)):
+    user: User = Depends(page_user),
+    ):
     exam = own_exam(db, user, exam_id)
+    problems, exam_rows, max_points = exam_results(db, exam)
     return templates.TemplateResponse(
         request, "exams/show.html", 
-        {"user": user, "exam": exam, "added": added, "skipped": skipped, "locked": locked, "error": error}
-    )
+        {"user": user, "exam": exam, "added": added, 
+         "skipped": skipped, "locked": locked, "error": error,
+         "problems": problems, "exam_rows": exam_rows, "max_points": max_points
+         })

@@ -16,6 +16,37 @@
 </ul>
 <a href="/exams/{{ exam.id }}/problems/new">문항 추가하기</a>
 
+<table>
+    <thead>
+        <th>학번</th>
+        <th>이름</th>
+        {% for p in problems %}
+        <th>{{ p.number }}번</th>
+        {% endfor %}
+        <th>합계(만점 {{ max_points }}점)</th>
+    </thead>
+    <tbody>
+        {% for ref, name, cells, exam_total in exam_rows %}
+        <tr>
+            <td>{{ ref }}</td>
+            <td>{{ name or "" }}</td>
+            {% for submitted, points in cells %}
+            <td>
+                {% if not submitted %}
+                미제출
+                {% elif points is none %}
+                -
+                {% else %}
+                {{ points }}
+                {% endif %}
+            </td>
+            {% endfor %}
+            <td>{{ "-" if exam_total is none else exam_total }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
 <h2>답안 올리기</h2>
 <form method="post" action="/exams/{{ exam.id }}/submissions" enctype="multipart/form-data">
     <input type="file" name="file" accept=".csv" required>
