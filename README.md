@@ -1,5 +1,15 @@
 # FastABC
 
+<p>
+  <img src="https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI">
+  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL">
+  <img src="https://img.shields.io/badge/htmx-3366CC?style=flat-square&logo=htmx&logoColor=white" alt="htmx">
+  <img src="https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker">
+  <img src="https://img.shields.io/badge/%ED%8C%90%EB%8B%A8_%EB%AA%A8%EB%8D%B8-TypeSafe_Jev-2E4FA3?style=flat-square" alt="판단 모델 TypeSafe Jev">
+  <img src="https://img.shields.io/badge/LLM-Gemini-8E75B2?style=flat-square&logo=googlegemini&logoColor=white" alt="LLM Gemini">
+</p>
+
 **서술형 채점, 봐야 할 곳부터.**
 
 대학 교수·조교를 위한 서술형 답안 채점 보조 도구입니다. AI가 모든 답안을 채점 기준 항목별로 먼저 읽고 애매한 곳만 골라 드리며, 점수는 채점자가 확정합니다. 채점 기준이 "이 내용을 썼는가"로 나뉘는 개념·원리 설명형 문제에 맞춰져 있습니다.
@@ -7,6 +17,8 @@
 **이름의 뜻.** FastABC는 ABC(학점)를 빠르게 매긴다는 뜻입니다. 빠르다는 것은 답안을 덜 읽는다는 뜻이 아닙니다. 채점자는 모든 답안을 읽고, AI는 사람의 판단이 흐려지기 쉬운 곳을 짚어 줍니다. AI의 판단도 흐려질 수 있으므로, AI가 확신하지 못하거나 의견이 갈린 곳은 채점자가 정합니다. 사람과 AI가 서로의 약한 곳을 보완해서 빨라집니다.
 
 [사용 시나리오](docs/scenario.md) · [개발 문서](docs/development.md) · 서비스 https://fastabc.grntcds.net · 시연 영상 · 결과보고서 · 포스터 _(추가 예정)_
+
+![학생별 채점 화면: 학생 목록과 확인 필요 항목 수, 답안, 항목별 점수 칸. 점선 칸이 AI 추천이고 채운 칸이 채점자가 고른 점수](docs/images/review.png)
 
 ## 왜 만들었나
 
@@ -21,6 +33,8 @@
 - 과목(학기·분반)을 만들고 그 안에 시험을, 시험 안에 문항을 둡니다.
 - 문항은 문제와 **채점 항목**으로 만듭니다: 항목 이름, 가점·감점, 배점, AI가 확인할 내용. 답안이 문제와 관련 있는지 보는 주제 확인 항목은 저장할 때 자동으로 붙습니다.
 
+<img src="docs/images/new_problem.png" alt="문항 추가 화면" width="720">
+
 ### 2. 답안은 시험 단위로 한 번에
 
 - LMS에서 받은 **CSV**(학번·이름·문항별 답)를 시험 화면에서 한 번 올리면 문항마다 나뉘어 들어갑니다. 빈 칸은 미제출입니다.
@@ -31,7 +45,7 @@
 
 - **판단 모델**이 모든 답안의 모든 항목을 1차 판단합니다(답안당 약 0.3초).
 - 확신이 낮은 항목만 **LLM**이 백그라운드에서 다시 판단하고, 두 판단이 다르면 추천 없이 채점자에게 넘깁니다. 진행 상황은 문항 화면에 나타납니다.
-- 평가셋에서 AI가 확신한 항목이 87%, 그 정확도는 94.6%였습니다([평가 결과](#평가-결과)).
+- 평가셋에서 AI가 확신한 항목이 87%, 그중 94.6%가 채점자의 판단과 일치했습니다([평가 결과](#평가-결과)).
 
 ### 4. 모든 답안을 순서대로, 볼 곳은 표시해서
 
@@ -40,15 +54,50 @@
 - 점수 칸은 **미리 채우지 않습니다.** AI 추천은 점선으로만 표시하고, 칸을 눌러야 확정됩니다.
 - 볼 곳을 직접 정한 뒤 "확인 필요 외 n개 항목 추천대로 확정하고 다음 학생으로"를 누르면, AI가 확신한 나머지 항목을 확정하고 다음 학생으로 넘어갑니다. 문항 전체를 한 번에 확정하는 버튼은 두지 않았습니다. 모든 답안을 사람이 한 번은 읽게 하려는 것입니다.
 
+![AI 의견이 갈린 항목: 추천 없이 1차 판단과 재확인을 나란히 보여 주고 판단 이유를 붙인다](docs/images/review_split.png)
+
 ### 5. 점수는 사람이 확정하고, 기록이 남는다
 
 - 확정은 **추천 수용 · 수정 · 직접 입력**으로 기록됩니다.
 - **성적 확정**은 책임 확인 후 확정자·시각·결과 해시를 남기고 문항을 잠급니다.
 - 고칠 때는 사유를 적고 **개정**합니다. 이전 확정 기록은 남고, 다시 확정하면 새 버전이 됩니다.
 
+<img src="docs/images/problem_result.png" alt="성적 확정과 개정 이력, 학생별 점수" width="720">
+
 ### 6. 시험 결과
 
 - 학번으로 문항별 점수를 묶어 **학생별 합계**를 냅니다. 답안이 없는 문항은 미제출(0점)이고, 미확정 항목이 있으면 합계를 비워 둡니다.
+
+<img src="docs/images/exam_results.png" alt="시험 결과: 학번별 문항 점수와 합계" width="720">
+
+## 시스템 구성
+
+서버 한 대에 Docker Compose로 Caddy(https), FastAPI 앱, PostgreSQL을 띄웁니다. 앱이 화면까지 그리므로(Jinja2 + htmx) 프론트엔드 서버가 따로 없습니다. 판단기는 업체 중립 인터페이스 뒤에 있고, 외부로는 이름·학번을 지운 답안만 나갑니다.
+
+![시스템 구성: 채점자 브라우저 → Caddy → FastAPI 앱(화면 층, 규칙 층) → PostgreSQL, 판단 모델(TypeSafe Jev)과 LLM(Gemini)에는 이름·학번을 지운 답안만 보낸다](docs/images/architecture.png)
+
+### 데이터 모델
+
+```mermaid
+erDiagram
+    users ||--o{ courses : "소유"
+    courses ||--o{ exams : "시험"
+    courses ||--o{ assignments : "문항"
+    exams |o--o{ assignments : "묶음"
+    assignments ||--o{ rubric_items : "채점 항목"
+    assignments ||--o{ submissions : "답안"
+    submissions ||--o{ grades : "칸"
+    rubric_items ||--o{ grades : "칸"
+    submissions ||--o{ judgments : "판단 기록"
+    rubric_items ||--o{ judgments : "판단 기록"
+    assignments ||--o{ finalizations : "성적 확정 버전"
+    users ||--o{ finalizations : "확정자"
+```
+
+- **칸**(`grades`)은 답안 1장 × 채점 항목 1개입니다. 칸마다 AI 추천, 경로(자동·재확인·의견 갈림·무작위 점검), 채점자의 확정 점수와 기록 종류가 남습니다.
+- **판단 기록**(`judgments`)은 판단 모델과 LLM의 원본 출력을 그대로 보관합니다.
+- **성적 확정**(`finalizations`)은 문항마다 버전으로 쌓입니다. 확정자, 시각, 결과 스냅샷과 해시, 개정 사유가 남습니다.
+- 열까지 포함한 전체 모델은 [개발 문서](docs/development.md#데이터-모델)에 있습니다.
 
 ## 동작 방식
 
@@ -79,16 +128,16 @@ flowchart TD
 
 ## 평가 결과
 
-직접 출제하고 직접 라벨링한 합성 평가셋으로 측정했습니다. 2문항, 답안 24건, 150칸입니다. 원본과 분석은 [data/eval/runs/20261108-173844](data/eval/runs/20261108-173844/summary.md)에 있습니다.
+직접 출제하고 직접 라벨링한 합성 평가셋으로 측정했습니다. 2문항, 답안 24건, 150칸입니다. 일치율은 칸(답안 × 항목)마다 AI의 판단이 채점자가 판단기를 돌리기 전에 매긴 판단과 정확히 같은 비율입니다. 서술형에는 절대적인 정답이 없으므로, AI가 채점자와 같은 판단을 내는지를 잽니다. 원본과 분석은 [data/eval/runs/20261108-173844](data/eval/runs/20261108-173844/summary.md)에 있습니다.
 
 | | 하이브리드 | LLM 단독 |
 |---|---|---|
-| 라벨 일치도 (추천이 나온 칸) | 92.1% (자동 칸만 94.6%) | 90.0% |
+| 채점자 판단과의 일치율 (추천이 나온 칸) | 92.1% (자동 칸만 94.6%) | 90.0% |
 | 추천 생성 비용 (답안당) | $0.0022 | $0.0079 |
 | 첫 추천까지 (답안당) | 0.27초 | 10.07초 |
 
 - 판단 모델이 확신을 가지고 자동 처리한 칸은 87%입니다. 나머지 13%는 LLM 확인 또는 직접 판단으로 넘어갑니다.
-- 평가셋이 작아 수치는 경향으로만 봐야 합니다. 답안 단위 부트스트랩 95% 구간은 하이브리드 87.9–95.7%, LLM 단독 85.6–94.2%이고, 차이(+2.1%p)의 구간은 −0.7–+5.1%p로 0을 포함합니다. 정확도는 같은 수준이고, 차이는 비용과 속도에서 납니다. LLM 확인 칸(10칸)의 정확도는 60%로 낮았고, 그래서 그 칸들도 채점자가 확정하도록 설계했습니다.
+- 평가셋이 작아 수치는 경향으로만 봐야 합니다. 답안 단위 부트스트랩 95% 구간은 하이브리드 87.9–95.7%, LLM 단독 85.6–94.2%이고, 차이(+2.1%p)의 구간은 −0.7–+5.1%p로 0을 포함합니다. 일치율은 같은 수준이고, 차이는 비용과 속도에서 납니다. LLM 확인 칸(10칸)의 일치율은 60%로 낮았고, 그래서 그 칸들도 채점자가 확정하도록 설계했습니다.
 
 ## 시작하기
 
@@ -149,20 +198,6 @@ docker compose -f compose.prod.yml exec api python scripts/seed_demo.py --empty 
 
 ## 사용 기술
 
-![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
-![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-D71F00?style=flat-square&logo=sqlalchemy&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
-![uv](https://img.shields.io/badge/uv-DE5FE9?style=flat-square&logo=uv&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
-<br/>
-![Jinja](https://img.shields.io/badge/Jinja-B41717?style=flat-square&logo=jinja&logoColor=white)
-![htmx](https://img.shields.io/badge/htmx-3366CC?style=flat-square&logo=htmx&logoColor=white)
-![Pico CSS](https://img.shields.io/badge/Pico_CSS-1095C1?style=flat-square)
-<br/>
-![TypeSafe Jev](https://img.shields.io/badge/TypeSafe_Jev-2E4FA3?style=flat-square)
-![Gemini](https://img.shields.io/badge/Gemini-8E75B2?style=flat-square&logo=googlegemini&logoColor=white)
-
 | 영역 | 기술 |
 |---|---|
 | 서버 | FastAPI, SQLAlchemy 2, Alembic, PostgreSQL 17 |
@@ -177,7 +212,7 @@ docker compose -f compose.prod.yml exec api python scripts/seed_demo.py --empty 
 - AI 생성 답안 판정, 표절·유사도 검사
 - LMS 직접 연동, 이메일 인증·비밀번호 재설정·과목 공유와 역할 구분 (계정은 자기 과목만 봅니다)
 - 객관식 채점
-- 논술형처럼 글 전체의 완성도를 보는 총체적 채점 (수준별 항목은 정확도가 71.4%로 충족 여부 항목 94.4%보다 낮아, 충족 여부 항목 여러 개로 나누는 쪽을 권합니다)
+- 논술형처럼 글 전체의 완성도를 보는 총체적 채점 (수준별 항목은 일치율이 71.4%로 충족 여부 항목 94.4%보다 낮아, 충족 여부 항목 여러 개로 나누는 쪽을 권합니다)
 - 계산 문제의 숫자 검산 (풀이를 문장과 간단한 식으로 쓴 문제는 항목별 부분 점수로 다룹니다)
 - 학생 이의 제기 처리 (개정 기능으로 점수 변경과 사유만 기록)
 
