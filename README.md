@@ -118,7 +118,6 @@ uv run fastapi dev app/main.py               # http://localhost:8000
 ```bash
 uv run python scripts/seed_demo.py           # 세 문항 모두 채점된 상태 (판단 모델·LLM 실제 호출, 몇 분)
 uv run python scripts/seed_demo.py --empty   # 1·2번 문항과 채점 기준만, 답안 없이
-uv run python scripts/seed_demo.py --booth   # 부스 시연용 시험 (1~3번, 답안 없이)
 ```
 
 과목 「정보보호개론」 중간고사(서술형 3문항)를 만듭니다.
@@ -126,12 +125,6 @@ uv run python scripts/seed_demo.py --booth   # 부스 시연용 시험 (1~3번, 
 - 1번 「비밀번호 저장」: 답안 12건. 확정까지 마친 상태입니다.
 - 2번 「SQL 인젝션」: 답안 40건. 채점만 하고 검토는 남겨 둔 상태입니다.
 - 3번 「대칭키와 공개키 암호」: 답안 40건. 채점만 하고 검토는 남겨 둔 상태입니다.
-
-`--empty`로 만든 시험에는 [data/demo/midterm_answers.csv](data/demo/midterm_answers.csv)(40명)를 시험 화면에서 올립니다. `--booth`로 만든 「부스 시연」 시험에는 [data/demo/booth_answers.csv](data/demo/booth_answers.csv)(15명)를 올리고, 시연이 끝나면 답안과 확정 기록을 지워 처음 상태로 돌립니다.
-
-```bash
-uv run python scripts/booth_reset.py --exam <시험 id> --yes
-```
 
 데모 답안은 모두 합성 데이터입니다. 실제 학생 답안을 다룰 때는 입력 데이터가 학습에 쓰이지 않는 유료 API 계정을 쓰세요.
 
