@@ -10,7 +10,7 @@ FastABC의 구조와 주요 규칙을 설명합니다. 실행 방법은 [README]
 4. **업체 중립.** 공통 코드, DB, 화면은 역할 이름(primary/secondary, "판단 모델"/"LLM")만 씁니다. 업체 이름은 어댑터(`app/judges/jev.py`, `gemini.py`)와 조립 지점(`app/grading/engine.py`의 `make_judges`)에만 나옵니다.
 5. **학생 정보는 밖으로 나가지 않는다.** 외부 API에는 식별 정보를 지운 `clean_text`만 보냅니다. 채점자는 자기 과목만 봅니다.
 6. **자동화 편향 방지.** 한 번에 확정할 수 있는 칸은 확신 높은 칸뿐이고, 그중 일부는 무작위 점검으로 뺍니다. 모든 확정은 추천 수용, 수정, 직접 입력으로 기록됩니다.
-7. **모든 답안은 사람이 한 번은 본다.** 일괄 확정은 학생 한 명 단위로만 있고, 문항 전체를 한 번에 확정하는 기능은 두지 않습니다.
+7. **모든 답안은 사람이 한 번은 본다.** 일괄 확정은 학생 한 명 단위로만 있고, 문항 전체를 한 번에 확정하는 기능은 두지 않습니다. AI는 사람의 판단이 흐려지기 쉬운 항목을 짚고, 사람은 AI가 확신하지 못하거나 의견이 갈린 항목을 정합니다. 이름의 "Fast"는 덜 읽어서가 아니라 이 상호 보완에서 나옵니다.
 
 ## 디렉터리
 
@@ -164,10 +164,10 @@ erDiagram
 
 - **칸**은 답안 × 채점 기준 항목입니다. `grades`가 칸 하나의 추천과 채점자 확정을 담고, `judgments`는 판단기의 원본 출력을 모두 남깁니다.
 - 주제 확인 항목(`kind = gate`, key `is_on_topic`)은 점수가 없어 `grades`를 만들지 않고 `judgments`에만 남습니다.
-- **코드 이름과 DB 이름:** 코드는 `Problem`, `Criterion`, `problem_id`, `criterion_id`, `Problem.text`, `Criterion.descriptions`라고 부르지만, 테이블·열 이름은 프로토타입 그대로(`assignments`, `rubric_items`, `assignment_id`, `rubric_item_id`, `problem`, `criteria`)입니다. `mapped_column("assignment_id", …)`처럼 열 이름을 첫 인자로 주어 마이그레이션 없이 이름만 바꿨습니다.
+- **코드 이름과 DB 이름:** 코드는 `Problem`, `Criterion`, `problem_id`, `criterion_id`, `Problem.text`, `Criterion.descriptions`라고 부르지만, 테이블·열 이름은 처음 만든 이름 그대로(`assignments`, `rubric_items`, `assignment_id`, `rubric_item_id`, `problem`, `criteria`)입니다. `mapped_column("assignment_id", …)`처럼 열 이름을 첫 인자로 주어 마이그레이션 없이 이름만 바꿨습니다.
 - 학생 이름과 학번은 채점자 화면에만 씁니다. 외부 API에는 `clean_text`만 보냅니다.
 - 과목 이름(학과·학기·과목·분반)은 채점자마다 따로 겹치지 않으면 됩니다. 학기는 `연도-구분`으로 저장합니다. 구분은 `1`(1학기), `1S`(여름 계절학기), `2`(2학기), `2W`(겨울 계절학기)이고, 이 표기는 글자 순서가 곧 달력 순서라 그대로 정렬해도 됩니다.
-- 프로토타입이 쓰던 테이블 `imported_parts`·`imported_scores`(다른 곳에서 채점한 점수), `term_schedules`(성적 입력 마감일)와 `finalizations.late` 열은 DB에 남아 있지만 지금 화면은 쓰지 않습니다. 가져온 점수는 데모 시드만 채웁니다.
+- 테이블 `imported_parts`·`imported_scores`(다른 곳에서 채점한 점수), `term_schedules`(성적 입력 마감일)와 `finalizations.late` 열은 DB에 남아 있지만 지금 화면은 쓰지 않습니다. 가져온 점수는 데모 시드만 채웁니다.
 
 ## 채점 흐름
 
@@ -267,7 +267,6 @@ uv run python scripts/run_eval.py analyze --run data/eval/runs/<시각>         
 - `run`은 답안마다 1차 판단, 재판단, LLM 단독 판단, 근거 찾기 네 가지 호출을 기록합니다. 중단되면 `--resume`으로 이어 갑니다.
 - `analyze`는 기록만 읽으므로 비용 없이 다시 돌릴 수 있습니다. 라벨 일치도, 경로별 정확도, 임계값별 자동 처리율, 확신도 구간별 정확도, 비용과 지연을 냅니다.
 - 라벨은 `answers.csv`에 예/아니오는 `1`/`0`, 수준은 번호로 적고, 판단기를 돌리기 전에 채웁니다.
-- 평가 실행(2026-11-08)은 프로토타입에서 했고, 판단기·라우팅 코드는 지금 버전에서도 그대로입니다.
 
 ## 테스트와 규칙
 
