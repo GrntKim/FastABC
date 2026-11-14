@@ -1,4 +1,4 @@
-# One server: Caddy (https) in front of the web app and the API, Postgres inside.
+# One server: Caddy (https) in front of the app (FastAPI renders every page), Postgres inside.
 #   docker compose -f compose.prod.yml up -d --build
 # Reads DOMAIN, POSTGRES_PASSWORD and the API keys from .env (see .env.example). Only ports 80 and 443 are open.
 services:
@@ -18,28 +18,18 @@ services:
       - pgdata:/var/lib/postgresql/data
 
   api:
-    build: ./backend
+    build: .
     restart: unless-stopped
     env_file: .env
     environment:
       DATABASE_URL: postgresql+psycopg://fastabc:${POSTGRES_PASSWORD}@db:5432/fastabc
-      CORS_ORIGINS: https://${DOMAIN}
       COOKIE_SECURE: "1"
       SIGNUP_OPEN: ${SIGNUP_OPEN:-0}
     volumes:
-      - ./data:/data:ro # seed_demo.py reads data/eval and data/demo
+      - ./data:/app/data:ro # seed_demo.py reads data/eval and data/demo
     depends_on:
       db:
         condition: service_healthy
-
-  web:
-    build:
-      context: ./frontend
-      args:
-        NEXT_PUBLIC_API_URL: /api
-    restart: unless-stopped
-    depends_on:
-      - api
 
   caddy:
     image: caddy:2
@@ -55,7 +45,6 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - web
       - api
 
 volumes:

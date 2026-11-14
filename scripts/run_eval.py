@@ -1,7 +1,7 @@
 """Evaluation: hybrid (decision model + LLM escalation) vs LLM only, against the grader's own labels.
 
-    uv run python scripts/run_eval.py run [--set ../data/eval] [--questions q1,q2] [--workers 2] [--resume RUN_ID]
-    uv run python scripts/run_eval.py analyze --run ../data/eval/runs/RUN_ID
+    uv run python scripts/run_eval.py run [--set data/eval] [--questions q1,q2] [--workers 2] [--resume RUN_ID]
+    uv run python scripts/run_eval.py analyze --run data/eval/runs/RUN_ID
 
 `run` calls the APIs once per answer and appends every raw response to runs/<id>/raw/<question>.jsonl.
 `analyze` reads only those files, so the analysis can be repeated without API calls or cost.
@@ -26,7 +26,7 @@ from app.grading.engine import PRIMARY_MODEL, make_judges
 from app.judges.base import GATE, Judgment
 from app.judges.routing import needs_escalation
 
-DEFAULT_SET = Path(__file__).resolve().parents[2] / "data" / "eval"
+DEFAULT_SET = Path(__file__).resolve().parents[1] / "data" / "eval"
 
 # USD per 1M tokens, recorded 2026-11 (see CLAUDE_LEGACY.md B, C). Thinking tokens are billed as output.
 PRICE = {"primary_input": 0.042, "secondary_input": 0.75, "secondary_output": 3.75}

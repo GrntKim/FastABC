@@ -1,6 +1,6 @@
 """Freeze an assignment made in the app into an evaluation question folder.
 
-    uv run python scripts/export_rubric.py --assignment 6 --id q1_sql_injection [--set ../data/eval] [--rubric-text "..."]
+    uv run python scripts/export_rubric.py --assignment 6 --id q1_sql_injection [--set data/eval] [--rubric-text "..."]
 
 Writes <set>/<id>/question.json (problem + final rubric items) and, if missing, an answers.csv template
 with one label column per item key. Fill answers and labels in a spreadsheet. Never overwrites answers.csv,
@@ -24,7 +24,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--assignment", type=int, required=True)
     parser.add_argument("--id", required=True, help="question folder name, e.g. q1_sql_injection")
-    parser.add_argument("--set", default=str(Path(__file__).resolve().parents[2] / "data" / "eval"))
+    parser.add_argument("--set", default=str(Path(__file__).resolve().parents[1] / "data" / "eval"))
     parser.add_argument("--rubric-text", default="", help="the plain-language rubric it was drafted from")
     parser.add_argument("--force", action="store_true", help="overwrite an existing question.json (loses hand edits)")
     args = parser.parse_args()

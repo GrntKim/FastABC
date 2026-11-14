@@ -6,7 +6,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, make_url, text
 
-load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 _url = make_url(os.environ["DATABASE_URL"]).set(database="fastabc_test")
 os.environ["DATABASE_URL"] = _url.render_as_string(hide_password=False)  # before app.core.db is imported
 

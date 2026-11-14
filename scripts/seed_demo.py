@@ -54,7 +54,7 @@ from app.models import (
 from app.problems.schemas import CriterionIn
 from app.submissions.redact import redact
 
-DATA = Path(__file__).resolve().parents[2] / "data"
+DATA = Path(__file__).resolve().parents[1] / "data"
 COURSE = {"department": "컴퓨터공학과", "term": "2026-2", "name": "정보보호개론", "section": "01"}
 GRADER = {"email": "demo@fastabc.kr", "name": "김조교", "password": "demo1234"}
 EXAM = "중간고사"

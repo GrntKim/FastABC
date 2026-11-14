@@ -1,11 +1,6 @@
-# https for DOMAIN (certificate fetched and renewed by Caddy), the API under /api on the same site,
-# so the SameSite=Lax session cookie rides along and no CORS is involved
+# https for DOMAIN (certificate fetched and renewed by Caddy); FastAPI serves every page and the
+# session cookie, so one upstream is all there is
 {$DOMAIN} {
 	encode zstd gzip
-	handle_path /api/* {
-		reverse_proxy api:8000
-	}
-	handle {
-		reverse_proxy web:3000
-	}
+	reverse_proxy api:8000
 }
