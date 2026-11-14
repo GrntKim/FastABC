@@ -190,6 +190,7 @@ erDiagram
 | 메서드 | 주소 | 화면·동작 |
 |---|---|---|
 | GET, POST | `/login` | 로그인 화면, 로그인 |
+| GET | `/static/guide.html` | 사용법 안내 (라우터 없는 정적 페이지, 머리글의 "사용법" 링크). 앱과 같은 CSS로 점수 칸과 이유 칩을 실제 모양 그대로 보여 줌 |
 | POST | `/logout` | 로그아웃 |
 | GET | `/` | 내 과목 목록, 과목 추가 폼 |
 | POST | `/courses` | 과목 추가 (분반은 두 자리로, 중복이면 화면에 알림) |
@@ -197,6 +198,7 @@ erDiagram
 | POST | `/courses/{id}/exams` | 시험 추가 |
 | GET | `/exams/{id}` | 시험: 문항 목록, 학생별 문항 점수와 합계, 답안 CSV 올리기 |
 | POST | `/exams/{id}/submissions` | 시험 CSV 업로드 |
+| GET | `/exams/{id}/export.csv` | 시험 결과 CSV 내려받기 (학번, 이름, 문항별 점수, 합계. 미제출 0, 미확정 빈칸, UTF-8 BOM) |
 | GET | `/exams/{id}/problems/new` | 새 문항 |
 | POST | `/exams/{id}/problems` | 문항 저장 |
 | GET | `/problems/{id}` | 문항: 문제, 채점 기준 표, 채점 시작·진행, 결과 표, 성적 확정·개정·이력 |
@@ -265,7 +267,7 @@ uv run python scripts/run_eval.py analyze --run data/eval/runs/<시각>         
 ```
 
 - `run`은 답안마다 1차 판단, 재판단, LLM 단독 판단, 근거 찾기 네 가지 호출을 기록합니다. 중단되면 `--resume`으로 이어 갑니다.
-- `analyze`는 기록만 읽으므로 비용 없이 다시 돌릴 수 있습니다. 라벨 일치도, 경로별 정확도, 임계값별 자동 처리율, 확신도 구간별 정확도, 비용과 지연을 냅니다.
+- `analyze`는 기록만 읽으므로 비용 없이 다시 돌릴 수 있습니다. 라벨 일치도, 경로별 일치율, 임계값별 자동 처리율, 확신도 구간별 일치율, 비용과 지연을 냅니다.
 - 라벨은 `answers.csv`에 예/아니오는 `1`/`0`, 수준은 번호로 적고, 판단기를 돌리기 전에 채웁니다.
 
 ## 테스트와 규칙
