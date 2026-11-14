@@ -88,3 +88,91 @@ th, td { padding: 0.4rem 0.6rem; vertical-align: top; }
 .judge-cards { display: flex; gap: 0.5rem; }
 .judge-cards > div { padding: 0.25rem 0.75rem; border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); font-size: 0.85rem; }
 .reason { font-size: 0.85rem; color: var(--pico-muted-color); }
+
+/* ---------- pages: a clear heading block, back links, link lists as cards, add-forms as panels ---------- */
+main > h1 { margin-bottom: 0.25rem; }
+main > h1 + p { color: var(--pico-muted-color); margin-bottom: 0.5rem; }
+
+/* back links ("과목으로", "시험으로"): small and quiet, above or right under the title */
+main > h1 + a, main > h1 + p + a, main > a:has(+ h1) {
+  display: inline-block; font-size: 0.85rem; color: var(--pico-muted-color); text-decoration: none; margin-bottom: 0.5rem; }
+main > h1 + a::before, main > h1 + p + a::before, main > a:has(+ h1)::before { content: "← "; }
+main > h1 + a:hover, main > h1 + p + a:hover, main > a:has(+ h1):hover { color: var(--pico-primary); }
+
+/* sections: a thin rule under each heading */
+main > h2 { padding-bottom: 0.35rem; border-bottom: 1px solid var(--pico-muted-border-color); margin-bottom: 0.9rem; }
+
+/* lists of links (courses, problems) and exam links read as cards */
+main > ul:has(> li > a) { display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); gap: 0.6rem; padding: 0; }
+main > ul:has(> li > a) > li { list-style: none; margin: 0; }
+main > ul > li > a, main > a:has(> h3) {
+  display: block; padding: 0.75rem 1rem; border: 1px solid var(--pico-muted-border-color);
+  border-radius: var(--pico-border-radius); background: var(--pico-card-background-color);
+  color: var(--pico-color); text-decoration: none; transition: border-color .15s, background-color .15s; }
+main > ul > li > a:hover, main > a:has(> h3):hover { border-color: var(--pico-primary); background: var(--pico-primary-focus); }
+main > a:has(> h3) { margin-bottom: 0.6rem; }
+main > a:has(> h3) > h3 { margin: 0; font-size: 1rem; }
+main > a:has(> h3)::after, main > ul > li > a::after { content: " →"; color: var(--pico-muted-color); float: right; }
+main > a:has(> h3)::after { margin-top: -1.5em; }
+
+/* the main next step on a page ("문항 추가하기") looks like a button */
+main > a[href$="/problems/new"] {
+  display: inline-block; padding: 0.4rem 0.9rem; margin: 0.25rem 0 1rem; border-radius: var(--pico-border-radius);
+  background: var(--pico-primary-background); color: var(--pico-primary-inverse); text-decoration: none; font-weight: 600; }
+main > a[href$="/problems/new"]::before { content: "+ "; }
+
+/* add / upload forms right under a heading sit in a quiet panel */
+main > h2 + form:has(> input, > select) {
+  padding: 0.75rem; border: 1px dashed var(--pico-muted-border-color); border-radius: var(--pico-border-radius);
+  background: var(--pico-card-sectioning-background-color); }
+
+/* tables: a tinted header row and light zebra rows */
+thead th { background: var(--pico-card-sectioning-background-color); font-weight: 700; }
+tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--pico-muted-border-color) 18%, transparent); }
+
+/* the back link reads like a breadcrumb: move it above the title */
+main:has(> h1 + a, > h1 + p + a) { display: flex; flex-direction: column; }
+main:has(> h1 + a, > h1 + p + a) > * { margin-top: 0; }
+main:has(> h1 + a, > h1 + p + a) > h2 { margin-top: 1.75rem; }
+main > h1 + a, main > h1 + p + a { order: -1; align-self: flex-start; }
+main > ul > li > a { color: inherit; }   /* Pico paints links primary; cards read as plain text */
+main > a[href$="/problems/new"] { align-self: flex-start; }
+
+/* review: the back link reads like the others; "다음 학생" / "문항으로" sit as a quiet button */
+main > p:first-child:has(> a:only-child) { margin-bottom: 0.75rem; }
+main > p:first-child > a:only-child { font-size: 0.85rem; color: var(--pico-muted-color); text-decoration: none; }
+main > p:first-child > a:only-child:hover { color: var(--pico-primary); }
+.review section > form:has(> button:only-child) { display: inline-block; margin: 1rem 0.5rem 0 0; }
+.review section > form > button { margin: 0; }
+.review section > a:last-child {
+  display: inline-block; margin-top: 1rem; padding: 0.45rem 1rem; border: 1px solid var(--pico-muted-border-color);
+  border-radius: var(--pico-border-radius); text-decoration: none; }
+.review section > a:last-child::after { content: " →"; }
+.review section > a:last-child:hover { border-color: var(--pico-primary); }
+
+/* new problem: each criterion is its own numbered card */
+#criteria-form { counter-reset: criterion; }
+#criteria-form fieldset {
+  counter-increment: criterion; position: relative; padding: 1.6rem 0.75rem 0.5rem; margin-bottom: 0.6rem;
+  border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius);
+  background: var(--pico-card-background-color); }
+#criteria-form fieldset::before {
+  content: "항목 " counter(criterion); position: absolute; top: 0.35rem; left: 0.8rem;
+  font-size: 0.78rem; font-weight: 700; color: var(--pico-muted-color); }
+
+/* the upload result on the exam page reads as a notice */
+main > h1 + a + p:not([role]) {
+  padding: 0.5rem 0.9rem; border-left: 3px solid var(--pico-primary); border-radius: var(--pico-border-radius);
+  background: var(--pico-primary-focus); font-size: 0.9rem; }
+
+/* header links after the app name ("사용법", "← 돌아가기"): quiet text links */
+body > header > a:not(:first-child) { font-size: 0.85rem; color: var(--pico-muted-color); text-decoration: none; }
+body > header > a:not(:first-child):hover { color: var(--pico-primary); }
+
+/* course list: room between the title and the cards; "과목 추가" stays reachable at the bottom of the screen */
+main > h1 + ul { margin-top: 1.25rem; margin-bottom: 1.5rem; }
+.add-course {
+  position: sticky; bottom: 0; z-index: 1; margin-top: 1rem; padding: 0.75rem 0 1rem;
+  background: var(--pico-background-color); border-top: 1px solid var(--pico-muted-border-color); }
+.add-course h2 { margin: 0 0 0.5rem; padding: 0; border: 0; font-size: 0.95rem; color: var(--pico-muted-color); }
+.add-course form { margin: 0; }

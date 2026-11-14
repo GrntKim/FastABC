@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>사용법 · FastABC</title>
+  <link rel="stylesheet" href="pico.classless.min.css">
+  <link rel="stylesheet" href="app.css">
+  <style>
+    /* guide only: example rows are pictures of the real screen, not controls */
+    .example { padding: 0.25rem 1rem; margin: 0.5rem 0 0.25rem; border: 1px solid var(--pico-muted-border-color);
+      border-radius: var(--pico-border-radius); background: var(--pico-card-background-color); }
+    .example .criterion-row:last-child { border-bottom: 0; }
+    .example button { pointer-events: none; }
+    .note { font-size: 0.85rem; color: var(--pico-muted-color); margin: 0 0 1.25rem; }
+    .legend { display: grid; grid-template-columns: max-content 1fr; gap: 0.5rem 1rem; align-items: center; }
+    .legend dt { margin: 0; }
+    .legend dd { margin: 0; }
+    .badge { display: inline-block; padding: 0 0.45rem; border-radius: 1rem; font-size: 0.8rem; }
+    ol.steps { padding-left: 1.25rem; }
+    ol.steps li { margin-bottom: 0.35rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="/">FastABC</a>
+    <a href="/">← 돌아가기</a>
+  </header>
+  <main>
+    <h1>사용법</h1>
+    <p>FastABC는 AI가 모든 답안을 채점 기준 항목별로 먼저 읽고, 채점자가 봐야 할 곳을 표시해 주는 채점 보조 도구입니다. 점수는 언제나 채점자가 확정합니다.</p>
+
+    <h2>쓰는 순서</h2>
+    <ol class="steps">
+      <li><b>과목과 시험</b>을 만듭니다.</li>
+      <li>시험 안에 <b>문항</b>을 추가하고 채점 항목(이름, 가점·감점, 배점, AI가 확인할 내용)을 적습니다.</li>
+      <li>시험 화면에서 LMS의 <b>답안 CSV</b>(학번, 이름, 문항별 열)를 올립니다. 문항마다 나뉘어 들어갑니다.</li>
+      <li>문항 화면에서 <b>채점 시작</b>을 누릅니다. 판단 모델이 바로 판단하고, 애매한 항목은 LLM이 뒤에서 다시 봅니다.</li>
+      <li><b>채점하러 가기</b>로 학생 답안을 순서대로 읽으며 확정하고, 다 끝나면 문항 화면에서 <b>성적 확정</b>을 합니다.</li>
+    </ol>
+
+    <h2>점수 칸 읽는 법</h2>
+    <div class="example">
+      <div class="criterion-row">원리 설명
+        <div class="picker"><button type="button" tabindex="-1">0.0</button><button type="button" tabindex="-1" data-recommended>2.0</button></div>
+      </div>
+      <div class="criterion-row">해시 사용
+        <div class="picker"><button type="button" tabindex="-1">0.0</button><button type="button" tabindex="-1" data-recommended aria-pressed="true">1.0</button></div>
+      </div>
+    </div>
+    <dl class="legend">
+      <dt><span class="picker"><button type="button" tabindex="-1" data-recommended>2.0</button></span></dt>
+      <dd><b>점선 칸</b>은 AI의 추천입니다. 미리 채우지 않으므로, 누르기 전까지는 확정되지 않습니다.</dd>
+      <dt><span class="picker"><button type="button" tabindex="-1" aria-pressed="true">1.0</button></span></dt>
+      <dd><b>채워진 칸</b>은 채점자가 고른 점수입니다. 다른 칸을 누르면 바로 바뀌고, 같은 칸을 다시 누르면 취소됩니다.</dd>
+    </dl>
+    <p class="note">고른 점수가 추천과 같으면 "추천 수용", 다르면 "수정", 추천이 없던 칸이면 "직접 입력"으로 기록됩니다.</p>
+
+    <h2>확인이 필요한 항목</h2>
+    <p>AI가 확신하지 못했거나 따로 확인을 요청하는 항목에는 이유가 붙습니다. 이 항목들은 한 번에 확정되지 않으니 직접 골라 주세요.</p>
+    <div class="example">
+      <div class="criterion-row">추가 방어 방법 <span class="chip chip-human">AI 의견이 갈림</span>
+        <div class="picker"><button type="button" tabindex="-1">0.0</button><button type="button" tabindex="-1">1.0</button></div>
+        <div class="judge-cards"><div>1차 판단: 충족</div><div>재확인: 미충족</div></div>
+      </div>
+      <div class="criterion-row">공격 예시 제시 <span class="chip chip-llm">AI가 다시 확인함</span>
+        <div class="picker"><button type="button" tabindex="-1">0.0</button><button type="button" tabindex="-1" data-recommended>1.0</button></div>
+        <p class="reason">재확인한 AI의 판단 이유가 여기에 보입니다.</p>
+      </div>
+      <div class="criterion-row">매개변수화 쿼리 <span class="chip chip-sampled">무작위 점검</span>
+        <div class="picker"><button type="button" tabindex="-1">0.0</button><button type="button" tabindex="-1" data-recommended>2.0</button></div>
+        <p class="reason">AI가 확신한 칸 중 무작위로 골라 확인을 요청합니다.</p>
+      </div>
+    </div>
+    <dl class="legend">
+      <dt><span class="chip chip-human">AI 의견이 갈림</span></dt>
+      <dd>처음 판단한 AI는 확신하지 못했고, 다시 본 AI는 다른 결론을 냈습니다. <b>추천이 없습니다.</b> 두 판단을 참고해 직접 정해 주세요.</dd>
+      <dt><span class="chip chip-llm">AI가 다시 확인함</span></dt>
+      <dd>처음 판단한 AI는 확신하지 못했고, 다시 본 AI가 같은 결론을 냈습니다. 추천은 있지만 어려운 항목이라 확인이 필요합니다.</dd>
+      <dt><span class="chip chip-sampled">무작위 점검</span></dt>
+      <dd>AI가 확신한 항목 중 일부를 무작위로 골랐습니다. AI의 확신이 맞는지 채점자가 계속 확인하기 위한 장치입니다.</dd>
+    </dl>
+
+    <h2>학생 목록과 버튼</h2>
+    <dl class="legend">
+      <dt><mark class="badge">2</mark></dt>
+      <dd>그 학생에게 남은 <b>확인 필요 항목 수</b>입니다. 다 확정한 학생은 ✓로 바뀝니다.</dd>
+      <dt><button type="button" tabindex="-1" style="font-size:0.8rem;padding:0.25rem 0.6rem;margin:0">확인 필요 외 n개 항목 추천대로 확정하고 다음 학생으로</button></dt>
+      <dd>표시가 없는 항목(AI가 확신한 항목)만 추천대로 확정하고 다음 학생을 엽니다. 확인 필요 항목은 건드리지 않습니다.</dd>
+    </dl>
+    <p class="note">문항 전체를 한 번에 확정하는 버튼은 일부러 두지 않았습니다. 모든 답안은 채점자가 한 번은 읽습니다.</p>
+
+    <h2>성적 확정과 개정</h2>
+    <ul>
+      <li>모든 항목을 확정하면 문항 화면에서 책임 확인에 체크하고 <b>확정하기</b>를 누릅니다. 확정자, 시각, 결과 해시가 기록되고 점수가 잠깁니다.</li>
+      <li>이의신청 등으로 고쳐야 하면 <b>성적 개정</b>에 사유를 적습니다. 이전 기록은 남고, 다시 확정하면 새 버전이 됩니다.</li>
+    </ul>
+
+    <h2>학생 정보</h2>
+    <p>AI에는 이름, 학번, 연락처를 지운 답안만 보냅니다. 이름과 학번은 채점자 화면에만 보입니다.</p>
+  </main>
+</body>
+</html>

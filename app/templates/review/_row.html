@@ -7,10 +7,6 @@
     {% if g.route == "human" %}<span class="chip chip-human">AI 의견이 갈림</span>
     {% elif g.route == "llm" %}<span class="chip chip-llm">AI가 다시 확인함</span>
     {% elif g.sampled %}<span class="chip chip-sampled">무작위 점검</span>{% endif %}
-    {% if g.recommended_points is not none %} 
-    · AI 추천: {{ g.recommended_points }} 
-    {% endif %}
-    {% if g.decision %} · 확정: {{ g.final_points }}점 {% endif %}
     <div class="picker">
         {% for p in options %}
             <button
@@ -18,7 +14,7 @@
                 hx-vals='{"points": "{{ '' if p == g.final_points else p }}"}'
                 hx-target="closest .criterion-row"
                 hx-swap="outerHTML"
-                {% if p == g.recommended_points %}data-recommended{% endif %}
+                {% if p == g.recommended_points %}data-recommended title="AI 추천"{% endif %}
                 {% if p == g.final_points %}aria-pressed="true"{% endif %}>
                 {{ p }}
             </button>

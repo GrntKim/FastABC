@@ -2,11 +2,13 @@
 {% block content %}
 <h1>{{ course.department }} · {{ course.name }} ({{ course.section }}분반)</h1>
 <p>{{ course.term | term_label }}</p>
-<a href="/">과목으로</a>
+<a href="/">첫화면으로</a>
 
 <h2>시험</h2>
 {% for exam in course.exams %}
   <a href="/exams/{{ exam.id }}"><h3>{{ exam.name }}</h3></a>
+{% else %}
+  <p>아직 시험이 없습니다. 아래에서 추가하세요.</p>
 {% endfor %}
 
 <h2>시험 추가</h2>

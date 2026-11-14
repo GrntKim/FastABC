@@ -4,9 +4,11 @@
 <a href="/courses/{{ exam.course_id }}">과목으로</a>
 
 {% if added is not none %}
-    {% if locked %} · 성적 확정된 {{ locked }}번은 제외{% endif %}
+<p>답안 {{ added }}개 추가 · 건너뜀 {{ skipped }}개{% if locked %} · 성적 확정된 {{ locked }}번은 제외{% endif %}</p>
 {% endif %}
+
 {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<h2>문항</h2>
 <ul>
 {% for p in exam.problems %}
     <li><a href="/problems/{{ p.id }}">{{ p.number }}번 {{ p.title }} · 답안 {{ p.submissions | length }}개</a></li>
@@ -16,6 +18,7 @@
 </ul>
 <a href="/exams/{{ exam.id }}/problems/new">문항 추가하기</a>
 
+<h2>시험 결과</h2>
 <table>
     <thead>
         <tr>

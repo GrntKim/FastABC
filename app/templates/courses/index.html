@@ -10,6 +10,7 @@
     {% endfor %}
 </ul>
 
+<section class="add-course">
 <h2>과목 추가</h2>
 {% if error %}<p role="alert">{{ error }}</p>{% endif %}
 <form method="post" action="/courses">
@@ -20,4 +21,5 @@
   <input name="section" placeholder="분반" maxlength="20" required>
   <button>추가</button>
 </form>
+</section>
 {% endblock %}
