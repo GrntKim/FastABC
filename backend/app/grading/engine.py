@@ -14,9 +14,8 @@ from functools import lru_cache
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.drafting import RubricDrafter
 from app.judges.base import Judge, Judgment, Questions
-from app.judges.gemini import GeminiJudge, GeminiReader, GeminiRubricDrafter
+from app.judges.gemini import GeminiJudge
 from app.judges.jev import DEFAULT_MODEL as PRIMARY_MODEL
 from app.judges.jev import JevJudge
 from app.judges.routing import Route, needs_escalation, route
@@ -31,7 +30,6 @@ from app.models import (
     Criterion,
     Submission,
 )
-from app.reading import AnswerReader
 from app.scoring import item_points
 
 logger = logging.getLogger(__name__)
@@ -66,16 +64,6 @@ def get_judges() -> Judges:
     return make_judges()
 
 
-@lru_cache
-def get_drafter() -> RubricDrafter:
-    """FastAPI dependency: the LLM that turns a plain-language rubric into items. Overridden in tests."""
-    return GeminiRubricDrafter()
-
-
-@lru_cache
-def get_reader() -> AnswerReader:
-    """FastAPI dependency: the LLM that transcribes photos and scans of answers. Overridden in tests."""
-    return GeminiReader()
 
 
 def questions_for(items: list[Criterion]) -> Questions:

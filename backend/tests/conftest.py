@@ -8,18 +8,16 @@ from sqlalchemy import create_engine, make_url, text
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 _url = make_url(os.environ["DATABASE_URL"]).set(database="fastabc_test")
-os.environ["DATABASE_URL"] = _url.render_as_string(hide_password=False)  # before app.db is imported
+os.environ["DATABASE_URL"] = _url.render_as_string(hide_password=False)  # before app.core.db is imported
 
 import pytest  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
-import app.models  # noqa: E402, F401
-from app.db import Base, engine, get_db  # noqa: E402
-from app.main import app as fastapi_app  # noqa: E402
+import app.models  # noqa: E402, F401  registers every model
+from app.core.db import Base, engine  # noqa: E402
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def schema():
     admin = create_engine(_url.set(database="postgres"), isolation_level="AUTOCOMMIT")
     with admin.connect() as conn:
@@ -32,7 +30,7 @@ def schema():
 
 
 @pytest.fixture
-def db():
+def db(schema):
     with engine.connect() as conn:
         trans = conn.begin()
         session = Session(conn, join_transaction_mode="create_savepoint", expire_on_commit=False)
@@ -41,39 +39,7 @@ def db():
         trans.rollback()
 
 
-def signed_up(email: str, name: str) -> TestClient:
-    """A client logged in as a new user: the session cookie stays on the client."""
-    client = TestClient(fastapi_app)
-    r = client.post("/auth/signup", json={"email": email, "name": name, "password": "correct horse"})
-    assert r.status_code == 201, r.text
-    return client
-
-
-@pytest.fixture
-def anon(db):
-    fastapi_app.dependency_overrides[get_db] = lambda: db
-    yield TestClient(fastapi_app)
-    fastapi_app.dependency_overrides.clear()
-
-
-@pytest.fixture
-def client(anon):
-    return signed_up("grader@example.com", "김조교")
-
-
-@pytest.fixture
-def stranger(anon):
-    """Another grader, to check that nobody sees someone else's data."""
-    return signed_up("other@example.com", "이조교")
-
-
 @pytest.fixture(autouse=True)
 def no_sampling(monkeypatch):
     """Random audit sampling off by default so counts are deterministic; tests opt in."""
     monkeypatch.setattr("app.grading.engine.SAMPLE_RATE", 0.0)
-
-
-@pytest.fixture
-def course_id(client) -> int:
-    body = {"department": "컴퓨터공학과", "term": "2026-2", "name": "딥러닝개론", "section": "01"}
-    return client.post("/courses", json=body).json()["id"]

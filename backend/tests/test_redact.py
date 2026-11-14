@@ -1,6 +1,6 @@
 import pytest
 
-from app.redact import redact
+from app.submissions.redact import redact
 
 
 @pytest.mark.parametrize(

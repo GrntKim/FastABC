@@ -12,7 +12,7 @@ import csv
 import json
 from pathlib import Path
 
-from app.db import SessionLocal
+from app.core.db import SessionLocal
 from app.models import Problem
 
 # eval question.json keeps the judge format's name "criteria" for what the app calls descriptions

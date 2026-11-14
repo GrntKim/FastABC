@@ -4,7 +4,7 @@ Status-like columns are plain strings validated by the StrEnums below (no native
 so adding a value does not need a migration).
 """
 
-from datetime import date, datetime
+from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
@@ -12,7 +12,7 @@ from sqlalchemy import DateTime, Float, ForeignKey, String, Text, UniqueConstrai
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db import Base
+from app.core.db import Base
 from app.accounts.models import User, AuthSession
 from app.courses.models import Course, Exam
 from app.problems.models import Problem, Criterion
@@ -36,22 +36,6 @@ class ExtractionStatus(StrEnum):
     FAILED = "failed"  # grader must paste the text manually
     MANUAL = "manual"
 
-
-
-class TermSchedule(Base):
-    """A grader's academic calendar for one term: when midterm and final grades are due. A soft line:
-    signing off after it asks once more and is recorded as late, never refused."""
-
-    __tablename__ = "term_schedules"
-    __table_args__ = (UniqueConstraint("owner_id", "term"),)
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    term: Mapped[str] = mapped_column(String(20))  # same codes as courses.term
-    # the last day grades can be entered, inclusive. Midterm: questions of an exam named like 중간고사;
-    # final: everything else (기말고사, quizzes, questions outside an exam). An unset date checks nothing
-    midterm_due: Mapped[date | None]
-    final_due: Mapped[date | None]
 
 
 
