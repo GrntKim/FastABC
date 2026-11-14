@@ -18,12 +18,14 @@
 
 <table>
     <thead>
-        <th>학번</th>
-        <th>이름</th>
-        {% for p in problems %}
-        <th>{{ p.number }}번</th>
-        {% endfor %}
-        <th>합계(만점 {{ max_points }}점)</th>
+        <tr>
+            <th>학번</th>
+            <th>이름</th>
+            {% for p in problems %}
+            <th>{{ p.number }}번</th>
+            {% endfor %}
+            <th>합계(만점 {{ max_points }}점)</th>
+        </tr>
     </thead>
     <tbody>
         {% for ref, name, cells, exam_total in exam_rows %}
