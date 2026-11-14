@@ -3,6 +3,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import ValidationError
 from app.judges.base import GATE
 from app.problems.models import Problem
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 from typing import Annotated
 import re
@@ -18,6 +19,7 @@ from app.core.templates import templates
 from app.accounts.deps import page_user
 from app.problems.schemas import CriterionIn
 from app.scoring import max_total
+from app.finalization import Finalization
 
 router = APIRouter()
 
@@ -94,6 +96,9 @@ def show_problem(request: Request, problem_id: int, error: str | None = None, db
     problem = own_problem(db, user, problem_id)
     shown = [c for c in problem.criteria if c.kind != "gate"]
     result_criteria, rows, decision_counts, undecided, signoff = results(db, problem)
+    history = db.scalars(
+        select(Finalization).where(Finalization.problem_id == problem_id).order_by(Finalization.version.desc())
+    ).all()
     return templates.TemplateResponse(
         request, "problems/show.html", {
             "counts": route_counts(db, problem.id), "user": user, 
@@ -101,5 +106,5 @@ def show_problem(request: Request, problem_id: int, error: str | None = None, db
             "max_points": max_total(problem.criteria), "error": error,
             "result_criteria": result_criteria, "rows": rows,
             "decision_counts": decision_counts, "undecided": undecided,
-            "signoff": signoff
+            "signoff": signoff, "history": history
         })

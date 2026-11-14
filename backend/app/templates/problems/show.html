@@ -46,7 +46,24 @@
     <h2>결과</h2>
     {% if signoff and signoff.reopened_at is none %}
         성적 확정됨 · v{{ signoff.version }} · {{ signoff.finalized_by }} · {{ signoff.finalized_at.strftime("%Y-%m-%d %H:%M") }} · {{ signoff.snapshot_hash[:8] }}
-        성적 확정 멘트
+        <details>
+            <summary>성적 개정</summary>
+            <form method="post" action="/problems/{{ problem.id }}/reopen">
+                <textarea name="reason" required placeholder="개정 사유(예: 이의신청 반영)"></textarea>
+                <small>개정 사유와 시각이 기록되며, 기존 확정 기록(v{{ signoff.version }})은 그대로 남습니다.</small>
+                <button>개정하기</button>
+            </form>
+        </details>
+        {% if history %}
+        <h3>확정 이력</h3>
+        <ul>
+            {% for f in history %}
+            <li>v{{ f.version }} · {{ f.finalized_by }} · {{ f.finalized_at.strftime("%Y-%m-%d %H:%M") }} · {{ f.snapshot_hash[:8] }}
+                {% if f.reopened_at %} · 개정됨: {{ f.reopened_at.strftime("%Y-%m-%d %H:%M") }} · {{ f.reopen_reason }}{% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
     {% elif undecided %}
         {{ undecided }}개 항목 미확정, <a href="/problems/{{ problem.id }}/review">이어서 채점하기</a>
     {% else %}

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Request, HTTPException, Form
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
+from datetime import datetime, UTC
 from app.accounts.deps import page_user
 from app.submissions.models import Submission
 from app.core.db import get_db
@@ -126,4 +127,26 @@ def finalize_grade(
         snapshot_hash=digest(snap)))
     db.commit()
 
+    return RedirectResponse(f"/problems/{problem_id}", status_code=303)
+
+
+@router.post("/problems/{problem_id}/reopen")
+def reopen_grade(
+    problem_id: int, 
+    db: Session = Depends(get_db), 
+    user: User = Depends(page_user),
+    reason: Annotated[str, Form()] = ""):
+
+    problem = own_problem(db, user, problem_id)
+
+    if not reason.strip():
+        return RedirectResponse(f"/problems/{problem_id}?error={quote("개정 사유를 적으세요.")}", status_code=303)
+    if not is_locked(db, problem.id):
+        return RedirectResponse(f"/problems/{problem_id}?error={quote("확정된 성적이 없습니다.")}", status_code=303)
+
+    signoff = latest(db, problem.id)
+    signoff.reopened_at = datetime.now(UTC)
+    signoff.reopen_reason = reason.strip()
+    db.commit()
+    
     return RedirectResponse(f"/problems/{problem_id}", status_code=303)
