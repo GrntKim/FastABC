@@ -1,6 +1,8 @@
 {% set options = point_options(c) %}
 {% set first = judgments.get((c.id, "primary")) %}
 {% set second = judgments.get((c.id, "secondary")) %}
+{# yes/no items read 충족/미충족; leveled and choice items show the points that judgment means #}
+{% macro verdict(j) %}{% if c.type == "noul" %}{{ "충족" if j.pred else "미충족" }}{% else %}{{ c.points_map.get(j.pred | string, j.pred) }}점{% endif %}{% endmacro %}
 
 <div class="criterion-row">
     {{ c.label or c.key }}
@@ -23,10 +25,10 @@
     {% if not g.decision %}
         {% if g.route == "human" %}
             <div class="judge-cards">
-                <div>1차 판단: {{ "충족" if first.pred else "미충족" }}</div>
+                <div>1차 판단: {{ verdict(first) }}</div>
                 <div>
                     {% if second %}
-                    재확인: {{ "충족" if second.pred else "미충족" }}
+                    재확인: {{ verdict(second) }}
                     {% endif %}
                 </div>
             </div>

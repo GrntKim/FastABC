@@ -12,6 +12,8 @@
     <!-- 1. 상태 한 줄: pending이 있으면 "AI가 다시 보는 중… n개 항목", 없으면 "채점 준비 끝" -->
     {% if pending %}
         AI가 다시 보는 중... {{ pending }}개 항목
+    {% elif signoff and signoff.reopened_at is none %}
+        채점 끝 · 성적 확정됨
     {% else %}
         채점 준비 끝 <a href="/problems/{{ problem.id }}/review">채점하러 가기</a>
     {% endif %}
