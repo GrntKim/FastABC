@@ -4,7 +4,7 @@
 
 대학 교수·조교를 위한 서술형 답안 채점 보조 도구입니다. AI가 모든 답안을 채점 기준 항목별로 먼저 읽고 애매한 곳만 골라 드리며, 점수는 채점자가 확정합니다. 채점 기준이 "이 내용을 썼는가"로 나뉘는 개념·원리 설명형 문제에 맞춰져 있습니다.
 
-[사용 시나리오](docs/scenario.md) · [개발 문서](docs/development.md) · 시연 영상 · 결과보고서 · 포스터 _(추가 예정)_
+[사용 시나리오](docs/scenario.md) · [개발 문서](docs/development.md) · 서비스 https://fastabc.grntcds.net · 시연 영상 · 결과보고서 · 포스터 _(추가 예정)_
 
 ## 왜 만들었나
 
@@ -14,68 +14,66 @@
 
 ## 주요 기능
 
-### 1. 채점 기준은 평소 쓰던 문장 그대로
+### 1. 과목 · 시험 · 문항
 
-- 기준 문장을 붙여 넣으면 AI가 **채점 항목**으로 나눕니다: 항목 이름, 가점·감점, 충족 여부·수준별, 배점, AI가 확인할 내용.
-- 채점자가 항목을 확인하고 고친 뒤 저장합니다.
+- 과목(학기·분반)을 만들고 그 안에 시험을, 시험 안에 문항을 둡니다.
+- 문항은 문제와 **채점 항목**으로 만듭니다: 항목 이름, 가점·감점, 배점, AI가 확인할 내용. 답안이 문제와 관련 있는지 보는 주제 확인 항목은 저장할 때 자동으로 붙습니다.
 
 ### 2. 답안은 시험 단위로 한 번에
 
-- 학생마다 **시험 전체 답안지**(PDF·사진)를 올리면 "1번", "2번"… 표시로 나눠 문항마다 넣습니다. 40장도 몇 초면 나뉩니다.
-- 같은 창에서 **카메라로 한 장 찍기**, LMS에서 받은 **CSV**도 받습니다.
-- 읽은 글은 원본 옆에 띄워 확인·수정한 뒤 저장합니다. 파일 이름에서 학번·이름을 읽습니다.
+- LMS에서 받은 **CSV**(학번·이름·문항별 답)를 시험 화면에서 한 번 올리면 문항마다 나뉘어 들어갑니다. 빈 칸은 미제출입니다.
+- 이미 있는 학생과 성적 확정된 문항은 건너뜁니다.
 - AI에는 **이름·학번·연락처를 지운 답안만** 보냅니다.
 
 ### 3. AI가 먼저 읽고, 애매한 곳만 사람에게
 
 - **판단 모델**이 모든 답안의 모든 항목을 1차 판단합니다(답안당 약 0.3초).
-- 확신이 낮은 항목만 **LLM**이 다시 판단하고, 두 판단이 다르면 추천 없이 채점자에게 넘깁니다.
+- 확신이 낮은 항목만 **LLM**이 백그라운드에서 다시 판단하고, 두 판단이 다르면 추천 없이 채점자에게 넘깁니다. 진행 상황은 문항 화면에 나타납니다.
 - 평가셋에서 AI가 확신한 항목이 87%, 그 정확도는 94.6%였습니다([평가 결과](#평가-결과)).
 
-### 4. 봐야 할 곳부터 보는 채점 화면
+### 4. 모든 답안을 순서대로, 볼 곳은 표시해서
 
-- **확인이 필요한 학생부터** 정렬하고, 항목마다 이유를 붙입니다: AI 의견이 갈림 · AI가 다시 확인함 · 무작위 점검.
-- 답안은 시험지처럼 문제 아래에 보이고, 항목별 **근거 문장**을 색으로 표시·인용합니다.
-- 점수 칸은 **미리 채우지 않습니다.** 확인이 필요 없는 항목만 한 번에 확정할 수 있습니다.
-- **항목별 보기**로 한 항목을 모든 학생에 걸쳐 나란히 보고 기준이 흔들린 곳을 찾습니다.
+- 채점 화면은 학생 목록, 문제, 답안, 항목별 점수 칸으로 이루어집니다. 학생마다 확인이 필요한 항목 수가 보입니다.
+- 확인이 필요한 항목에는 이유가 붙습니다: **AI 의견이 갈림**(두 판단을 나란히) · **AI가 다시 확인함**(판단 이유) · **무작위 점검**.
+- 점수 칸은 **미리 채우지 않습니다.** AI 추천은 점선으로만 표시하고, 칸을 눌러야 확정됩니다.
+- 볼 곳을 직접 정한 뒤 "확인 필요 외 n개 항목 추천대로 확정하고 다음 학생으로"를 누르면, AI가 확신한 나머지 항목을 확정하고 다음 학생으로 넘어갑니다. 문항 전체를 한 번에 확정하는 버튼은 두지 않았습니다. 모든 답안을 사람이 한 번은 읽게 하려는 것입니다.
 
 ### 5. 점수는 사람이 확정하고, 기록이 남는다
 
 - 확정은 **추천 수용 · 수정 · 직접 입력**으로 기록됩니다.
-- 답안 열 개 중 하나꼴로 확신 높은 항목 하나를 **무작위 점검**으로 빼 두고, 결과 탭에서 AI 추천을 고친 수를 보여 줍니다.
-- **성적 확정**은 책임 확인 후 확정자·시각·결과 해시를 남기고 잠급니다. 고칠 때는 사유를 적고 새 버전으로 남습니다.
-- 학사일정의 **성적 입력 마감일**을 넣어 두면 남은 날짜를 보여 주고, 지난 뒤 확정하면 "마감 후 확정"으로 기록합니다.
+- **성적 확정**은 책임 확인 후 확정자·시각·결과 해시를 남기고 문항을 잠급니다.
+- 고칠 때는 사유를 적고 **개정**합니다. 이전 확정 기록은 남고, 다시 확정하면 새 버전이 됩니다.
 
-### 6. 시험 결과와 내보내기
+### 6. 시험 결과
 
-- 학번으로 문항별 점수를 묶어 **학생별 합계**를 냅니다. 객관식처럼 다른 곳에서 채점한 점수도 CSV로 가져와 더합니다.
-- 분반 **점수 분포**를 평균·중앙값·최고·최저·표준편차와 막대그래프로 봅니다. 가져온 점수가 있으면 전체와 서술형만을 바꿔 봅니다.
-- **CSV**와 A4 **PDF**로 내보냅니다. 보관용 PDF에는 확정 기록과 해시가, 공지용 PDF는 학번·이름을 가려 그대로 게시할 수 있습니다.
-- 학생이 "왜 이 점수냐"고 물으면 **학생별 채점 근거표**(PDF)를 줍니다. 항목마다 확정 점수와 그 근거가 된 답안 문장을 싣고, AI의 판단 이유는 싣지 않습니다. 성적 확정 뒤에만 만듭니다.
-- 채점자는 이메일로 가입하고, **자기 과목만** 봅니다.
-
-화면별 흐름은 [사용 시나리오](docs/scenario.md), 구현은 [개발 문서](docs/development.md)에 있습니다.
+- 학번으로 문항별 점수를 묶어 **학생별 합계**를 냅니다. 답안이 없는 문항은 미제출(0점)이고, 미확정 항목이 있으면 합계를 비워 둡니다.
 
 ## 동작 방식
 
-판단 모델이 채점 기준 항목마다 1차 판단을 하고, 확신이 낮은 칸만 LLM이 다시 판단해 근거를 붙입니다. 시스템은 추천 점수와 확신도, 근거 문장만 보여 주고, 모든 점수는 채점자가 확정합니다.
+판단 모델이 채점 기준 항목마다 1차 판단을 하고, 확신이 낮은 칸만 LLM이 다시 판단합니다. 시스템은 추천 점수와 확신도, 판단 이유만 보여 주고, 모든 점수는 채점자가 확정합니다.
 
 ```mermaid
 flowchart TD
-    RUBRIC["채점 기준 문장"] -->|LLM| ITEMS["채점 항목"]
-    ITEMS -->|채점자 확인| SAVED["저장"]
-    CSV["답안지 · 카메라 · CSV<br/>(시험 단위)"] -->|문항별로 나눔, 식별 정보 제거| JUDGE
-    SAVED --> JUDGE["판단 모델 1차 판단<br/>(항목마다 확신도)"]
+    ITEMS["문항 · 채점 항목"] --> JUDGE
+    CSV["답안 CSV<br/>(시험 단위)"] -->|문항별로 나눔, 식별 정보 제거| JUDGE["판단 모델 1차 판단<br/>(항목마다 확신도)"]
 
     JUDGE -->|주제 벗어남| OFF["0점 추천"]
     JUDGE -->|확신 높음| AUTO["자동 추천<br/>(일부는 무작위 점검)"]
     JUDGE -->|확신 낮음| LLM["LLM 재판단<br/>(백그라운드)"]
-    LLM -->|두 판단 일치| AGREE["추천 + LLM 근거"]
+    LLM -->|두 판단 일치| AGREE["추천 + 판단 이유"]
     LLM -->|두 판단 다름| SPLIT["추천 없이 직접 판단"]
 
     OFF & AUTO & AGREE & SPLIT --> GRADER["채점자<br/>추천 수용 / 수정 / 직접 입력"]
     GRADER --> FINAL["성적 확정<br/>(잠금, 개정 이력)"]
 ```
+
+| 판단 결과 | 채점자 화면 | 추천 | 한 번에 확정 |
+|---|---|---|---|
+| 확신 높음 | 표시 없음 | 있음 | 가능 |
+| 확신 높음 + 무작위 점검 | 무작위 점검 | 있음 | 불가 |
+| LLM과 일치 | AI가 다시 확인함 | 있음 + 판단 이유 | 불가 |
+| LLM과 다름 | AI 의견이 갈림 | 없음 | 불가 |
+| 주제 벗어남 | 표시 없음 | 0점 | 가능 |
 
 ## 평가 결과
 
@@ -88,7 +86,6 @@ flowchart TD
 | 첫 추천까지 (답안당) | 0.27초 | 10.07초 |
 
 - 판단 모델이 확신을 가지고 자동 처리한 칸은 87%입니다. 나머지 13%는 LLM 확인 또는 직접 판단으로 넘어갑니다.
-- 근거 찾기는 채점자가 연 답안에만 실행합니다. 모든 답안을 열어도 하이브리드 합계는 $0.0045로 LLM 단독보다 쌉니다.
 - 평가셋이 작아 수치는 경향으로만 봐야 합니다. 답안 단위 부트스트랩 95% 구간은 하이브리드 87.9–95.7%, LLM 단독 85.6–94.2%이고, 차이(+2.1%p)의 구간은 −0.7–+5.1%p로 0을 포함합니다. 정확도는 같은 수준이고, 차이는 비용과 속도에서 납니다. LLM 확인 칸(10칸)의 정확도는 60%로 낮았고, 그래서 그 칸들도 채점자가 확정하도록 설계했습니다.
 
 ## 시작하기
@@ -99,71 +96,61 @@ flowchart TD
 
 - Docker (PostgreSQL 17)
 - Python 3.12 이상과 [uv](https://docs.astral.sh/uv/)
-- Node.js와 pnpm
 - API 키: 판단 모델(TypeSafe Jev), LLM(Google Gemini)
 
-### 설치
+### 설치와 실행
 
 ```bash
 cp .env.example .env          # TYPESAFE_API_KEY, GEMINI_API_KEY를 채웁니다
-pnpm install                  # 루트: 동시 실행 도구
-pnpm --dir frontend install
-cd backend && uv sync && cd ..
-
+uv sync
 docker compose up -d --wait db
-cd backend && uv run alembic upgrade head && cd ..
+uv run alembic upgrade head
+uv run python scripts/seed_demo.py --empty   # 데모 계정과 문항 (아래 참고)
+uv run fastapi dev app/main.py               # http://localhost:8000
 ```
 
-### 실행
-
-```bash
-pnpm dev                      # DB 대기 후 API :8000 + 웹 :3000
-```
-
-`http://localhost:3000`을 열고 가입합니다. API 문서는 `http://localhost:8000/docs`에 있습니다.
+가입 화면은 없습니다. 계정은 시드 스크립트가 만드는 데모 계정(`demo@fastabc.kr` / `demo1234`, 김조교)을 씁니다.
 
 ### 데모 데이터
 
 ```bash
-cd backend && uv run python scripts/seed_demo.py           # 세 문항 모두 채점된 상태
-cd backend && uv run python scripts/seed_demo.py --empty   # 1·2번 문항만, 답안 없이 (시연 영상용)
-cd backend && uv run python scripts/make_answer_sheets.py  # 학생 40명의 시험 전체 답안지 PDF
+uv run python scripts/seed_demo.py           # 세 문항 모두 채점된 상태 (판단 모델·LLM 실제 호출, 몇 분)
+uv run python scripts/seed_demo.py --empty   # 1·2번 문항과 채점 기준만, 답안 없이
+uv run python scripts/seed_demo.py --booth   # 부스 시연용 시험 (1~3번, 답안 없이)
 ```
 
-[사용 시나리오](docs/scenario.md)의 과목 「정보보호개론」 중간고사(서술형 3문항 + 객관식 점수)를 데모 계정(`demo@fastabc.kr` / `demo1234`, 김조교)으로 만듭니다. 기본은 판단 모델과 LLM을 실제로 호출하며 몇 분 걸립니다. `--empty`는 문항과 채점 기준만 만들고, 답안은 `data/demo/answer_sheets`의 PDF 40개를 시험 결과 화면의 "답안 올리기"로 넣습니다(같은 내용의 `data/demo/midterm_answers.csv`를 CSV로 올려도 됨).
+과목 「정보보호개론」 중간고사(서술형 3문항)를 만듭니다.
 
-- 중간고사 1번 「비밀번호 저장」: 답안 12건. 확정까지 마친 상태입니다.
-- 중간고사 2번 「SQL 인젝션」: 답안 40건([data/demo/sql_injection.csv](data/demo/sql_injection.csv)). 채점만 하고 검토는 남겨 둔 상태입니다.
-- 중간고사 객관식: [data/demo/midterm_mc.csv](data/demo/midterm_mc.csv)의 점수를 가져와 시험 결과에 더합니다.
+- 1번 「비밀번호 저장」: 답안 12건. 확정까지 마친 상태입니다.
+- 2번 「SQL 인젝션」: 답안 40건. 채점만 하고 검토는 남겨 둔 상태입니다.
+- 3번 「대칭키와 공개키 암호」: 답안 40건. 채점만 하고 검토는 남겨 둔 상태입니다.
 
-부스 시연(답안지 PDF·사진·카메라로 추가)을 되풀이하려면, 파일로 넣은 답안만 지웁니다. CSV로 올린 답안은 그대로 남습니다.
+`--empty`로 만든 시험에는 [data/demo/midterm_answers.csv](data/demo/midterm_answers.csv)(40명)를 시험 화면에서 올립니다. `--booth`로 만든 「부스 시연」 시험에는 [data/demo/booth_answers.csv](data/demo/booth_answers.csv)(15명)를 올리고, 시연이 끝나면 답안과 확정 기록을 지워 처음 상태로 돌립니다.
 
 ```bash
-cd backend && uv run python scripts/booth_reset.py --exam <시험 id> --yes
+uv run python scripts/booth_reset.py --exam <시험 id> --yes
 ```
 
-데모 답안은 모두 합성 데이터입니다. 실제 학생 답안을 다룰 때는 입력 데이터가 학습에 쓰이지 않는 유료 API 계정을 쓰세요. 특히 스캔본·사진은 식별 정보를 지우기 전에 AI가 읽으므로(웹캠은 안내 틀 안쪽만 보냄), 답안지 머리의 이름 칸이 함께 나갈 수 있습니다.
+데모 답안은 모두 합성 데이터입니다. 실제 학생 답안을 다룰 때는 입력 데이터가 학습에 쓰이지 않는 유료 API 계정을 쓰세요.
 
 ### 테스트
 
 ```bash
-cd backend && uv run pytest              # 별도 DB fastabc_test, 외부 API 호출 없음
-cd frontend && pnpm exec tsc --noEmit && pnpm lint
+uv run pytest     # 별도 DB fastabc_test, 외부 API 호출 없음
 ```
 
 ### 서버에 올리기
 
-Docker가 있는 리눅스 서버 한 대(메모리 2GB 이상, 80·443 포트 열림)와 그 서버를 가리키는 도메인이 있으면 됩니다. [compose.prod.yml](compose.prod.yml)이 DB, API, 웹, [Caddy](Caddyfile)를 띄웁니다. Caddy가 https 인증서를 받고 API를 같은 도메인의 `/api` 아래로 넘기므로, 로그인 쿠키가 그대로 오가고 CORS 설정이 필요 없습니다.
+Docker가 있는 리눅스 서버 한 대(메모리 2GB 이상, 80·443 포트 열림)와 그 서버를 가리키는 도메인이 있으면 됩니다. [compose.prod.yml](compose.prod.yml)이 DB, 앱, [Caddy](Caddyfile)를 띄웁니다. 앱이 모든 화면을 직접 그리므로 컨테이너는 이 셋뿐이고, Caddy가 https 인증서를 받아 앱으로 넘깁니다.
 
 ```bash
 git clone <저장소> fastabc && cd fastabc
 cp .env.example .env    # API 키 + DOMAIN, POSTGRES_PASSWORD(영문·숫자만)
-docker compose -f compose.prod.yml up -d --build                # 시작할 때마다 DB 마이그레이션
-docker compose -f compose.prod.yml exec -e SIGNUP_OPEN=1 -e COOKIE_SECURE=0 \
-  api python scripts/seed_demo.py --empty                       # 데모 데이터 (선택)
+docker compose -f compose.prod.yml up -d --build                     # 시작할 때마다 DB 마이그레이션
+docker compose -f compose.prod.yml exec api python scripts/seed_demo.py --empty   # 데모 계정과 데이터
 ```
 
-서버에서는 가입이 닫혀 있습니다(`SIGNUP_OPEN=0`). 모르는 사람이 가입해 API 키를 쓰지 못하게 하려는 것으로, 데모 계정으로 로그인합니다. 열려면 `.env`에 `SIGNUP_OPEN=1`을 넣습니다. 시드 명령의 두 옵션은 시드가 서버 안에서 http로 가입·로그인하기 위한 것입니다. 코드를 고친 뒤에는 `git pull` 후 같은 `up -d --build`를 다시 실행합니다.
+코드를 고친 뒤에는 `git pull` 후 같은 `up -d --build`를 다시 실행합니다.
 
 ## 사용 기술
 
@@ -174,33 +161,32 @@ docker compose -f compose.prod.yml exec -e SIGNUP_OPEN=1 -e COOKIE_SECURE=0 \
 ![uv](https://img.shields.io/badge/uv-DE5FE9?style=flat-square&logo=uv&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
 <br/>
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
-![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat-square&logo=nextdotjs&logoColor=white)
-![React](https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black)
-![TanStack Query](https://img.shields.io/badge/TanStack_Query-FF4154?style=flat-square&logo=reactquery&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
-![shadcn/ui](https://img.shields.io/badge/shadcn%2Fui-000000?style=flat-square&logo=shadcnui&logoColor=white)
+![Jinja](https://img.shields.io/badge/Jinja-B41717?style=flat-square&logo=jinja&logoColor=white)
+![htmx](https://img.shields.io/badge/htmx-3366CC?style=flat-square&logo=htmx&logoColor=white)
+![Pico CSS](https://img.shields.io/badge/Pico_CSS-1095C1?style=flat-square)
 <br/>
 ![TypeSafe Jev](https://img.shields.io/badge/TypeSafe_Jev-2E4FA3?style=flat-square)
 ![Gemini](https://img.shields.io/badge/Gemini-8E75B2?style=flat-square&logo=googlegemini&logoColor=white)
 
 | 영역 | 기술 |
 |---|---|
-| 백엔드 | FastAPI, SQLAlchemy 2, Alembic, PostgreSQL 17 |
-| 프론트엔드 | Next.js 16, TanStack Query, Tailwind CSS, shadcn/ui |
+| 서버 | FastAPI, SQLAlchemy 2, Alembic, PostgreSQL 17 |
+| 화면 | 서버 렌더링(Jinja2), htmx, Pico CSS |
 | 판단 | 판단 모델 Jev (TypeSafe), LLM Gemini (Google) |
+| 배포 | Docker Compose, Caddy |
 
-판단기는 업체 중립 인터페이스 뒤에 있어 다른 판단 모델이나 LLM으로 바꿀 수 있습니다. 자세한 구조는 [개발 문서](docs/development.md)에 있습니다.
+서버 코드는 도메인별 폴더(`app/accounts`, `courses`, `problems`, `submissions`, `grading`, `review`)로 나뉩니다. 판단기는 업체 중립 인터페이스(`app/judges`) 뒤에 있어 다른 판단 모델이나 LLM으로 바꿀 수 있습니다. 자세한 구조는 [개발 문서](docs/development.md)에 있습니다.
 
 ## 하지 않는 것
 
 - AI 생성 답안 판정, 표절·유사도 검사
 - LMS 직접 연동, 이메일 인증·비밀번호 재설정·과목 공유와 역할 구분 (계정은 자기 과목만 봅니다)
-- 워드·한글 파일 업로드 (PDF로 저장해 올리면 됩니다)
-- 객관식 채점 (LMS·OMR이 낸 점수를 가져와 더하기만 합니다)
-- 논술형처럼 글 전체의 완성도를 보는 총체적 채점 (수준별 항목은 정확도가 71.4%로 충족 여부 항목 94.4%보다 낮아, 충족 여부 항목 여러 개로 나누도록 안내합니다)
-- 계산 문제의 숫자 검산 (풀이 여부·풀이의 적절성·정답처럼 판단 지점이 적은 문제라 서술형에 집중했습니다. 풀이를 문장과 간단한 식으로 쓴 문제는 항목별 부분 점수로 다루고, 다른 곳에서 채점한 점수는 시험 결과로 가져옵니다)
+- 객관식 채점
+- 논술형처럼 글 전체의 완성도를 보는 총체적 채점 (수준별 항목은 정확도가 71.4%로 충족 여부 항목 94.4%보다 낮아, 충족 여부 항목 여러 개로 나누는 쪽을 권합니다)
+- 계산 문제의 숫자 검산 (풀이를 문장과 간단한 식으로 쓴 문제는 항목별 부분 점수로 다룹니다)
 - 학생 이의 제기 처리 (개정 기능으로 점수 변경과 사유만 기록)
+
+프로토타입(태그 `prototype-v1`)에는 채점 기준 문장 자동 변환, 답안지 PDF·사진 판독, 근거 문장 표시, 성적표 PDF 내보내기 등이 있었으나, 최종 버전은 핵심 흐름에 집중하며 뺐습니다.
 
 ## 라이선스
 
