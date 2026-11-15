@@ -16,7 +16,7 @@
 
 **이름의 뜻.** FastABC는 ABC(학점)를 빠르게 매긴다는 뜻입니다. 빠르다는 것은 답안을 덜 읽는다는 뜻이 아닙니다. 채점자는 모든 답안을 읽고, AI는 사람의 판단이 흐려지기 쉬운 곳을 짚어 줍니다. AI의 판단도 흐려질 수 있으므로, AI가 확신하지 못하거나 의견이 갈린 곳은 채점자가 정합니다. 사람과 AI가 서로의 약한 곳을 보완해서 빨라집니다.
 
-[사용 시나리오](docs/scenario.md) · [개발 문서](docs/development.md) · 서비스 https://fastabc.grntcds.net · 시연 영상 · 결과보고서 · 포스터 _(추가 예정)_
+[사용 시나리오](docs/scenario.md) · [개발 문서](docs/development.md) · 서비스 https://fastabc.grntcds.net · [시연 영상](https://youtu.be/WJTGgfngJ2o) · [결과보고서](docs/submission/FastABC_report.pdf) · [포스터](docs/submission/FastABC_poster.pdf)
 
 ![학생별 채점 화면: 학생 목록과 확인 필요 항목 수, 답안, 항목별 점수 칸. 점선 칸이 AI 추천이고 채운 칸이 채점자가 고른 점수](docs/images/review.png)
 

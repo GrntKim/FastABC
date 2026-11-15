@@ -25,7 +25,7 @@ app/
   courses/             과목·시험, 과목 목록·과목 화면·시험 화면
   problems/            문항·채점 기준 항목, 새 문항 화면, 문항 화면
   submissions/         답안, 시험 CSV 업로드(csv.py), 식별 정보 제거(redact.py)
-  grading/             판단 기록·칸, 채점 실행(engine.py), 채점 시작·진행 칸
+  grading/             판단 기록·칸, 채점 실행(engine.py), AI 판단 시작·진행 칸
   review/              채점 화면, 칸 확정·학생 단위 일괄 확정(logic.py), 문항·시험 결과(results.py), 성적 확정·개정
   judges/
     base.py            Judge 프로토콜과 Judgment (업체 중립)
@@ -201,8 +201,8 @@ erDiagram
 | GET | `/exams/{id}/export.csv` | 시험 결과 CSV 내려받기 (학번, 이름, 문항별 점수, 합계. 미제출 0, 미확정 빈칸, UTF-8 BOM) |
 | GET | `/exams/{id}/problems/new` | 새 문항 |
 | POST | `/exams/{id}/problems` | 문항 저장 |
-| GET | `/problems/{id}` | 문항: 문제, 채점 기준 표, 채점 시작·진행, 결과 표, 성적 확정·개정·이력 |
-| POST | `/problems/{id}/grade` | 채점 시작 (재판단은 백그라운드) |
+| GET | `/problems/{id}` | 문항: 문제, 채점 기준 표, AI 판단 시작("AI 판단 시작 · 답안 n개")·진행, 결과 표, 성적 확정·개정·이력 |
+| POST | `/problems/{id}/grade` | AI 판단 시작: 1차 판단은 요청 안에서, 재판단은 백그라운드 |
 | GET | `/problems/{id}/progress` | 진행 칸 조각 (htmx, 재판단이 남은 동안 2초마다 자기 자신을 다시 부름) |
 | GET | `/problems/{id}/review` | 확정할 칸이 남은 첫 학생(라벨 순, 다 끝났으면 첫 학생)의 채점 화면으로 |
 | GET | `/problems/{id}/review/{답안 id}` | 학생별 채점 화면 |
@@ -236,7 +236,7 @@ class Judge(Protocol):
 
 - 1차 판단기는 `Judgment.conf`와 `confident`를 채워야 합니다. 임계값은 모델 버전마다 다시 맞춰야 하므로 어댑터 안에 둡니다.
 - 2차 판단기는 `pred`, `evidence`(답안에서 그대로 복사한 문장), `reasoning`을 채웁니다. LLM이 스스로 밝힌 확신도는 쓰지 않습니다.
-- 새 판단기는 `app/grading/engine.py`의 `make_judges()`에서만 조립합니다. 채점 시작은 FastAPI 의존성 `get_judges`로 판단기를 받으므로, 테스트에서는 가짜 판단기로 덮어써 외부 API를 부르지 않습니다.
+- 새 판단기는 `app/grading/engine.py`의 `make_judges()`에서만 조립합니다. AI 판단 시작 라우터는 FastAPI 의존성 `get_judges`로 판단기를 받으므로, 테스트에서는 가짜 판단기로 덮어써 외부 API를 부르지 않습니다.
 
 ## 계정과 로그인
 
