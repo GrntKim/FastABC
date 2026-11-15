@@ -36,7 +36,7 @@
     답안이 없습니다. <a href="/exams/{{ problem.exam_id }}">시험에서 답안 올리기</a>
 {% elif not counts %}
     <form method="post" action="/problems/{{ problem.id }}/grade">
-        <button>답안 {{ problem.submissions | length }}개 채점 시작</button>
+        <button>AI 판단 시작 · 답안 {{ problem.submissions | length }}개</button>
     </form>
 {% else %}
     {% include "grading/_progress.html" %}
