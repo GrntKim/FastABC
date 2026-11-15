@@ -41,7 +41,8 @@ def show_review(problem_id: int, db: Session = Depends(get_db), user: User = Dep
     if not subs:
         return RedirectResponse(f"/problems/{problem.id}", status_code=303)
 
-    s = next((s for s in subs if any(needs_check(g) for g in s.grades)), subs[0])
+    # every answer is read in order: open the first student with a cell still to decide, not the first flagged one
+    s = next((s for s in subs if any(g.decision is None for g in s.grades)), subs[0])
     return RedirectResponse(f"/problems/{problem.id}/review/{s.id}", status_code=303)
 
 
