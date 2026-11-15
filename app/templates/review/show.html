@@ -25,7 +25,11 @@
 
         {% if bulk %}
         <form method="post" action="/submissions/{{ submission.id }}/accept">
-            <button>확인 필요 외 {{ bulk }}개 항목 추천대로 확정하고 다음 학생으로</button>
+            {% if flagged %}
+            <button>확인 필요 외 {{ bulk }}개 항목 추천대로 확정</button>
+            {% else %}
+            <button>{{ bulk }}개 항목 추천대로 확정하고 다음 학생으로</button>
+            {% endif %}
         </form>
         {% endif %}
 

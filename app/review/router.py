@@ -60,12 +60,13 @@ def get_review(request: Request, problem_id: int, submission_id: int, db: Sessio
     judgments = {(j.criterion_id, j.source): j for j in submission.judgments}
     rows = [(c, grades[c.id]) for c in problem.criteria if c.id in grades]
     bulk = sum(bulk_target(g) for g in submission.grades)
+    flagged = sum(needs_check(g) for g in submission.grades)
 
     return templates.TemplateResponse(
         request, "review/show.html",
         {"user": user, "problem": problem, "submission": submission, 
          "students": students, "rows": rows, "judgments": judgments, 
-         "bulk": bulk, "next_student": next_student}
+         "bulk": bulk, "flagged": flagged, "next_student": next_student}
     )
 
 
@@ -92,6 +93,9 @@ def post_grade(request: Request, grade_id: int, points: Annotated[str, Form()] =
 def post_accept(submission_id: int, db: Session = Depends(get_db), user: User = Depends(page_user)):
     submission = own_submission(db, user, submission_id)
     n = accept_confident(db, submission)
+    # flagged cells are left for the grader: stay on this student until they are decided too
+    if any(g.decision is None for g in submission.grades):
+        return RedirectResponse(f"/problems/{submission.problem_id}/review/{submission.id}", status_code=303)
     nxt = find_next_student(submission.problem, submission)
     if nxt:
         return RedirectResponse(f"/problems/{submission.problem_id}/review/{nxt.id}", status_code=303)
