@@ -204,7 +204,7 @@ erDiagram
 | GET | `/problems/{id}` | 문항: 문제, 채점 기준 표, 채점 시작·진행, 결과 표, 성적 확정·개정·이력 |
 | POST | `/problems/{id}/grade` | 채점 시작 (재판단은 백그라운드) |
 | GET | `/problems/{id}/progress` | 진행 칸 조각 (htmx, 재판단이 남은 동안 2초마다 자기 자신을 다시 부름) |
-| GET | `/problems/{id}/review` | 확인이 필요한 첫 학생(없으면 첫 학생)의 채점 화면으로 |
+| GET | `/problems/{id}/review` | 확정할 칸이 남은 첫 학생(라벨 순, 다 끝났으면 첫 학생)의 채점 화면으로 |
 | GET | `/problems/{id}/review/{답안 id}` | 학생별 채점 화면 |
 | POST | `/grades/{id}` | 칸 확정·수정·취소, 그 항목 줄 조각을 돌려줌 (htmx `hx-target="closest .criterion-row"`) |
 | POST | `/submissions/{id}/accept` | 학생 단위 일괄 확정 후 다음 학생으로 |
